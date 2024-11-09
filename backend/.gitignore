@@ -1,8 +1,0 @@
-.idea
-venv/
-.env
-db.sqlite3
-image/
-media/
-**/migrations/*.py
-!**/migrations/__init__.py

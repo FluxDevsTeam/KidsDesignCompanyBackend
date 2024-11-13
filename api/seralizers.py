@@ -1,9 +1,14 @@
 from rest_framework.fields import SerializerMethodField
-
-from shop.models import InventoryItem, Sold
 from rest_framework import serializers
+from shop.models import InventoryItem, Sold
+from customers.models import Customer
+from expensis.models import Expense
+from products.models import ListField, Quotation, RawMaterialUsed, Product
+from project.models import Project
+from store.models import
+from workers.models import
 
-#
+
 # class CitiesSerializer(serializers.ModelSerializer):
 #     class Meta:
 #         model = Cities

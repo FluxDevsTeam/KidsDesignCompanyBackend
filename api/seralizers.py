@@ -21,28 +21,59 @@ class SoldSerializer(ModelSerializer):
         fields = '__all__'
 
 
-class InventoryItemSerializer(ModelSerializer):
+class CustomerSerializer(ModelSerializer):
     class Meta:
-        model = InventoryItem
+        model = Customer
         fields = '__all__'
 
 
-class InventoryItemSerializer(ModelSerializer):
+class ExpenseSerializer(ModelSerializer):
     class Meta:
-        model = InventoryItem
+        model = Expense
         fields = '__all__'
 
 
-class InventoryItemSerializer(ModelSerializer):
+class ListFieldSerializer(ModelSerializer):
     class Meta:
-        model = InventoryItem
+        model = ListField
         fields = '__all__'
 
 
-class InventoryItemSerializer(ModelSerializer):
+class QuotationSerializer(ModelSerializer):
     class Meta:
-        model = InventoryItem
+        model = Quotation
         fields = '__all__'
+
+
+class ProjectSerializer(ModelSerializer):
+    class Meta:
+        model = Project
+        fields = '__all__'
+
+
+class RawMaterialSerializer(ModelSerializer):
+    class Meta:
+        model = RawMaterial
+        fields = '__all__'
+
+
+class RemovedSerializer(ModelSerializer):
+    class Meta:
+        model = Quotation
+        fields = '__all__'
+
+
+class ContractorsSerializer(ModelSerializer):
+    class Meta:
+        model = Contractors
+        fields = '__all__'
+
+
+class SalaryWorkersSerializer(ModelSerializer):
+    class Meta:
+        model = SalaryWorkers
+        fields = '__all__'
+
 
 # class SearchSerializer(serializers.ModelSerializer):
 #     no_of_passengers = serializers.IntegerField(default=1)

@@ -1,20 +1,49 @@
 from rest_framework.fields import SerializerMethodField
-from rest_framework import serializers
+from rest_framework.serializers import ModelSerializer
 from shop.models import InventoryItem, Sold
 from customers.models import Customer
 from expensis.models import Expense
 from products.models import ListField, Quotation, RawMaterialUsed, Product
 from project.models import Project
-from store.models import
-from workers.models import
+from store.models import RawMaterial, Removed
+from workers.models import Contractors, SalaryWorkers
 
 
-# class CitiesSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Cities
-#         fields = '__all__'
-#
-#
+class InventoryItemSerializer(ModelSerializer):
+    class Meta:
+        model = InventoryItem
+        fields = '__all__'
+
+
+class SoldSerializer(ModelSerializer):
+    class Meta:
+        model = Sold
+        fields = '__all__'
+
+
+class InventoryItemSerializer(ModelSerializer):
+    class Meta:
+        model = InventoryItem
+        fields = '__all__'
+
+
+class InventoryItemSerializer(ModelSerializer):
+    class Meta:
+        model = InventoryItem
+        fields = '__all__'
+
+
+class InventoryItemSerializer(ModelSerializer):
+    class Meta:
+        model = InventoryItem
+        fields = '__all__'
+
+
+class InventoryItemSerializer(ModelSerializer):
+    class Meta:
+        model = InventoryItem
+        fields = '__all__'
+
 # class SearchSerializer(serializers.ModelSerializer):
 #     no_of_passengers = serializers.IntegerField(default=1)
 #

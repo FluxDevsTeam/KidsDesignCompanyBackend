@@ -14,8 +14,14 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser, IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework import viewsets, status
-from .seralizers import *
-
+from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, ListFieldSerializer, QuotationSerializer, ProductSerializer, RawMaterialSerializer, RawMaterialUsedSerializer, ProjectSerializer, RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer
+from shop.models import InventoryItem, Sold
+from customers.models import Customer
+from expensis.models import Expense
+from products.models import ListField, Quotation, RawMaterialUsed, Product
+from project.models import Project
+from store.models import RawMaterial, Removed
+from workers.models import Contractors, SalaryWorkers
 class ApiRoute(viewsets.ModelViewSet):
     serializer_class = RouteSerializer
     permission_classes = [IsAdminOrReadOnly]

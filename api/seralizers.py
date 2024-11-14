@@ -57,9 +57,21 @@ class RawMaterialSerializer(ModelSerializer):
         fields = '__all__'
 
 
+class RawMaterialUsedSerializer(ModelSerializer):
+    class Meta:
+        model = RawMaterialUsed
+        fields = '__all__'
+
+
+class ProductSerializer(ModelSerializer):
+    class Meta:
+        model = Product
+        fields = '__all__'
+
+
 class RemovedSerializer(ModelSerializer):
     class Meta:
-        model = Quotation
+        model = Removed
         fields = '__all__'
 
 
@@ -89,16 +101,6 @@ class SalaryWorkersSerializer(ModelSerializer):
 #         fields = '__all__'
 #         read_only_fields = ['tickets_sold', 'is_seat_remaining']
 #
-#
-# class RouteViewSerializer(serializers.ModelSerializer):
-#     origin = CitiesSerializer(read_only=True)
-#     destination = CitiesSerializer(read_only=True)
-#
-#     class Meta:
-#         model = Route
-#         fields = ['departure_date', 'departure_time', 'origin', 'destination', 'price']
-#
-#
 # class PendingSerializer(serializers.ModelSerializer):
 #     flight = RouteViewSerializer(read_only=True)
 #
@@ -106,20 +108,6 @@ class SalaryWorkersSerializer(ModelSerializer):
 #         model = Pending
 #         fields = ['id', 'flight', 'no_of_passengers', 'total_cost']
 #         read_only_fields = ['total_cost', ]
-#
-#
-# class CreatePendingSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Pending
-#         fields = ['id', 'flight', 'no_of_passengers', 'total_cost']
-#         read_only_fields = ['total_cost', ]
-#
-#
-# class EditPendingSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Pending
-#         fields = ['flight', 'no_of_passengers']
-#
 #
 # class BookingSerializer(serializers.ModelSerializer):
 #     flight = RouteViewSerializer(read_only=True)

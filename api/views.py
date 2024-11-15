@@ -57,9 +57,19 @@ class ApiListField(ModelViewSet):
     queryset = ListField.objects.all()
 
 
-class ApiSold(ModelViewSet):
-    serializer_class = SoldSerializer
-    queryset = Sold.objects.all()
+class ApiQuotation(ModelViewSet):
+    serializer_class = QuotationSerializer
+    queryset = Quotation.objects.all()
+
+
+class ApiRawMaterialUsed(ModelViewSet):
+    serializer_class = RawMaterialUsedSerializer
+    queryset = RawMaterialUsed.objects.all()
+
+
+class ApiProduct(ModelViewSet):
+    serializer_class = ProductSerializer
+    queryset = Product.objects.all()
 
 
 class ApiSold(ModelViewSet):
@@ -75,3 +85,15 @@ class ApiSold(ModelViewSet):
 class ApiSold(ModelViewSet):
     serializer_class = SoldSerializer
     queryset = Sold.objects.all()
+
+
+class ApiSold(ModelViewSet):
+    serializer_class = SoldSerializer
+    queryset = Sold.objects.all()
+
+
+class ApiSold(ModelViewSet):
+    serializer_class = SoldSerializer
+    queryset = Sold.objects.all()
+
+

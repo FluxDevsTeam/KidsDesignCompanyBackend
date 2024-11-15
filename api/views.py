@@ -72,14 +72,14 @@ class ApiProduct(ModelViewSet):
     queryset = Product.objects.all()
 
 
-class ApiSold(ModelViewSet):
-    serializer_class = SoldSerializer
-    queryset = Sold.objects.all()
+class ApiProject(ModelViewSet):
+    serializer_class = ProjectSerializer
+    queryset = Project.objects.all()
 
 
-class ApiSold(ModelViewSet):
-    serializer_class = SoldSerializer
-    queryset = Sold.objects.all()
+class ApiRawMaterial(ModelViewSet):
+    serializer_class = RawMaterialSerializer
+    queryset = RawMaterial.objects.all()
 
 
 class ApiSold(ModelViewSet):

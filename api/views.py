@@ -82,18 +82,16 @@ class ApiRawMaterial(ModelViewSet):
     queryset = RawMaterial.objects.all()
 
 
-class ApiSold(ModelViewSet):
-    serializer_class = SoldSerializer
-    queryset = Sold.objects.all()
+class ApiRemoved(ModelViewSet):
+    serializer_class = RemovedSerializer
+    queryset = Removed.objects.all()
 
 
-class ApiSold(ModelViewSet):
-    serializer_class = SoldSerializer
-    queryset = Sold.objects.all()
+class ApiContractors(ModelViewSet):
+    serializer_class = ContractorsSerializer
+    queryset = Contractors.objects.all()
 
 
-class ApiSold(ModelViewSet):
-    serializer_class = SoldSerializer
-    queryset = Sold.objects.all()
-
-
+class ApiSalaryWorkers(ModelViewSet):
+    serializer_class = SalaryWorkersSerializer
+    queryset = SalaryWorkers.objects.all()

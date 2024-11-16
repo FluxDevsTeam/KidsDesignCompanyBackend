@@ -45,7 +45,7 @@ class RawMaterialUsed(models.Model):
 
 class Product(models.Model):
     name = models.CharField(max_length=100)
-    quantity = models.PositiveIntegerField(max_length=10)
+    quantity = models.PositiveIntegerField()
     raw_materials = models.ForeignKey(RawMaterialUsed, on_delete=models.PROTECT)
     images = models.ImageField(upload_to="product/", blank=True, null=True)
     quotation = models.ForeignKey(Quotation, on_delete=models.PROTECT)

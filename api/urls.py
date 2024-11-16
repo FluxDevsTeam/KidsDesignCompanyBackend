@@ -3,20 +3,18 @@ from . import views
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
-router.register('route', views.ApiSold, basename='route')
-router.register('cities', views.ApiSalaryWorkers, basename='cities')
-router.register('pending', views.ApiContractors, basename='pending')
-router.register('booking', views.ApiQuotation, basename='booking')
-router.register('booking', views.ApiRemoved, basename='booking')
-router.register('booking', views.ApiProduct, basename='booking')
-router.register('booking', views.ApiProject, basename='booking')
-router.register('booking', views.ApiRawMaterial, basename='booking')
-router.register('booking', views.ApiRawMaterialUsed, basename='booking')
-router.register('booking', views.ApiListField, basename='booking')
-router.register('booking', views.ApiExpense, basename='booking')
-router.register('booking', views.ApiRemoved, basename='booking')
-router.register('booking', views.ApiRemoved, basename='booking')
-router.register('booking', views.ApiRemoved, basename='booking')
+router.register('sold', views.ApiSold, basename='sold')
+router.register('salary-workers', views.ApiSalaryWorkers, basename='salary-workers')
+router.register('contractors', views.ApiContractors, basename='contractors')
+router.register('quotation', views.ApiQuotation, basename='quotation')
+router.register('removed', views.ApiRemoved, basename='removed')
+router.register('product', views.ApiProduct, basename='product')
+router.register('project', views.ApiProject, basename='project')
+router.register('raw-materials', views.ApiRawMaterial, basename='raw-materials')
+router.register('raw-materials-used', views.ApiRawMaterialUsed, basename='raw-materials-used')
+router.register('expense', views.ApiExpense, basename='expense')
+router.register('inventory-item', views.ApiInventoryItem, basename='inventory-item')
+router.register('customer', views.ApiCustomer, basename='customer')
 
 
 urlpatterns = [

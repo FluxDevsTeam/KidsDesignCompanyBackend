@@ -3,7 +3,7 @@ from rest_framework.serializers import ModelSerializer
 from shop.models import InventoryItem, Sold
 from customers.models import Customer
 from expensis.models import Expense
-from products.models import ListField, Quotation, RawMaterialUsed, Product
+from products.models import Quotation, RawMaterialUsed, Product
 from project.models import Project
 from store.models import RawMaterial, Removed
 from workers.models import Contractors, SalaryWorkers
@@ -30,12 +30,6 @@ class CustomerSerializer(ModelSerializer):
 class ExpenseSerializer(ModelSerializer):
     class Meta:
         model = Expense
-        fields = '__all__'
-
-
-class ListFieldSerializer(ModelSerializer):
-    class Meta:
-        model = ListField
         fields = '__all__'
 
 

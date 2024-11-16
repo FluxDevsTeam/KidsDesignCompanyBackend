@@ -54,7 +54,7 @@ class Product(models.Model):
     design = models.TextField()
     contractor = models.ForeignKey(Contractors, on_delete=models.PROTECT)
     contractor_cost = models.DecimalField(max_digits=10, decimal_places=2)
-    salary_worker = models.ForeignKey(Contractors, on_delete=models.PROTECT)
+    salary_worker = models.ForeignKey(SalaryWorkers, on_delete=models.PROTECT)
     salary_worker_cost = models.DecimalField(max_digits=10, decimal_places=2)
 
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)

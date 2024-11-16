@@ -1,5 +1,4 @@
 from django.db import models
-from products.models import Product
 
 
 class Contractors(models.Model):
@@ -32,7 +31,6 @@ class SalaryWorkers(models.Model):
     last_name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
-    contract = models.ForeignKey(Contract, on_delete=models.PROTECT)
     address = models.TextField(blank=True, null=True)
     craft_specialty = models.CharField(max_length=100, blank=True, null=True)
     years_of_experience = models.PositiveIntegerField(blank=True, null=True)

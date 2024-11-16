@@ -15,9 +15,7 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated, IsAuthentic
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
-from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
-    ListFieldSerializer, QuotationSerializer, ProductSerializer, RawMaterialSerializer, RawMaterialUsedSerializer, \
-    ProjectSerializer, RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer
+from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, QuotationSerializer, ProductSerializer, RawMaterialSerializer, RawMaterialUsedSerializer, ProjectSerializer, RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer
 from shop.models import InventoryItem, Sold
 from customers.models import Customer
 from expensis.models import Expense
@@ -50,11 +48,6 @@ class ApiCustomer(ModelViewSet):
 class ApiExpense(ModelViewSet):
     serializer_class = ExpenseSerializer
     queryset = Expense.objects.all()
-
-
-class ApiListField(ModelViewSet):
-    serializer_class = ListFieldSerializer
-    queryset = ListField.objects.all()
 
 
 class ApiQuotation(ModelViewSet):

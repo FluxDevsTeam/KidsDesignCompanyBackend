@@ -33,6 +33,7 @@ DEBUG = os.getenv("DEBUG")
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -189,10 +190,10 @@ SWAGGER_SETTINGS = {
     }
 }
 JAZZMIN_SETTINGS = {
-    "site_title": "Ghosted",
-    "site_header": "Ghosted",
-    "site_brand": "Ghosted",
-    "site_copyright": "Ghosted.com",
+    "site_title": "KidsDecorBackend",
+    "site_header": "KidsDecorBackend",
+    "site_brand": "KidsDecorBackend",
+    "site_copyright": "kidsdecornaija.com",
     "show_ui_builder": True
 }
 JAZZMIN_UI_TWEAKS = {

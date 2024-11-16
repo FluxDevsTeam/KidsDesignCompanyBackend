@@ -188,7 +188,16 @@ SWAGGER_SETTINGS = {
         }
     }
 }
-
+JAZZMIN_SETTINGS = {
+    "site_title": "Ghosted",
+    "site_header": "Ghosted",
+    "site_brand": "Ghosted",
+    "site_copyright": "Ghosted.com",
+    "show_ui_builder": True
+}
+JAZZMIN_UI_TWEAKS = {
+    "theme": "cyborg",
+}
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_USE_SSL = True
 EMAIL_USE_TSL = False

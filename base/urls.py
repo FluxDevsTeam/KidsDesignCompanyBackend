@@ -26,9 +26,9 @@ from drf_yasg import openapi
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="SuccessAir",
+        title="KidsDesignCompanyBackend",
         default_version='v1',
-        description="An API for booking flights",
+        description="An API for kids design company backend",
         terms_of_service="https://www.google.com/policies/terms/",
         contact=openapi.Contact(email="suskidee@gmail.com"),
         license=openapi.License(name="Test License"),

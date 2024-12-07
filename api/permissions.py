@@ -25,3 +25,16 @@ class IsCEO(permissions.BasePermission):
         return request.user.groups.filter(name='CEO').exists()
 
 
+class IsStoreKeeper(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.groups.filter(name='Store Keeper').exists()
+
+
+class IsProjectManager(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.groups.filter(name='Project Manager').exists()
+
+
+class IsArtisan(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.groups.filter(name='Artisans').exists()

@@ -62,33 +62,40 @@ class ApiQuotation(ModelViewSet):
 class ApiRawMaterialUsed(ModelViewSet):
     serializer_class = RawMaterialUsedSerializer
     queryset = RawMaterialUsed.objects.all()
+    permission_classes = [IsCEO]
 
 
 class ApiProduct(ModelViewSet):
     serializer_class = ProductSerializer
     queryset = Product.objects.all()
+    permission_classes = [IsCEO]
 
 
 class ApiProject(ModelViewSet):
     serializer_class = ProjectSerializer
     queryset = Project.objects.all()
+    permission_classes = [IsCEO]
 
 
 class ApiRawMaterial(ModelViewSet):
     serializer_class = RawMaterialSerializer
     queryset = RawMaterial.objects.all()
+    permission_classes = [IsCEO]
 
 
 class ApiRemoved(ModelViewSet):
     serializer_class = RemovedSerializer
     queryset = Removed.objects.all()
+    permission_classes = [IsCEO]
 
 
 class ApiContractors(ModelViewSet):
     serializer_class = ContractorsSerializer
     queryset = Contractors.objects.all()
+    permission_classes = [IsCEO]
 
 
 class ApiSalaryWorkers(ModelViewSet):
     serializer_class = SalaryWorkersSerializer
     queryset = SalaryWorkers.objects.all()
+    permission_classes = [IsCEO]

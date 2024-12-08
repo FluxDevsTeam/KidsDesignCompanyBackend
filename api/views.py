@@ -7,7 +7,7 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_201_CREATED
 from django.db.models import F
 
-from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly
+from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly, IsArtisanReadOnly
 from django.conf import settings
 from django.shortcuts import render
 from rest_framework.decorators import action
@@ -92,10 +92,10 @@ class ApiRemoved(ModelViewSet):
 class ApiContractors(ModelViewSet):
     serializer_class = ContractorsSerializer
     queryset = Contractors.objects.all()
-    permission_classes = [IsCEO]
+    permission_classes = [IsCEO | IsArtisanReadOnly]
 
 
 class ApiSalaryWorkers(ModelViewSet):
     serializer_class = SalaryWorkersSerializer
     queryset = SalaryWorkers.objects.all()
-    permission_classes = [IsCEO]
+    permission_classes = [IsCEO | IsArtisanReadOnly]

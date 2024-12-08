@@ -7,7 +7,7 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_201_CREATED
 from django.db.models import F
 
-from .permissions import *
+from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly
 from django.conf import settings
 from django.shortcuts import render
 from rest_framework.decorators import action
@@ -29,7 +29,7 @@ class ApiInventoryItem(ModelViewSet):
     serializer_class = InventoryItemSerializer
     queryset = InventoryItem.objects.all()
 
-    # permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsCEO]
     # filter_backends = [DjangoFilterBackend, OrderingFilter]
     # filterset_fields = ['origin', 'destination']
     # ordering_fields = ['departure_date', 'price']
@@ -38,21 +38,25 @@ class ApiInventoryItem(ModelViewSet):
 class ApiSold(ModelViewSet):
     serializer_class = SoldSerializer
     queryset = Sold.objects.all()
+    permission_classes = [IsCEO]
 
 
 class ApiCustomer(ModelViewSet):
     serializer_class = CustomerSerializer
     queryset = Customer.objects.all()
+    permission_classes = [IsCEO]
 
 
 class ApiExpense(ModelViewSet):
     serializer_class = ExpenseSerializer
     queryset = Expense.objects.all()
+    permission_classes = [IsCEO]
 
 
 class ApiQuotation(ModelViewSet):
     serializer_class = QuotationSerializer
     queryset = Quotation.objects.all()
+    permission_classes = [IsCEO]
 
 
 class ApiRawMaterialUsed(ModelViewSet):

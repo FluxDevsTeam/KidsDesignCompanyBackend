@@ -80,19 +80,19 @@ class ApiProject(ModelViewSet):
 class ApiRawMaterial(ModelViewSet):
     serializer_class = RawMaterialSerializer
     queryset = RawMaterial.objects.all()
-    permission_classes = [IsCEO]
+    permission_classes = [IsCEO | IsStoreKeeper]
 
 
 class ApiRemoved(ModelViewSet):
     serializer_class = RemovedSerializer
     queryset = Removed.objects.all()
-    permission_classes = [IsCEO]
+    permission_classes = [IsCEO | IsStoreKeeper]
 
 
 class ApiContractors(ModelViewSet):
     serializer_class = ContractorsSerializer
     queryset = Contractors.objects.all()
-    permission_classes = [IsCEO | IsArtisanReadOnly]
+    permission_classes = [IsCEO | IsArtisanReadOnly | IsProjectManager]
 
 
 class ApiSalaryWorkers(ModelViewSet):

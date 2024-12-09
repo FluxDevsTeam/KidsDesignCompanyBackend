@@ -62,19 +62,19 @@ class ApiQuotation(ModelViewSet):
 class ApiRawMaterialUsed(ModelViewSet):
     serializer_class = RawMaterialUsedSerializer
     queryset = RawMaterialUsed.objects.all()
-    permission_classes = [IsCEO]
+    permission_classes = [IsCEO |IsProjectManager|IsStoreKeeper]
 
 
 class ApiProduct(ModelViewSet):
     serializer_class = ProductSerializer
     queryset = Product.objects.all()
-    permission_classes = [IsCEO]
+    permission_classes = [IsCEO| IsProjectManager]
 
 
 class ApiProject(ModelViewSet):
     serializer_class = ProjectSerializer
     queryset = Project.objects.all()
-    permission_classes = [IsCEO]
+    permission_classes = [IsCEO | IsProjectManager]
 
 
 class ApiRawMaterial(ModelViewSet):

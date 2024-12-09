@@ -30,6 +30,11 @@ class IsStoreKeeper(permissions.BasePermission):
         return request.user.groups.filter(name='Store Keeper').exists()
 
 
+class IsStoreKeeperReadonly(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.groups.filter(name='Store Keeper').exists() and request.method in permissions.SAFE_METHODS
+
+
 class IsProjectManager(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.groups.filter(name='Project Manager').exists()

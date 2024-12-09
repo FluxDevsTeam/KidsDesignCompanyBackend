@@ -31,7 +31,6 @@ from workers.models import Contractors, SalaryWorkers
 class ApiInventoryItem(ModelViewSet):
     serializer_class = InventoryItemSerializer
     queryset = InventoryItem.objects.all()
-
     permission_classes = [IsCEO | IsStoreKeeper]
     # filter_backends = [DjangoFilterBackend, OrderingFilter]
     # filterset_fields = ['origin', 'destination']

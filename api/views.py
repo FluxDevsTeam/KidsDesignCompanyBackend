@@ -7,7 +7,8 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_201_CREATED
 from django.db.models import F
 
-from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly, IsArtisanReadOnly
+from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly, \
+    IsArtisanReadOnly, IsStoreKeeperReadonly
 from django.conf import settings
 from django.shortcuts import render
 from rest_framework.decorators import action
@@ -15,7 +16,9 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated, IsAuthentic
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
-from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, QuotationSerializer, ProductSerializer, RawMaterialSerializer, RawMaterialUsedSerializer, ProjectSerializer, RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer
+from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
+    QuotationSerializer, ProductSerializer, RawMaterialSerializer, RawMaterialUsedSerializer, ProjectSerializer, \
+    RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer
 from shop.models import InventoryItem, Sold
 from customers.models import Customer
 from expensis.models import Expense
@@ -29,7 +32,7 @@ class ApiInventoryItem(ModelViewSet):
     serializer_class = InventoryItemSerializer
     queryset = InventoryItem.objects.all()
 
-    permission_classes = [IsCEO]
+    permission_classes = [IsCEO | IsStoreKeeper]
     # filter_backends = [DjangoFilterBackend, OrderingFilter]
     # filterset_fields = ['origin', 'destination']
     # ordering_fields = ['departure_date', 'price']
@@ -38,13 +41,13 @@ class ApiInventoryItem(ModelViewSet):
 class ApiSold(ModelViewSet):
     serializer_class = SoldSerializer
     queryset = Sold.objects.all()
-    permission_classes = [IsCEO]
+    permission_classes = [IsCEO | IsStoreKeeper]
 
 
 class ApiCustomer(ModelViewSet):
     serializer_class = CustomerSerializer
     queryset = Customer.objects.all()
-    permission_classes = [IsCEO]
+    permission_classes = [IsCEO | IsProjectManager]
 
 
 class ApiExpense(ModelViewSet):
@@ -56,19 +59,19 @@ class ApiExpense(ModelViewSet):
 class ApiQuotation(ModelViewSet):
     serializer_class = QuotationSerializer
     queryset = Quotation.objects.all()
-    permission_classes = [IsCEO]
+    permission_classes = [IsCEO | IsProjectManager | IsStoreKeeperReadonly]
 
 
 class ApiRawMaterialUsed(ModelViewSet):
     serializer_class = RawMaterialUsedSerializer
     queryset = RawMaterialUsed.objects.all()
-    permission_classes = [IsCEO |IsProjectManager|IsStoreKeeper]
+    permission_classes = [IsCEO | IsProjectManager | IsStoreKeeperReadonly]
 
 
 class ApiProduct(ModelViewSet):
     serializer_class = ProductSerializer
     queryset = Product.objects.all()
-    permission_classes = [IsCEO| IsProjectManager]
+    permission_classes = [IsCEO | IsProjectManager]
 
 
 class ApiProject(ModelViewSet):

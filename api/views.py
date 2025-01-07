@@ -26,6 +26,10 @@ from products.models import ListField, Quotation, RawMaterialUsed, Product
 from project.models import Project
 from store.models import RawMaterial, Removed
 from workers.models import Contractors, SalaryWorkers
+from django.conf import settings
+
+
+User = settings.AUTH_USER_MODEL
 
 
 class ApiInventoryItem(ModelViewSet):

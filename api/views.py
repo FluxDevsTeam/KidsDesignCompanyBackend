@@ -32,7 +32,7 @@ class ApiInventoryItem(ModelViewSet):
     serializer_class = InventoryItemSerializer
     queryset = InventoryItem.objects.all()
     permission_classes = [IsCEO | IsStoreKeeper]
-    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    # filter_backends = [DjangoFilterBackend, OrderingFilter]
     # filterset_fields = ['origin', 'destination']
     # ordering_fields = ['departure_date', 'price']
 

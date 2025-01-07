@@ -16,6 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import EmailChangeRequest, PasswordChangeRequest, ForgotPasswordRequest, NameChangeRequest
 from django.utils.timezone import now
+User = settings.AUTH_USER_MODEL
 
 
 class ForgotPasswordViewSet(viewsets.ModelViewSet):

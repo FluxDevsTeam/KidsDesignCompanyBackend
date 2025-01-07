@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'django_filters',
     'corsheaders',
+    'authentication',
     'project',
     'products',
     'store',
@@ -153,20 +154,8 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+AUTH_USER_MODEL = 'authentication.User'
 
-DJOSER = {
-    "PASSWORD_RESET_CONFIRM_URL": "http://localhost:8000/auth/user/reset_password_confirm/{uid}/{token}/",
-    'ACTIVATION_URL': 'http://localhost:8000/auth/activate/{uid}/{token}',
-    'USERNAME_RESET_CONFIRM_URL': 'http://localhost:8000/auth/username/reset/confirm/{uid}/{token}',
-
-    'SEND_ACTIVATION_EMAIL': True,
-    'SEND_CONFIRMATION_EMAIL': True,
-    'USERNAME_CHANGED_EMAIL_CONFIRMATION': True,
-    'PASSWORD_CHANGED_EMAIL_CONFIRMATION': True,
-    'SERIALIZERS': {
-        'user_create': "customuser.serializers.MyUserCreateSerializer"
-    }
-}
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,

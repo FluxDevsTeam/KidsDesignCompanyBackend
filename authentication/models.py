@@ -1,11 +1,12 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import get_user_model
 from django.conf import settings
 
 
 class NameChangeRequest(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="name_change_request")
+    user = models.OneToOneField(get_user_model(), on_delete=models.CASCADE, related_name="name_change_request")
     new_first_name = models.CharField(max_length=150, null=True, blank=True)
     new_last_name = models.CharField(max_length=150, null=True, blank=True)
     new_phone_number = models.CharField(max_length=150, null=True, blank=True)
@@ -17,7 +18,7 @@ class NameChangeRequest(models.Model):
 
 
 class EmailChangeRequest(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="email_change_request")
+    user = models.OneToOneField(get_user_model(), on_delete=models.CASCADE, related_name="email_change_request")
     new_email = models.EmailField(unique=True)
     otp = models.IntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -27,7 +28,7 @@ class EmailChangeRequest(models.Model):
 
 
 class ForgotPasswordRequest(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     otp = models.IntegerField(null=True, blank=True)
     new_password = models.CharField(max_length=128, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

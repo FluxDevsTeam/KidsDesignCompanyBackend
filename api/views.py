@@ -1,20 +1,7 @@
-import uuid
-from django.db.models import Q
-from django.utils import timezone
-from django.db import transaction
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import SearchFilter, OrderingFilter
-from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_201_CREATED
-from django.db.models import F
-
-from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly, \
-    IsArtisanReadOnly, IsStoreKeeperReadonly
-from django.conf import settings
-from django.shortcuts import render
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAdminUser, IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework.decorators import action
+from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly, \
+    IsArtisanReadOnly, IsStoreKeeperReadonly, IsManager
 from rest_framework.viewsets import ModelViewSet
 from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
     QuotationSerializer, ProductSerializer, RawMaterialSerializer, RawMaterialUsedSerializer, ProjectSerializer, \
@@ -22,29 +9,40 @@ from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSeriali
 from shop.models import InventoryItem, Sold
 from customers.models import Customer
 from expensis.models import Expense
-from products.models import ListField, Quotation, RawMaterialUsed, Product
+from products.models import Quotation, RawMaterialUsed, Product
 from project.models import Project
 from store.models import RawMaterial, Removed
 from workers.models import Contractors, SalaryWorkers
-from django.conf import settings
+from rest_framework import viewsets, status, permissions
+from django.contrib.auth import get_user_model
 
-
-User = settings.AUTH_USER_MODEL
+User = get_user_model()
 
 
 class ApiInventoryItem(ModelViewSet):
     serializer_class = InventoryItemSerializer
     queryset = InventoryItem.objects.all()
-    permission_classes = [IsCEO | IsStoreKeeper]
-    # filter_backends = [DjangoFilterBackend, OrderingFilter]
-    # filterset_fields = ['origin', 'destination']
-    # ordering_fields = ['departure_date', 'price']
+    permission_classes = [IsCEO | IsStoreKeeper | IsManager]
 
 
 class ApiSold(ModelViewSet):
     serializer_class = SoldSerializer
     queryset = Sold.objects.all()
     permission_classes = [IsCEO | IsStoreKeeper]
+
+    @action(methods=["POST"], detail=False)
+    def sell(self, request):
+        item = request.data.get("item")
+        quantity = request.data.get("quantity")
+        items = InventoryItem.objects.get(id=item.id)
+        print(items.id)
+        print(items)
+        print("here")
+        print("here")
+        print("here")
+        if not item and not quantity:
+            return Response({"error": "both item and quantity are required"}, status=status.HTTP_400_BAD_REQUEST)
+        Sold.objects.create(item=item, quantity=quantity)
 
 
 class ApiCustomer(ModelViewSet):

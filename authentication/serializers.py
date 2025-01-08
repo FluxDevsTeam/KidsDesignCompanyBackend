@@ -1,7 +1,7 @@
-from django.conf import settings
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 
-User = settings.AUTH_USER_MODEL
+User = get_user_model()
 
 
 class ForgotPasswordRequestSerializer(serializers.Serializer):

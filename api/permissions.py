@@ -40,6 +40,11 @@ class IsProjectManager(permissions.BasePermission):
         return request.user.groups.filter(name='Project Manager').exists()
 
 
+class IsManager(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.groups.filter(name='Manager').exists()
+
+
 class IsArtisan(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.groups.filter(name='Artisans').exists()

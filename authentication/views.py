@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.core.mail import send_mail
 import random
@@ -16,7 +17,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import EmailChangeRequest, PasswordChangeRequest, ForgotPasswordRequest, NameChangeRequest
 from django.utils.timezone import now
-User = settings.AUTH_USER_MODEL
+
+User = get_user_model()
 
 
 class ForgotPasswordViewSet(viewsets.ModelViewSet):

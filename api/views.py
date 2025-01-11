@@ -58,9 +58,7 @@ class ApiSold(ModelViewSet):
         inventory_item.save()
 
         return Response(
-            {"message": "Sale completed successfully."},
-            status=status.HTTP_200_OK
-        )
+            {"message": "Sale completed successfully."}, status=status.HTTP_200_OK)
 
 
 class ApiCustomer(ModelViewSet):

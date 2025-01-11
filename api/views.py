@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly, \
@@ -32,17 +33,34 @@ class ApiSold(ModelViewSet):
 
     @action(methods=["POST"], detail=False)
     def sell(self, request):
-        item = request.data.get("item")
+        item_id = request.data.get("item")
         quantity = request.data.get("quantity")
-        items = InventoryItem.objects.get(id=item.id)
-        print(items.id)
-        print(items)
-        print("here")
-        print("here")
-        print("here")
-        if not item and not quantity:
-            return Response({"error": "both item and quantity are required"}, status=status.HTTP_400_BAD_REQUEST)
-        Sold.objects.create(item=item, quantity=quantity)
+
+        if not item_id or not quantity:
+            return Response(
+                {"error": "Both 'item' and 'quantity' are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            quantity = int(quantity)
+            if quantity <= 0:
+                raise ValueError
+        except ValueError:
+            return Response(
+                {"error": "'quantity' must be a positive integer."}, status=status.HTTP_400_BAD_REQUEST)
+
+        inventory_item = get_object_or_404(InventoryItem, id=item_id)
+
+        if quantity > inventory_item.stock:
+            return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
+
+        Sold.objects.create(item=inventory_item, quantity=quantity)
+        inventory_item.stock -= quantity
+        inventory_item.save()
+
+        return Response(
+            {"message": "Sale completed successfully."},
+            status=status.HTTP_200_OK
+        )
 
 
 class ApiCustomer(ModelViewSet):

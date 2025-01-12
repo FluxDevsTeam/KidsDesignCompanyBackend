@@ -60,6 +60,9 @@ class ApiSold(ModelViewSet):
         return Response(
             {"message": "Sale completed successfully."}, status=status.HTTP_200_OK)
 
+    @action(methods=["PUT", "PATCH"], detail=False)
+    def edit(self, request):
+
 
 class ApiCustomer(ModelViewSet):
     serializer_class = CustomerSerializer

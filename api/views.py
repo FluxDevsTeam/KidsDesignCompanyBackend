@@ -29,9 +29,9 @@ class ApiInventoryItem(ModelViewSet):
 class ApiSold(ModelViewSet):
     serializer_class = SoldSerializer
     queryset = Sold.objects.all()
-    permission_classes = [IsCEO | IsStoreKeeper]
+    # permission_classes = [IsCEO | IsStoreKeeper]
 
-    @action(methods=["POST"], detail=False)
+    @action(methods=["POST"], detail=True)
     def sell(self, request):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
@@ -60,8 +60,15 @@ class ApiSold(ModelViewSet):
         return Response(
             {"message": "Sale completed successfully."}, status=status.HTTP_200_OK)
 
-    @action(methods=["PUT", "PATCH"], detail=False)
+    @action(methods=["PUT", "PATCH"], detail=True)
     def edit(self, request):
+        item_id = request.data.get("item")
+        quantity = request.data.get("quantity")
+
+        if not item_id:
+            item_id = self.kwargs.get('sold_pk')
+
+        if quantity:
 
 
 class ApiCustomer(ModelViewSet):

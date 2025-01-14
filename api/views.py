@@ -65,7 +65,6 @@ class ApiSold(ModelViewSet):
     def edit(self, request):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
-        inventory_item = get_object_or_404(InventoryItem, id=item_id)
         sold_item = get_object_or_404(Sold, id=self.kwargs.get('sold_pk'))
         if not item_id and not quantity:
             return Response(
@@ -75,10 +74,8 @@ class ApiSold(ModelViewSet):
             if item_id and item_id != sold_item.item:
                 inventory_item = get_object_or_404(InventoryItem, id=sold_item.item)
                 inventory_item.stock += sold_item.quantity
-                # inventory_item.save()
                 sold_item = get_object_or_404(Sold, id=self.kwargs.get('sold_pk'))
                 sold_item.item = item_id
-                # sold_item.save()
                 if quantity and quantity != sold_item.quantity:
                     if int(quantity) <= 0:
 

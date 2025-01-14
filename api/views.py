@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -64,11 +65,61 @@ class ApiSold(ModelViewSet):
     def edit(self, request):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
+        inventory_item = get_object_or_404(InventoryItem, id=item_id)
+        sold_item = get_object_or_404(Sold, id=self.kwargs.get('sold_pk'))
+        if not item_id and not quantity:
+            return Response(
+                {"error": "Either 'item' or 'quantity' or both is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not item_id:
-            item_id = self.kwargs.get('sold_pk')
+        with transaction.atomic():
+            if item_id and item_id != sold_item.item:
+                inventory_item = get_object_or_404(InventoryItem, id=sold_item.item)
+                inventory_item.stock += sold_item.quantity
+                # inventory_item.save()
+                sold_item = get_object_or_404(Sold, id=self.kwargs.get('sold_pk'))
+                sold_item.item = item_id
+                # sold_item.save()
+                if quantity and quantity != sold_item.quantity:
+                    if int(quantity) <= 0:
 
-        if quantity:
+                        return Response({"error": "quantity most be a positive number"}, status=status.HTTP_400_BAD_REQUEST)
+                    inventory_item = get_object_or_404(InventoryItem, id=item_id)
+
+                    if quantity > inventory_item.stock:
+                        return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
+
+                    sold_item.quantity = quantity
+                    inventory_item.stock -= quantity
+                    inventory_item.save()
+                    sold_item.save()
+                    return Response(
+                        {"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
+                else:
+                    inventory_item = get_object_or_404(InventoryItem, id=item_id)
+
+                    if quantity > inventory_item.stock:
+                        return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
+
+                    inventory_item.stock -= sold_item.quantity
+                    inventory_item.save()
+                    sold_item.save()
+                    return Response(
+                        {"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
+            if quantity:
+                sold_item = get_object_or_404(Sold, id=self.kwargs.get('sold_pk'))
+                if int(quantity) <= 0:
+                    return Response({"error": "quantity most be a positive number"}, status=status.HTTP_400_BAD_REQUEST)
+                inventory_item = get_object_or_404(InventoryItem, id=item_id)
+
+                if quantity > inventory_item.stock:
+                    return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
+
+                sold_item.quantity = quantity
+                inventory_item.stock -= quantity
+                inventory_item.save()
+                sold_item.save()
+                return Response(
+                    {"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
 
 
 class ApiCustomer(ModelViewSet):

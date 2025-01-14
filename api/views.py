@@ -94,7 +94,8 @@ class ApiSold(ModelViewSet):
                     sold_item.save()
                     return Response(
                         {"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
-                else:
+
+                if quantity == sold_item.quantity:
                     inventory_item = get_object_or_404(InventoryItem, id=item_id)
 
                     if quantity > inventory_item.stock:
@@ -105,21 +106,31 @@ class ApiSold(ModelViewSet):
                     sold_item.save()
                     return Response(
                         {"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
-            if quantity:
+
+            if quantity and quantity != sold_item.quantity:
                 sold_item = get_object_or_404(Sold, id=self.kwargs.get('sold_pk'))
+                difference = abs(int(quantity - sold_item.quantity))
                 if int(quantity) <= 0:
                     return Response({"error": "quantity most be a positive number"}, status=status.HTTP_400_BAD_REQUEST)
                 inventory_item = get_object_or_404(InventoryItem, id=item_id)
 
-                if quantity > inventory_item.stock:
-                    return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
+                if int(quantity) >= sold_item.quantity:
+                    if difference > inventory_item.stock:
+                        return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
+                    sold_item.quantity = quantity
+                    inventory_item.stock -= difference
+                    inventory_item.save()
+                    sold_item.save()
+                    return Response(
+                        {"message": "Sale quantity edited successfully."}, status=status.HTTP_200_OK)
 
-                sold_item.quantity = quantity
-                inventory_item.stock -= quantity
-                inventory_item.save()
-                sold_item.save()
-                return Response(
-                    {"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
+                if int(quantity) <= sold_item.quantity:
+                    sold_item.quantity = quantity
+                    inventory_item.stock += difference
+                    inventory_item.save()
+                    sold_item.save()
+                    return Response(
+                        {"message": "Sale quantity edited successfully."}, status=status.HTTP_200_OK)
 
 
 class ApiCustomer(ModelViewSet):

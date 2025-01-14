@@ -66,69 +66,60 @@ class ApiSold(ModelViewSet):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
         sold_item = get_object_or_404(Sold, id=self.kwargs.get('sold_pk'))
+
         if not item_id and not quantity:
             return Response(
                 {"error": "Either 'item' or 'quantity' or both is required."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Validate quantity if provided
+        if quantity is not None:
+            quantity = int(quantity)
+            if quantity <= 0:
+                return Response({"error": "Quantity must be a positive number."}, status=status.HTTP_400_BAD_REQUEST)
+
         with transaction.atomic():
+            # Handle item change
             if item_id and item_id != sold_item.item:
-                inventory_item = get_object_or_404(InventoryItem, id=sold_item.item)
-                inventory_item.stock += sold_item.quantity
-                sold_item = get_object_or_404(Sold, id=self.kwargs.get('sold_pk'))
+                old_inventory_item = get_object_or_404(InventoryItem, id=sold_item.item)
+                old_inventory_item.stock += sold_item.quantity
+                old_inventory_item.save()
+
+                new_inventory_item = get_object_or_404(InventoryItem, id=item_id)
+
+                if quantity is None:
+                    quantity = sold_item.quantity  # Use existing quantity if not provided
+                elif quantity > new_inventory_item.stock:
+                    return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
+
+                new_inventory_item.stock -= quantity
+                new_inventory_item.save()
+
                 sold_item.item = item_id
-                if quantity and quantity != sold_item.quantity:
-                    if int(quantity) <= 0:
+                sold_item.quantity = quantity
+                sold_item.save()
 
-                        return Response({"error": "quantity most be a positive number"}, status=status.HTTP_400_BAD_REQUEST)
-                    inventory_item = get_object_or_404(InventoryItem, id=item_id)
+                return Response({"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
 
-                    if quantity > inventory_item.stock:
-                        return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
+            # Handle quantity change without item change
+            if quantity is not None and quantity != sold_item.quantity:
+                inventory_item = get_object_or_404(InventoryItem, id=sold_item.item)
+                difference = abs(quantity - sold_item.quantity)
 
-                    sold_item.quantity = quantity
-                    inventory_item.stock -= quantity
-                    inventory_item.save()
-                    sold_item.save()
-                    return Response(
-                        {"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
-
-                if quantity == sold_item.quantity:
-                    inventory_item = get_object_or_404(InventoryItem, id=item_id)
-
-                    if quantity > inventory_item.stock:
-                        return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
-
-                    inventory_item.stock -= sold_item.quantity
-                    inventory_item.save()
-                    sold_item.save()
-                    return Response(
-                        {"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
-
-            if quantity and quantity != sold_item.quantity:
-                sold_item = get_object_or_404(Sold, id=self.kwargs.get('sold_pk'))
-                difference = abs(int(quantity - sold_item.quantity))
-                if int(quantity) <= 0:
-                    return Response({"error": "quantity most be a positive number"}, status=status.HTTP_400_BAD_REQUEST)
-                inventory_item = get_object_or_404(InventoryItem, id=item_id)
-
-                if int(quantity) >= sold_item.quantity:
+                if quantity > sold_item.quantity:  # Increasing quantity
                     if difference > inventory_item.stock:
                         return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
-                    sold_item.quantity = quantity
                     inventory_item.stock -= difference
-                    inventory_item.save()
-                    sold_item.save()
-                    return Response(
-                        {"message": "Sale quantity edited successfully."}, status=status.HTTP_200_OK)
-
-                if int(quantity) <= sold_item.quantity:
-                    sold_item.quantity = quantity
+                else:  # Decreasing quantity
                     inventory_item.stock += difference
-                    inventory_item.save()
-                    sold_item.save()
-                    return Response(
-                        {"message": "Sale quantity edited successfully."}, status=status.HTTP_200_OK)
 
+                inventory_item.save()
+                sold_item.quantity = quantity
+                sold_item.save()
+
+                return Response({"message": "Sale quantity edited successfully."}, status=status.HTTP_200_OK)
+
+            # If neither item nor quantity changed
+            return Response({"message": "No changes made."}, status=status.HTTP_200_OK)
 
 class ApiCustomer(ModelViewSet):
     serializer_class = CustomerSerializer

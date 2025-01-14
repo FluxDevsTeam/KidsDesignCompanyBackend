@@ -71,14 +71,12 @@ class ApiSold(ModelViewSet):
             return Response(
                 {"error": "Either 'item' or 'quantity' or both is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate quantity if provided
         if quantity is not None:
             quantity = int(quantity)
             if quantity <= 0:
                 return Response({"error": "Quantity must be a positive number."}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
-            # Handle item change
             if item_id and item_id != sold_item.item:
                 old_inventory_item = get_object_or_404(InventoryItem, id=sold_item.item)
                 old_inventory_item.stock += sold_item.quantity
@@ -87,7 +85,7 @@ class ApiSold(ModelViewSet):
                 new_inventory_item = get_object_or_404(InventoryItem, id=item_id)
 
                 if quantity is None:
-                    quantity = sold_item.quantity  # Use existing quantity if not provided
+                    quantity = sold_item.quantity
                 elif quantity > new_inventory_item.stock:
                     return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -100,16 +98,15 @@ class ApiSold(ModelViewSet):
 
                 return Response({"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
 
-            # Handle quantity change without item change
             if quantity is not None and quantity != sold_item.quantity:
                 inventory_item = get_object_or_404(InventoryItem, id=sold_item.item)
                 difference = abs(quantity - sold_item.quantity)
 
-                if quantity > sold_item.quantity:  # Increasing quantity
+                if quantity > sold_item.quantity:
                     if difference > inventory_item.stock:
                         return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
                     inventory_item.stock -= difference
-                else:  # Decreasing quantity
+                else:
                     inventory_item.stock += difference
 
                 inventory_item.save()
@@ -118,7 +115,6 @@ class ApiSold(ModelViewSet):
 
                 return Response({"message": "Sale quantity edited successfully."}, status=status.HTTP_200_OK)
 
-            # If neither item nor quantity changed
             return Response({"message": "No changes made."}, status=status.HTTP_200_OK)
 
 class ApiCustomer(ModelViewSet):

@@ -80,15 +80,15 @@ class ApiSold(ModelViewSet):
             if item_id and item_id != sold_item.item:
                 old_inventory_item = get_object_or_404(InventoryItem, id=sold_item.item)
                 old_inventory_item.stock += sold_item.quantity
-                old_inventory_item.save()
 
                 new_inventory_item = get_object_or_404(InventoryItem, id=item_id)
 
                 if quantity is None:
                     quantity = sold_item.quantity
-                elif quantity > new_inventory_item.stock:
+                if quantity > new_inventory_item.stock:
                     return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
 
+                old_inventory_item.save()
                 new_inventory_item.stock -= quantity
                 new_inventory_item.save()
 
@@ -116,6 +116,15 @@ class ApiSold(ModelViewSet):
                 return Response({"message": "Sale quantity edited successfully."}, status=status.HTTP_200_OK)
 
             return Response({"message": "No changes made."}, status=status.HTTP_200_OK)
+
+    @action(methods=["DELETE"], detail=True)
+    def delete(self, request):
+        sold_id = self.kwargs.get('sold_pk')
+        sold_item = get_object_or_404(Sold, id=sold_id)
+        inventory_item = get_object_or_404(InventoryItem, pk=sold_item.item)
+        inventory_item.quantity += sold_item.quantity
+        sold_item.delete()
+
 
 class ApiCustomer(ModelViewSet):
     serializer_class = CustomerSerializer

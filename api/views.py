@@ -24,13 +24,14 @@ User = get_user_model()
 class ApiInventoryItem(ModelViewSet):
     serializer_class = InventoryItemSerializer
     queryset = InventoryItem.objects.all()
-    permission_classes = [IsCEO | IsStoreKeeper | IsManager]
+    # permission_classes = [IsCEO | IsStoreKeeper | IsManager]
 
 
 class ApiSold(ModelViewSet):
     serializer_class = SoldSerializer
     queryset = Sold.objects.all()
-    # permission_classes = [IsCEO | IsStoreKeeper]
+    lookup_field = 'id'
+    permission_classes = [IsCEO | IsStoreKeeper]
 
     @action(methods=["POST"], detail=True)
     def sell(self, request):

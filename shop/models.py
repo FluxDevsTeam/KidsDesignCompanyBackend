@@ -1,4 +1,5 @@
 from django.db import models
+from customers.models import Customer
 
 
 class InventoryItem(models.Model):
@@ -23,9 +24,11 @@ class InventoryItem(models.Model):
 
 
 class Sold(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT)
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField()
     date = models.DateField(auto_now_add=True)
+    updated_on = models.DateField(null=True, blank=True)
 
     @property
     def total_price(self):

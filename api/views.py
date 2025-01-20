@@ -113,7 +113,7 @@ class ApiSold(ModelViewSet):
                 return Response({"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
 
             if quantity is not None and quantity != sold_item.quantity:
-                inventory_item = get_object_or_404(InventoryItem, id=sold_item.item)
+                inventory_item = get_object_or_404(InventoryItem, id=sold_item.item.id)
                 difference = abs(quantity - sold_item.quantity)
 
                 if quantity > sold_item.quantity:

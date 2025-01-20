@@ -3,7 +3,7 @@ from . import views
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
-router.register('sold', views.ApiSold, basename='sold')
+# router.register('sold', views.ApiSold, basename='sold')
 router.register('salary-workers', views.ApiSalaryWorkers, basename='salary-workers')
 router.register('contractors', views.ApiContractors, basename='contractors')
 router.register('quotation', views.ApiQuotation, basename='quotation')
@@ -19,5 +19,11 @@ router.register('customer', views.ApiCustomer, basename='customer')
 
 urlpatterns = [
     path("", include(router.urls)),
+    path('sold/', views.ApiSold.as_view({'get': 'retrieve'}), name='sold_items'),
+    path('sold/<int:pk>/', views.ApiSold.as_view({'get': 'detail'}), name='sold_detail'),
+    path('sold/sell/', views.ApiSold.as_view({'post': 'sell'}), name='sell'),
+    path('sold/edit/', views.ApiSold.as_view({'put': 'edit', 'patch': 'edit'}), name='edit'),
+    path('sold/delete/', views.ApiSold.as_view({'delete': 'delete'}), name='delete'),
+
 ]
 

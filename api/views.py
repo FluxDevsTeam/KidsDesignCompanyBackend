@@ -1,4 +1,5 @@
 from django.db import transaction
+from rest_framework.exceptions import MethodNotAllowed
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -30,10 +31,18 @@ class ApiInventoryItem(ModelViewSet):
 class ApiSold(ModelViewSet):
     serializer_class = SoldSerializer
     queryset = Sold.objects.all()
-    lookup_field = 'id'
-    permission_classes = [IsCEO | IsStoreKeeper]
+    # permission_classes = [IsCEO | IsStoreKeeper]
 
-    @action(methods=["POST"], detail=True)
+    def destroy(self, request, *args, **kwargs):
+        raise MethodNotAllowed("DELETE")
+
+    def update(self, request, *args, **kwargs):
+        raise MethodNotAllowed("PUT")
+
+    def partial_update(self, request, *args, **kwargs):
+        raise MethodNotAllowed("PATCH")
+
+    @action(methods=["POST"], detail=False)
     def sell(self, request):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
@@ -63,23 +72,27 @@ class ApiSold(ModelViewSet):
             {"message": "Sale completed successfully."}, status=status.HTTP_200_OK)
 
     @action(methods=["PUT", "PATCH"], detail=True)
-    def edit(self, request):
+    def edit(self, request, pk):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
-        sold_item = get_object_or_404(Sold, id=self.kwargs.get('sold_pk'))
+        sold_item = get_object_or_404(Sold, id=pk)
 
         if not item_id and not quantity:
             return Response(
                 {"error": "Either 'item' or 'quantity' or both is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         if quantity is not None:
-            quantity = int(quantity)
-            if quantity <= 0:
-                return Response({"error": "Quantity must be a positive number."}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                quantity = int(quantity)
+                if quantity <= 0:
+                    return Response({"error": "Quantity must be a positive number."}, status=status.HTTP_400_BAD_REQUEST)
+            except ValueError:
+                return Response({"error": "quantity most be an number"}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
-            if item_id and item_id != sold_item.item:
-                old_inventory_item = get_object_or_404(InventoryItem, id=sold_item.item)
+            if item_id and int(item_id) != int(sold_item.item.id):
+
+                old_inventory_item = get_object_or_404(InventoryItem, id=sold_item.item.id)
                 old_inventory_item.stock += sold_item.quantity
 
                 new_inventory_item = get_object_or_404(InventoryItem, id=item_id)
@@ -93,7 +106,7 @@ class ApiSold(ModelViewSet):
                 new_inventory_item.stock -= quantity
                 new_inventory_item.save()
 
-                sold_item.item = item_id
+                sold_item.item.id = item_id
                 sold_item.quantity = quantity
                 sold_item.save()
 
@@ -119,12 +132,14 @@ class ApiSold(ModelViewSet):
             return Response({"message": "No changes made."}, status=status.HTTP_200_OK)
 
     @action(methods=["DELETE"], detail=True)
-    def delete(self, request):
-        sold_id = self.kwargs.get('sold_pk')
-        sold_item = get_object_or_404(Sold, id=sold_id)
-        inventory_item = get_object_or_404(InventoryItem, pk=sold_item.item)
-        inventory_item.quantity += sold_item.quantity
+    def delete(self, request, pk):
+        sold_item = get_object_or_404(Sold, id=pk)
+        inventory_item = get_object_or_404(InventoryItem, pk=sold_item.item.id)
+        inventory_item.stock += sold_item.quantity
+        inventory_item.save()
         sold_item.delete()
+
+        return Response({"message": "Sold item deleted and inventory updated."}, status=204)
 
 
 class ApiCustomer(ModelViewSet):
@@ -154,7 +169,7 @@ class ApiRawMaterialUsed(ModelViewSet):
 class ApiProduct(ModelViewSet):
     serializer_class = ProductSerializer
     queryset = Product.objects.all()
-    permission_classes = [IsCEO | IsProjectManager]
+    # permission_classes = [IsCEO | IsProjectManager]
 
 
 class ApiProject(ModelViewSet):
@@ -172,7 +187,7 @@ class ApiRawMaterial(ModelViewSet):
 class ApiRemoved(ModelViewSet):
     serializer_class = RemovedSerializer
     queryset = Removed.objects.all()
-    permission_classes = [IsCEO | IsStoreKeeper]
+    # permission_classes = [IsCEO | IsStoreKeeper]
 
 
 class ApiContractors(ModelViewSet):

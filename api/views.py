@@ -46,10 +46,11 @@ class ApiSold(ModelViewSet):
     def sell(self, request):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
+        customer = request.data.get("customer")
 
-        if not item_id or not quantity:
+        if not item_id or not quantity or not customer:
             return Response(
-                {"error": "Both 'item' and 'quantity' are required."}, status=status.HTTP_400_BAD_REQUEST)
+                {"error": "'item', 'customer' and 'quantity' are all required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             quantity = int(quantity)
@@ -60,11 +61,11 @@ class ApiSold(ModelViewSet):
                 {"error": "'quantity' must be a positive integer."}, status=status.HTTP_400_BAD_REQUEST)
 
         inventory_item = get_object_or_404(InventoryItem, id=item_id)
-
+        customer_data = get_object_or_404(Customer, id=customer)
         if quantity > inventory_item.stock:
             return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
 
-        Sold.objects.create(item=inventory_item, quantity=quantity)
+        Sold.objects.create(item=inventory_item, quantity=quantity, customer=customer_data)
         inventory_item.stock -= quantity
         inventory_item.save()
 
@@ -145,7 +146,7 @@ class ApiSold(ModelViewSet):
 class ApiCustomer(ModelViewSet):
     serializer_class = CustomerSerializer
     queryset = Customer.objects.all()
-    permission_classes = [IsCEO | IsProjectManager]
+    # permission_classes = [IsCEO | IsProjectManager]
 
 
 class ApiExpense(ModelViewSet):

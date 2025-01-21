@@ -19,9 +19,5 @@ router.register('customer', views.ApiCustomer, basename='customer')
 
 urlpatterns = [
     path("", include(router.urls)),
-    path('sold/sell/', views.ApiSold.as_view({'post': 'sell'}), name='sell'),
-    path('sold/edit/', views.ApiSold.as_view({'put': 'edit', 'patch': 'edit'}), name='edit'),
-    path('sold/delete/', views.ApiSold.as_view({'delete': 'delete'}), name='delete'),
-
 ]
 

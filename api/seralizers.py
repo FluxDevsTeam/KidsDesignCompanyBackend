@@ -18,7 +18,8 @@ class InventoryItemSerializer(ModelSerializer):
 class SoldSerializer(ModelSerializer):
     class Meta:
         model = Sold
-        fields = '__all__'
+        fields = ['id', 'quantity', 'date', 'updated_on', 'customer', 'item', 'total_price', 'profit']
+        read_only_fields = ['id', 'updated_on']
 
 
 class CustomerSerializer(ModelSerializer):

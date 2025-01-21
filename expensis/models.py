@@ -2,7 +2,8 @@ from django.db import models
 
 
 class Expense(models.Model):
-    description = models.TextField()
+    name = models.CharField(max_length=200)
+    description = models.TextField(null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField()
 

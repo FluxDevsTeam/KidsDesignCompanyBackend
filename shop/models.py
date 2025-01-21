@@ -1,5 +1,6 @@
 from django.db import models
 from customers.models import Customer
+from django.utils.timezone import now
 
 
 class InventoryItem(models.Model):
@@ -37,6 +38,12 @@ class Sold(models.Model):
     @property
     def profit(self):
         return (self.item.selling_price - self.item.cost_price) * self.quantity
+
+    def save(self, *args, **kwargs):
+        if self.date:
+            updated_on = now()
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

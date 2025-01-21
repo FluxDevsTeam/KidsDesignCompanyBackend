@@ -32,18 +32,7 @@ class ApiSold(ModelViewSet):
     serializer_class = SoldSerializer
     queryset = Sold.objects.all()
     # permission_classes = [IsCEO | IsStoreKeeper]
-
-    def destroy(self, request, *args, **kwargs):
-        raise MethodNotAllowed("DELETE")
-
-    def update(self, request, *args, **kwargs):
-        raise MethodNotAllowed("PUT")
-
-    def partial_update(self, request, *args, **kwargs):
-        raise MethodNotAllowed("PATCH")
-
-    @action(methods=["POST"], detail=False)
-    def sell(self, request):
+    def create(self, request, *args, **kwargs):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
         customer = request.data.get("customer")
@@ -72,11 +61,23 @@ class ApiSold(ModelViewSet):
         return Response(
             {"message": "Sale completed successfully."}, status=status.HTTP_200_OK)
 
-    @action(methods=["PUT", "PATCH"], detail=True)
-    def edit(self, request, pk):
+
+    def destroy(self, request, *args, **kwargs):
+        sold_item = self.get_object()
+        inventory_item = get_object_or_404(InventoryItem, pk=sold_item.item.id)
+        inventory_item.stock += sold_item.quantity
+        inventory_item.save()
+        sold_item.delete()
+
+        return Response({"message": "Sold item deleted and inventory updated."}, status=204)
+
+    def update(self, request, *args, **kwargs):
+        raise MethodNotAllowed("PUT")
+
+    def partial_update(self, request, *args, **kwargs):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
-        sold_item = get_object_or_404(Sold, id=pk)
+        sold_item = self.get_object()
 
         if not item_id and not quantity:
             return Response(
@@ -86,7 +87,8 @@ class ApiSold(ModelViewSet):
             try:
                 quantity = int(quantity)
                 if quantity <= 0:
-                    return Response({"error": "Quantity must be a positive number."}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"error": "Quantity must be a positive number."},
+                                    status=status.HTTP_400_BAD_REQUEST)
             except ValueError:
                 return Response({"error": "quantity most be an number"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -131,16 +133,6 @@ class ApiSold(ModelViewSet):
                 return Response({"message": "Sale quantity edited successfully."}, status=status.HTTP_200_OK)
 
             return Response({"message": "No changes made."}, status=status.HTTP_200_OK)
-
-    @action(methods=["DELETE"], detail=True)
-    def delete(self, request, pk):
-        sold_item = get_object_or_404(Sold, id=pk)
-        inventory_item = get_object_or_404(InventoryItem, pk=sold_item.item.id)
-        inventory_item.stock += sold_item.quantity
-        inventory_item.save()
-        sold_item.delete()
-
-        return Response({"message": "Sold item deleted and inventory updated."}, status=204)
 
 
 class ApiCustomer(ModelViewSet):

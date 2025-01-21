@@ -41,7 +41,7 @@ class Sold(models.Model):
 
     def save(self, *args, **kwargs):
         if self.date:
-            updated_on = now()
+            self.updated_on = now()
 
         super().save(*args, **kwargs)
 

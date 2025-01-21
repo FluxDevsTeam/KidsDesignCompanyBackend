@@ -144,7 +144,7 @@ class ApiCustomer(ModelViewSet):
 class ApiExpense(ModelViewSet):
     serializer_class = ExpenseSerializer
     queryset = Expense.objects.all()
-    permission_classes = [IsCEO]
+    # permission_classes = [IsCEO]
 
 
 class ApiQuotation(ModelViewSet):

@@ -30,8 +30,8 @@ class CustomerSerializer(ModelSerializer):
 
 class ExpenseSerializer(ModelSerializer):
     class Meta:
-        model = Expense
-        fields = '__all__'
+        fields = ['id', 'quantity', 'date', 'updated_on', 'customer', 'item', 'total_price', 'profit']
+        read_only_fields = ['id', 'updated_on']
 
 
 class QuotationSerializer(ModelSerializer):

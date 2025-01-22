@@ -1,5 +1,6 @@
 from rest_framework.fields import SerializerMethodField
 from rest_framework.serializers import ModelSerializer
+from rest_framework import serializers
 from shop.models import InventoryItem, Sold
 from customers.models import Customer
 from expensis.models import Expense
@@ -29,9 +30,14 @@ class CustomerSerializer(ModelSerializer):
 
 
 class ExpenseSerializer(ModelSerializer):
+    daily_total = serializers.SerializerMethodField()
+
     class Meta:
-        fields = ['id', 'quantity', 'date', 'updated_on', 'customer', 'item', 'total_price', 'profit']
-        read_only_fields = ['id', 'updated_on']
+        fields = ['id', 'name', 'description', 'amount', 'quantity', 'date', 'daily_total']
+        read_only_fields = ['id', 'date']
+
+    def get_daily_total(self, obj):
+        return 
 
 
 class QuotationSerializer(ModelSerializer):

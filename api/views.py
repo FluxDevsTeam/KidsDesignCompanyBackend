@@ -178,6 +178,19 @@ class ApiExpense(viewsets.ModelViewSet):
             else:
                 daily_expenses.append(expense)
 
+        if daily_expenses:
+            daily_data.append({
+                "entries": daily_expenses,
+                "daily_total": sum(e.amount for e in daily_expenses)
+            })
+
+        # Monthly total
+        current_month = datetime.now().month
+        current_year = datetime.now().year
+        monthly_total = \
+        Expense.objects.filter(date__month=current_month, date__year=current_year).aggregate(Sum('amount'))[
+            'amount__sum'] or 0.0
+
 
 
 class ApiQuotation(ModelViewSet):

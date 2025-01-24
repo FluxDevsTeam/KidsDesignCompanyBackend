@@ -29,12 +29,38 @@ class CustomerSerializer(ModelSerializer):
         fields = '__all__'
 
 
-class ExpenseSerializer(ModelSerializer):
+from rest_framework import serializers
+from .models import Expense
+from django.db.models import Sum
+from datetime import datetime
+
+
+class ExpenseSerializer(serializers.ModelSerializer):
+    daily_total = serializers.SerializerMethodField()
+    monthly_total = serializers.SerializerMethodField()
+
     class Meta:
         model = Expense
-        fields = ['id', 'name', 'description', 'amount', 'quantity', 'date']
+        fields = ['id', 'name', 'description', 'amount', 'quantity', 'date', 'daily_total', 'monthly_total']
         read_only_fields = ['id', 'date']
 
+    def get_daily_total(self, obj):
+        """
+        Calculate daily total for the expense entries grouped by day.
+        """
+        date = obj.date.date()  # Just the date part of the datetime
+        total = Expense.objects.filter(date__date=date).aggregate(Sum('amount'))['amount__sum']
+        return total or 0.0
+
+    def get_monthly_total(self, obj):
+        """
+        Calculate the monthly total for the current month.
+        """
+        current_month = datetime.now().month
+        current_year = datetime.now().year
+        total = Expense.objects.filter(date__month=current_month, date__year=current_year).aggregate(Sum('amount'))[
+            'amount__sum']
+        return total or 0.0
 
 class QuotationSerializer(ModelSerializer):
     class Meta:

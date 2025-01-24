@@ -191,7 +191,16 @@ class ApiExpense(viewsets.ModelViewSet):
         Expense.objects.filter(date__month=current_month, date__year=current_year).aggregate(Sum('amount'))[
             'amount__sum'] or 0.0
 
+        response_data = {
+            "daily_data": daily_data,
+            "monthly_total": monthly_total,
+        }
 
+        if year:
+            yearly_total = Expense.objects.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
+            response_data["yearly_total"] = yearly_total
+
+        return Response(response_data)
 
 class ApiQuotation(ModelViewSet):
     serializer_class = QuotationSerializer

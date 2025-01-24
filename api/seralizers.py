@@ -30,14 +30,10 @@ class CustomerSerializer(ModelSerializer):
 
 
 class ExpenseSerializer(ModelSerializer):
-    daily_total = serializers.SerializerMethodField()
-
     class Meta:
-        fields = ['id', 'name', 'description', 'amount', 'quantity', 'date', 'daily_total']
+        model = Expense
+        fields = ['id', 'name', 'description', 'amount', 'quantity', 'date']
         read_only_fields = ['id', 'date']
-
-    def get_daily_total(self, obj):
-        return 
 
 
 class QuotationSerializer(ModelSerializer):

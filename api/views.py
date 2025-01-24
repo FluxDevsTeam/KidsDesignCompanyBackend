@@ -18,6 +18,9 @@ from store.models import RawMaterial, Removed
 from workers.models import Contractors, SalaryWorkers
 from rest_framework import viewsets, status, permissions
 from django.contrib.auth import get_user_model
+from django.db.models import Sum
+from datetime import datetime
+from django.db.models import F
 
 User = get_user_model()
 
@@ -32,6 +35,7 @@ class ApiSold(ModelViewSet):
     serializer_class = SoldSerializer
     queryset = Sold.objects.all()
     # permission_classes = [IsCEO | IsStoreKeeper]
+
     def create(self, request, *args, **kwargs):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
@@ -60,7 +64,6 @@ class ApiSold(ModelViewSet):
 
         return Response(
             {"message": "Sale completed successfully."}, status=status.HTTP_200_OK)
-
 
     def destroy(self, request, *args, **kwargs):
         sold_item = self.get_object()
@@ -141,7 +144,7 @@ class ApiCustomer(ModelViewSet):
     # permission_classes = [IsCEO | IsProjectManager]
 
 
-class ApiExpense(viewsets.ModelViewSet):
+class ApiExpense(ModelViewSet):
     serializer_class = ExpenseSerializer
     queryset = Expense.objects.all()
     # permission_classes = [IsCEO]

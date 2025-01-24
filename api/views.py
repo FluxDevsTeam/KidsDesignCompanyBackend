@@ -141,10 +141,43 @@ class ApiCustomer(ModelViewSet):
     # permission_classes = [IsCEO | IsProjectManager]
 
 
-class ApiExpense(ModelViewSet):
+class ApiExpense(viewsets.ModelViewSet):
     serializer_class = ExpenseSerializer
     queryset = Expense.objects.all()
-    # permission_classes = [IsCEO]
+
+    def list(self, request, *args, **kwargs):
+        # Filter by month and year
+        month = request.query_params.get('month', None)
+        year = request.query_params.get('year', None)
+        day = request.query_params.get('day', None)
+
+        # Handle filtering by month, year, or day
+        filters = {}
+        if month:
+            filters['date__month'] = month
+        if year:
+            filters['date__year'] = year
+        if day:
+            filters['date__day'] = day
+
+        expenses = Expense.objects.filter(**filters).order_by('date')
+
+        # Group by date (daily data)
+        daily_data = []
+        current_date = None
+        daily_expenses = []
+        for expense in expenses:
+            if expense.date.date() != current_date:
+                if daily_expenses:
+                    daily_data.append({
+                        "entries": daily_expenses,
+                        "daily_total": sum(e.amount for e in daily_expenses)
+                    })
+                current_date = expense.date.date()
+                daily_expenses = [expense]
+            else:
+                daily_expenses.append(expense)
+
 
 
 class ApiQuotation(ModelViewSet):

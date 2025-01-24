@@ -144,14 +144,14 @@ class ApiCustomer(ModelViewSet):
 class ApiExpense(viewsets.ModelViewSet):
     serializer_class = ExpenseSerializer
     queryset = Expense.objects.all()
+    # permission_classes = [IsCEO]
+
 
     def list(self, request, *args, **kwargs):
-        # Filter by month and year
         month = request.query_params.get('month', None)
         year = request.query_params.get('year', None)
         day = request.query_params.get('day', None)
 
-        # Handle filtering by month, year, or day
         filters = {}
         if month:
             filters['date__month'] = month
@@ -162,7 +162,6 @@ class ApiExpense(viewsets.ModelViewSet):
 
         expenses = Expense.objects.filter(**filters).order_by('date')
 
-        # Group by date (daily data)
         daily_data = []
         current_date = None
         daily_expenses = []
@@ -184,7 +183,6 @@ class ApiExpense(viewsets.ModelViewSet):
                 "daily_total": sum(e.amount for e in daily_expenses)
             })
 
-        # Monthly total
         current_month = datetime.now().month
         current_year = datetime.now().year
         monthly_total = \

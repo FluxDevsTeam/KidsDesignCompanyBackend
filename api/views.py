@@ -18,9 +18,8 @@ from store.models import RawMaterial, Removed
 from workers.models import Contractors, SalaryWorkers
 from rest_framework import viewsets, status, permissions
 from django.contrib.auth import get_user_model
+from .filters import ExpenseFilter
 from django.db.models import Sum
-from datetime import datetime
-from django.db.models import F
 
 User = get_user_model()
 
@@ -144,31 +143,22 @@ class ApiCustomer(ModelViewSet):
     # permission_classes = [IsCEO | IsProjectManager]
 
 
-class ApiExpense(ModelViewSet):
+class ApiExpense(viewsets.ModelViewSet):
     serializer_class = ExpenseSerializer
     queryset = Expense.objects.all()
-    # permission_classes = [IsCEO]
-
+    filter_class = ExpenseFilter  # Use the custom filter
 
     def list(self, request, *args, **kwargs):
-        month = request.query_params.get('month', None)
-        year = request.query_params.get('year', None)
-        day = request.query_params.get('day', None)
+        # Apply the filter to the queryset
+        filterset = self.filter_class(request.GET, queryset=self.get_queryset())
 
-        filters = {}
-        if month:
-            filters['date__month'] = month
-        if year:
-            filters['date__year'] = year
-        if day:
-            filters['date__day'] = day
+        filtered_expenses = filterset.qs
 
-        expenses = Expense.objects.filter(**filters).order_by('date')
-
+        # Group by date (daily data)
         daily_data = []
         current_date = None
         daily_expenses = []
-        for expense in expenses:
+        for expense in filtered_expenses:
             if expense.date.date() != current_date:
                 if daily_expenses:
                     daily_data.append({
@@ -186,22 +176,22 @@ class ApiExpense(ModelViewSet):
                 "daily_total": sum(e.amount for e in daily_expenses)
             })
 
-        current_month = datetime.now().month
-        current_year = datetime.now().year
-        monthly_total = \
-        Expense.objects.filter(date__month=current_month, date__year=current_year).aggregate(Sum('amount'))[
-            'amount__sum'] or 0.0
+        monthly_total = filtered_expenses.aggregate(Sum('amount'))['amount__sum'] or 0.0
 
+        # Create the response structure
         response_data = {
             "daily_data": daily_data,
             "monthly_total": monthly_total,
         }
 
+        # Add yearly total if needed
+        year = request.query_params.get('year', None)
         if year:
             yearly_total = Expense.objects.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
             response_data["yearly_total"] = yearly_total
 
         return Response(response_data)
+
 
 class ApiQuotation(ModelViewSet):
     serializer_class = QuotationSerializer

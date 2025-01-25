@@ -15,14 +15,14 @@ class ExpenseFilter(django_filters.FilterSet):
     def filter_by_month(self, queryset, name, value):
         if not value:
             value = datetime.now().month
-        return queryset.filter(date__month=value)
+        return queryset.filter(date__month=int(value))
 
     def filter_by_year(self, queryset, name, value):
         if not value:
             value = datetime.now().year
-        return queryset.filter(date__year=value)
+        return queryset.filter(date__year=int(value))
 
     def filter_by_day(self, queryset, name, value):
         if not value:
             value = datetime.now().day
-        return queryset.filter(date__day=value)
+        return queryset.filter(date__day=int(value))

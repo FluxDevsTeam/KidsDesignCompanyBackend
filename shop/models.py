@@ -3,8 +3,16 @@ from customers.models import Customer
 from django.utils.timezone import now
 
 
+class InventoryCategory(models.Model):
+    name = models.CharField(max_length=200)
+
+    def __str__(self):
+        return f"{self.name}"
+
+
 class InventoryItem(models.Model):
     name = models.CharField(max_length=100)
+    category = models.ForeignKey(InventoryCategory, on_delete=models.PROTECT, null=True, blank=True)
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(upload_to="shop/", blank=True, null=True)
     stock = models.PositiveIntegerField(default=0)

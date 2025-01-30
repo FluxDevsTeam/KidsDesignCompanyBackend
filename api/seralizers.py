@@ -41,13 +41,13 @@ class ExpenseCategorySerializer(ModelSerializer):
 
 
 class ExpenseSerializer(ModelSerializer):
-    category = ExpenseCategorySerializer(read_only=True)
+    expense_category = ExpenseCategorySerializer(source="category", read_only=True)
 
     class Meta:
         model = Expense
-        fields = ['id', 'name', 'category', 'description', 'amount', 'quantity', 'date']
+        fields = ['id', 'name', 'category', 'expense_category', 'description', 'amount', 'quantity', 'date']
         read_only_fields = ['id', 'date']
-
+        extra_kwargs = {'category': {'write_only': True}}
 
 
 class QuotationSerializer(ModelSerializer):

@@ -41,7 +41,7 @@ class ExpenseCategory(ModelSerializer):
 
 
 class ExpenseSerializer(ModelSerializer):
-    category = ExpenseCategory()
+    # category = ExpenseCategory()
 
     class Meta:
         model = Expense

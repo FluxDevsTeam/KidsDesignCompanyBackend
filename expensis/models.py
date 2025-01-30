@@ -1,6 +1,13 @@
 from django.db import models
 
 
+class ExpenseCategory(models.Model):
+    name = models.CharField(max_length=200)
+
+    def __str__(self):
+        return f"{self.name}"
+
+
 class Expense(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(null=True, blank=True)

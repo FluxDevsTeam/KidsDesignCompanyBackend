@@ -32,7 +32,7 @@ class CustomerSerializer(ModelSerializer):
         fields = '__all__'
 
 
-class ExpenseCategory(ModelSerializer):
+class ExpenseCategorySerializer(ModelSerializer):
 
     class Meta:
         model = ExpenseCategory
@@ -41,12 +41,13 @@ class ExpenseCategory(ModelSerializer):
 
 
 class ExpenseSerializer(ModelSerializer):
-    # category = ExpenseCategory()
+    category = ExpenseCategorySerializer(read_only=True)
 
     class Meta:
         model = Expense
         fields = ['id', 'name', 'category', 'description', 'amount', 'quantity', 'date']
         read_only_fields = ['id', 'date']
+
 
 
 class QuotationSerializer(ModelSerializer):

@@ -8,10 +8,10 @@ from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOw
 from rest_framework.viewsets import ModelViewSet
 from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
     QuotationSerializer, ProductSerializer, RawMaterialSerializer, RawMaterialUsedSerializer, ProjectSerializer, \
-    RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer
+    RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer, ExpenseCategorySerializer
 from shop.models import InventoryItem, Sold
 from customers.models import Customer
-from expensis.models import Expense
+from expensis.models import Expense, ExpenseCategory
 from products.models import Quotation, RawMaterialUsed, Product
 from project.models import Project
 from store.models import RawMaterial, Removed
@@ -140,6 +140,12 @@ class ApiSold(ModelViewSet):
 class ApiCustomer(ModelViewSet):
     serializer_class = CustomerSerializer
     queryset = Customer.objects.all()
+    # permission_classes = [IsCEO | IsProjectManager]
+
+
+class ApiExpenseCategory(ModelViewSet):
+    queryset = ExpenseCategory.objects.all()
+    serializer_class = ExpenseCategorySerializer
     # permission_classes = [IsCEO | IsProjectManager]
 
 

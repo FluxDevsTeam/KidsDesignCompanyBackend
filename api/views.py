@@ -157,16 +157,17 @@ class ApiExpense(ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         filterset = self.filter_class(request.GET, queryset=self.get_queryset())
-        filtered_expenses = filterset.qs.order_by('date')
+        filtered_expenses = filterset.qs.order_by('-date')
 
         daily_data = []
         current_date = None
         daily_expenses = []
-
         for expense in filtered_expenses:
+
             if expense.date.date() != current_date:
                 if daily_expenses:
                     daily_data.append({
+                        "date": current_date,
                         "entries": ExpenseSerializer(daily_expenses, many=True).data,
                         "daily_total": sum(e.amount for e in daily_expenses),
                     })
@@ -177,6 +178,7 @@ class ApiExpense(ModelViewSet):
 
         if daily_expenses:
             daily_data.append({
+                "date": current_date,
                 "entries": ExpenseSerializer(daily_expenses, many=True).data,
                 "daily_total": sum(e.amount for e in daily_expenses),
             })

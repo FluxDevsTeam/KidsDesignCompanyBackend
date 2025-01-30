@@ -10,7 +10,7 @@ class ExpenseCategory(models.Model):
 
 class Expense(models.Model):
     name = models.CharField(max_length=200)
-    category = models.ForeignKey(ExpenseCategory, on_delete=models.PROTECT)
+    category = models.ForeignKey(ExpenseCategory, on_delete=models.PROTECT, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.CharField(max_length=200)

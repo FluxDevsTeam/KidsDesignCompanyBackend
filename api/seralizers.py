@@ -3,7 +3,7 @@ from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
 from shop.models import InventoryItem, Sold
 from customers.models import Customer
-from expensis.models import Expense
+from expensis.models import Expense, ExpenseCategory
 from products.models import Quotation, RawMaterialUsed, Product
 from project.models import Project
 from store.models import RawMaterial, Removed
@@ -32,11 +32,20 @@ class CustomerSerializer(ModelSerializer):
         fields = '__all__'
 
 
+class ExpenseCategory(ModelSerializer):
+
+    class Meta:
+        model = ExpenseCategory
+        fields = ['id', 'name']
+        read_only_fields = ['id']
+
+
 class ExpenseSerializer(ModelSerializer):
+    category = ExpenseCategory()
 
     class Meta:
         model = Expense
-        fields = ['id', 'name', 'description', 'amount', 'quantity', 'date']
+        fields = ['id', 'name', 'category', 'description', 'amount', 'quantity', 'date']
         read_only_fields = ['id', 'date']
 
 

@@ -220,7 +220,8 @@ class ApiRawMaterialUsed(ModelViewSet):
 
 class ApiProduct(ModelViewSet):
     serializer_class = ProductSerializer
-    queryset = Product.objects.all()
+    queryset = Product.objects.prefetch_related("productcontractor_set", "productsalaryworker_set")
+
     # permission_classes = [IsCEO | IsProjectManager]
 
 

@@ -15,6 +15,7 @@ router.register('raw-materials-used', views.ApiRawMaterialUsed, basename='raw-ma
 router.register('expense', views.ApiExpense, basename='expense')
 router.register('expense-category', views.ApiExpenseCategory, basename='expense_category')
 router.register('inventory-item', views.ApiInventoryItem, basename='inventory-item')
+router.register('inventory-item-category', views.ApiInventoryCategory, basename='inventory_item_category')
 router.register('customer', views.ApiCustomer, basename='customer')
 
 

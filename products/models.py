@@ -3,23 +3,9 @@ from workers.models import Contractors, SalaryWorkers
 import ast
 
 
-class ListField(models.TextField):
-    def to_python(self, value):
-        if not value:
-            return []
-        if isinstance(value, list):
-            return value
-        return ast.literal_eval(value)
-
-    def get_prep_value(self, value):
-        if value is None:
-            return value
-        return ",".join(str(item) for item in value)
-
-
 class Quotation(models.Model):
     name = models.CharField(max_length=100)
-    quotation = ListField()
+    quotation = models.JSONField(default=list)
 
     def __str__(self):
         return self.name

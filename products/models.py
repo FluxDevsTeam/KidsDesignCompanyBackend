@@ -12,11 +12,18 @@ class Product(models.Model):
     contractors = models.ManyToManyField(Contractors, through='ProductContractor')
     salary_workers = models.ManyToManyField(SalaryWorkers, through='ProductSalaryWorker')
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
-    cost_price = models.DecimalField(max_digits=10, decimal_places=2)
+    overhead_cost = models.DecimalField(max_digits=10, decimal_places=2)
 
+    @property
     def total_production_cost(self):
-        total_cost = self.cost_price
-        total_cost += sum([pc.cost for pc in self.productcontractor_set.all()])
+        total_cost= 0
+
+        return total_cost
+
+    @property
+    def total_artisan_cost(self):
+        total_cost = 0
+        total_cost += int(sum([pc.cost for pc in self.productcontractor_set.all()]))
         total_cost += sum([psw.cost for psw in self.productsalaryworker_set.all()])
         return total_cost
 

@@ -1,40 +1,10 @@
 from django.db import models
 from workers.models import Contractors, SalaryWorkers
-import ast
-
-
-class Quotation(models.Model):
-    name = models.CharField(max_length=100)
-    quotation = models.JSONField(default=list)
-
-    def __str__(self):
-        return self.name
-
-
-class RawMaterialUsed(models.Model):
-    name = models.CharField(max_length=100)
-    unit = models.CharField(max_length=20)
-    quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-
-    def cost_per_unit(self):
-        return self.price / self.quantity
-
-    category = models.CharField(max_length=50)
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        ordering = ["name"]
-
 
 class Product(models.Model):
     name = models.CharField(max_length=100)
     quantity = models.PositiveIntegerField()
-    raw_materials = models.ForeignKey(RawMaterialUsed, on_delete=models.PROTECT)
     images = models.ImageField(upload_to="product/", blank=True, null=True)
-    quotation = models.ForeignKey(Quotation, on_delete=models.PROTECT)
     dimensions = models.CharField(max_length=50)
     colour = models.CharField(max_length=50)
     design = models.TextField()
@@ -58,3 +28,32 @@ class Product(models.Model):
 
     class Meta:
         ordering = ["name"]
+
+
+class RawMaterialUsed(models.Model):
+    name = models.CharField(max_length=100)
+    unit = models.CharField(max_length=20)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def cost_per_unit(self):
+        return self.price / self.quantity
+
+    category = models.CharField(max_length=50)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ["name"]
+
+
+class Quotation(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    department = models.CharField(max_length=100)
+    contractor = models.ManyToManyField(Contractors, related_name='quotations', blank=True)
+    salary_worker = models.ManyToManyField(SalaryWorkers, related_name='quotations', blank=True)
+    quotation = models.JSONField(default=list)
+
+    def __str__(self):
+        return f"quotation for - {self.product.name}"

@@ -63,9 +63,17 @@ class ExpenseSerializer(ModelSerializer):
 
 
 class QuotationSerializer(ModelSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["quotation"] = [
+            f"{i + 1}. {item['name']} - {item['quantity']}"
+            for i, item in enumerate(data["quotation"])
+        ]
+        return data
+
     class Meta:
         model = Quotation
-        fields = '__all__'
+        fields = "__all__"
 
 
 class ProjectSerializer(ModelSerializer):

@@ -116,7 +116,7 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "id", "name", "quantity", "images", "dimensions", "colour", "design",
-            "contractors", "salary_workers", "selling_price", "cost_price"
+            "contractors", "salary_workers", "selling_price", "cost_price", "total_production_cost", "profit"
         ]
 
     def create(self, validated_data):
@@ -183,7 +183,7 @@ class RawMaterialSerializer(ModelSerializer):
         fields = '__all__'
 
 
-class ProductSerializer(ModelSerializer):
+class ProjectSerializer(ModelSerializer):
     class Meta:
         model = Product
         fields = '__all__'

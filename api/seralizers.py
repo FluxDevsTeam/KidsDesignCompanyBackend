@@ -1,7 +1,7 @@
 from rest_framework.fields import SerializerMethodField
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
-from shop.models import InventoryItem, Sold
+from shop.models import InventoryItem, Sold, InventoryCategory
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory
 from products.models import Quotation, RawMaterialUsed, Product
@@ -13,10 +13,22 @@ from datetime import datetime
 from django.db.models.functions import TruncDate
 
 
+class InventoryCategorySerializer(ModelSerializer):
+
+    class Meta:
+        model = InventoryCategory
+        fields = ['id', 'name']
+        read_only_fields = ['id']
+
+
 class InventoryItemSerializer(ModelSerializer):
+    inventory_category = InventoryCategorySerializer(source="category", read_only=True)
+
     class Meta:
         model = InventoryItem
-        fields = '__all__'
+        fields = ['id', 'name', 'category', 'inventory_category', 'description', 'image', 'stock', 'cost_price', 'selling_price', 'dimensions']
+        read_only_fields = ['id']
+        extra_kwargs = {'category': {'write_only': True}}
 
 
 class SoldSerializer(ModelSerializer):

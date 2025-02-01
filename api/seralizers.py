@@ -11,6 +11,7 @@ from workers.models import Contractors, SalaryWorkers
 from django.db.models import Sum
 from datetime import datetime
 from django.db.models.functions import TruncDate
+from django.shortcuts import get_object_or_404
 
 
 class InventoryCategorySerializer(ModelSerializer):
@@ -78,13 +79,32 @@ class SalaryWorkersSerializer(ModelSerializer):
 
 
 #  ##############################################
-class QuotationSerializer(ModelSerializer):
+class QuotationSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data["quotation"] = [
-            f"{i + 1}. {item['name']} - {item['quantity']}"
-            for i, item in enumerate(data["quotation"])
-        ]
+        contractor_ids = data.get("contractor", [])
+        contractor_list = []
+        salary_worker_ids = data.get("salary_worker", [])
+        salary_worker_list = []
+
+        for contractor_id in contractor_ids:
+            contractor_obj = get_object_or_404(Contractors, id=contractor_id)
+            contractor_list.append({
+                "id": contractor_obj.id,
+                "name": f"{contractor_obj.first_name} {contractor_obj.last_name}"
+            })
+
+        data["contractor"] = contractor_list
+
+        for salary_worker_id in salary_worker_ids:
+            salary_worker_obj = get_object_or_404(SalaryWorkers, id=salary_worker_id)
+            salary_worker_list.append({
+                "id": salary_worker_obj.id,
+                "name": f"{salary_worker_obj.first_name} {salary_worker_obj.last_name}"
+            })
+
+        data["contractor"] = contractor_list
+        data["salary_worker"] = salary_worker_list
         return data
 
     class Meta:
@@ -93,7 +113,7 @@ class QuotationSerializer(ModelSerializer):
 
 
 class ProductContractorSerializer(serializers.ModelSerializer):
-    contractor = ContractorsSerializer()
+    # contractor = ContractorsSerializer()
 
     class Meta:
         model = ProductContractor
@@ -101,7 +121,7 @@ class ProductContractorSerializer(serializers.ModelSerializer):
 
 
 class ProductSalaryWorkerSerializer(serializers.ModelSerializer):
-    salary_worker = SalaryWorkersSerializer()
+    # salary_worker = SalaryWorkersSerializer()
 
     class Meta:
         model = ProductSalaryWorker
@@ -116,55 +136,8 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "id", "name", "quantity", "images", "dimensions", "colour", "design",
-            "contractors", "salary_workers", "selling_price", "cost_price", "total_production_cost", "profit"
+            "contractors", "salary_workers", "selling_price", "overhead_cost", "total_production_cost", "profit"
         ]
-
-    def create(self, validated_data):
-        contractors_data = self.context["request"].data.get("contractors", [])
-        salary_workers_data = self.context["request"].data.get("salary_workers", [])
-
-        product = Product.objects.create(**validated_data)
-
-        # Bulk create contractors & salary workers (more efficient)
-        ProductContractor.objects.bulk_create(
-            [ProductContractor(product=product, **contractor) for contractor in contractors_data]
-        )
-        ProductSalaryWorker.objects.bulk_create(
-            [ProductSalaryWorker(product=product, **salary_worker) for salary_worker in salary_workers_data]
-        )
-
-        return product
-
-    def update(self, instance, validated_data):
-        contractors_data = self.context["request"].data.get("contractors", [])
-        salary_workers_data = self.context["request"].data.get("salary_workers", [])
-
-        # Update basic fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        # Efficiently update contractors (avoid deleting everything)
-        current_contractors = {pc.contractor.id: pc for pc in instance.productcontractor_set.all()}
-        for contractor in contractors_data:
-            contractor_id = contractor.get("contractor")
-            if contractor_id in current_contractors:
-                current_contractors[contractor_id].cost = contractor["cost"]
-                current_contractors[contractor_id].save()
-            else:
-                ProductContractor.objects.create(product=instance, **contractor)
-
-        # Efficiently update salary workers
-        current_salary_workers = {psw.salary_worker.id: psw for psw in instance.productsalaryworker_set.all()}
-        for salary_worker in salary_workers_data:
-            worker_id = salary_worker.get("salary_worker")
-            if worker_id in current_salary_workers:
-                current_salary_workers[worker_id].cost = salary_worker["cost"]
-                current_salary_workers[worker_id].save()
-            else:
-                ProductSalaryWorker.objects.create(product=instance, **salary_worker)
-
-        return instance
 
 
 class RawMaterialUsedSerializer(ModelSerializer):

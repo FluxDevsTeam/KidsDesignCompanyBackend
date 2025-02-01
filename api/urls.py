@@ -1,6 +1,8 @@
 from django.urls import path, include
 from . import views
 from rest_framework.routers import DefaultRouter
+from rest_framework_nested.routers import NestedDefaultRouter
+
 
 router = DefaultRouter()
 router.register('sold', views.ApiSold, basename='sold')
@@ -18,8 +20,12 @@ router.register('inventory-item', views.ApiInventoryItem, basename='inventory-it
 router.register('inventory-item-category', views.ApiInventoryCategory, basename='inventory_item_category')
 router.register('customer', views.ApiCustomer, basename='customer')
 
+product_router = NestedDefaultRouter(router, 'product', lookup='product')
+product_router.register('contractor', views.ApiProductContractor, basename='product_contractor')
+product_router.register('salary', views.ApiProductSalaryWorker, basename='product_salary')
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("", include(product_router.urls)),
 ]
 

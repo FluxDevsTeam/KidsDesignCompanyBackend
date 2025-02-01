@@ -42,19 +42,10 @@ class SalaryWorkers(models.Model):
     guarantor_address = models.TextField(blank=True, null=True)
     created_at = models.DateField(auto_now_add=True)
     updated_at = models.DateField(auto_now=True)
-    pay = models.DecimalField(max_digits=10, decimal_places=2)
+    salary = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
     class Meta:
         ordering = ["last_name", "first_name"]
-
-
-# class Pay(models.Model):
-#     artisan = models.ForeignKey(Artisans, on_delete=models.CASCADE)
-#     product = models.ForeignKey(Product, on_delete=models.PROTECT)
-#     amount = models.IntegerField()
-#
-#     def __str__(self):
-#         return f"{self.artisan.first_name} {self.artisan.last_name} pay"

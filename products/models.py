@@ -13,10 +13,10 @@ class Product(models.Model):
     salary_workers = models.ManyToManyField(SalaryWorkers, through='ProductSalaryWorker')
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
     overhead_cost = models.DecimalField(max_digits=10, decimal_places=2)
-
+    production_note = models.TextField()
     @property
     def total_production_cost(self):
-        total_cost= 0
+        total_cost = 5
 
         return total_cost
 
@@ -29,7 +29,7 @@ class Product(models.Model):
 
     @property
     def profit(self):
-        return (self.selling_price - self.total_production_cost()) * self.quantity
+        return (self.selling_price - self.total_production_cost) * self.quantity
 
     def __str__(self):
         return self.name

@@ -1,6 +1,5 @@
 from django.db import models
 from workers.models import Contractors, SalaryWorkers
-from store.models import RawMaterial
 
 
 class Product(models.Model):
@@ -31,26 +30,6 @@ class Product(models.Model):
     @property
     def profit(self):
         return (self.selling_price - self.total_production_cost) * self.quantity
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        ordering = ["name"]
-
-
-class RawMaterialUsed(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    raw_material = models.ForeignKey(RawMaterial, on_delete=models.PROTECT)
-    name = models.CharField(max_length=100)
-    unit = models.CharField(max_length=20)
-    quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-
-    def cost_per_unit(self):
-        return self.price / self.quantity
-
-    category = models.CharField(max_length=50)
 
     def __str__(self):
         return self.name

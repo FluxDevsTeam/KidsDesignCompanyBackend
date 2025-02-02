@@ -384,12 +384,12 @@ class ApiRemoved(ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         removed_item = self.get_object()
-        material_data = get_object_or_404(RawMaterial, id=material)
-        material_data.quantity += sold_item.quantity
+        material_data = get_object_or_404(RawMaterial, id=removed_item.material)
+        material_data.quantity += removed_item.quantity
         material_data.save()
         removed_item.delete()
 
-        return Response({"message": "Material deleted successfully."}, status=204)
+        return Response({"message": "Removed Material deleted successfully."}, status=204)
 
     def update(self, request, *args, **kwargs):
         raise MethodNotAllowed("PUT")

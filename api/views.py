@@ -7,13 +7,13 @@ from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOw
     IsArtisanReadOnly, IsStoreKeeperReadonly, IsManager
 from rest_framework.viewsets import ModelViewSet
 from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
-    QuotationSerializer, ProductSerializer, RawMaterialSerializer, RawMaterialUsedSerializer, ProjectSerializer, \
+    QuotationSerializer, ProductSerializer, RawMaterialSerializer, ProjectSerializer, \
     RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer, ExpenseCategorySerializer, \
     InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer
 from shop.models import InventoryItem, Sold, InventoryCategory
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory
-from products.models import Quotation, RawMaterialUsed, Product, ProductSalaryWorker, ProductContractor
+from products.models import Quotation, Product, ProductSalaryWorker, ProductContractor
 from project.models import Project
 from store.models import RawMaterial, Removed
 from workers.models import Contractors, SalaryWorkers
@@ -213,10 +213,10 @@ class ApiQuotation(ModelViewSet):
     # permission_classes = [IsCEO | IsProjectManager | IsStoreKeeperReadonly]
 
 
-class ApiRawMaterialUsed(ModelViewSet):
-    serializer_class = RawMaterialUsedSerializer
-    queryset = RawMaterialUsed.objects.all()
-    # permission_classes = [IsCEO | IsProjectManager | IsStoreKeeperReadonly]
+# class ApiRawMaterialUsed(ModelViewSet):
+#     serializer_class = RawMaterialUsedSerializer
+#     queryset = RawMaterialUsed.objects.all()
+#     # permission_classes = [IsCEO | IsProjectManager | IsStoreKeeperReadonly]
 
 
 class ApiProductContractor(ModelViewSet):

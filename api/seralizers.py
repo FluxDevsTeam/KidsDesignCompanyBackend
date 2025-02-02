@@ -4,7 +4,7 @@ from rest_framework import serializers
 from shop.models import InventoryItem, Sold, InventoryCategory
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory
-from products.models import Quotation, RawMaterialUsed, Product, ProductContractor, ProductSalaryWorker
+from products.models import Quotation, Product, ProductContractor, ProductSalaryWorker
 from project.models import Project
 from store.models import RawMaterial, Removed
 from workers.models import Contractors, SalaryWorkers
@@ -140,10 +140,10 @@ class ProductSerializer(serializers.ModelSerializer):
         ]
 
 
-class RawMaterialUsedSerializer(ModelSerializer):
-    class Meta:
-        model = RawMaterialUsed
-        fields = '__all__'
+# class RawMaterialUsedSerializer(ModelSerializer):
+#     class Meta:
+#         model = RawMaterialUsed
+#         fields = '__all__'
 
 
 # ##################################################

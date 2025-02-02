@@ -1,5 +1,6 @@
 from django.db import models
 from workers.models import Contractors, SalaryWorkers
+from store.models import RawMaterial
 
 
 class Product(models.Model):
@@ -39,6 +40,8 @@ class Product(models.Model):
 
 
 class RawMaterialUsed(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    raw_material = models.ForeignKey(RawMaterial, on_delete=models.PROTECT)
     name = models.CharField(max_length=100)
     unit = models.CharField(max_length=20)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)

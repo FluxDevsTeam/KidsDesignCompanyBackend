@@ -110,6 +110,7 @@ class QuotationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quotation
         fields = "__all__"
+        read_only_fields = ['id', 'product']
 
 
 class ProductContractorSerializer(serializers.ModelSerializer):

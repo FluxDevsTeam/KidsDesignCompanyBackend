@@ -25,7 +25,7 @@ class RawMaterial(models.Model):
 class Removed(models.Model):
     material = models.ForeignKey(RawMaterial, on_delete=models.PROTECT)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    project = models.ForeignKey(Product, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
     date = models.DateField(auto_now_add=True)
 
     class Meta:

@@ -7,15 +7,15 @@ from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOw
     IsArtisanReadOnly, IsStoreKeeperReadonly, IsManager
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
-    QuotationSerializer, ProductSerializer, RawMaterialSerializer, ProjectSerializer, RawMaterialUsedSerializer,\
+    QuotationSerializer, ProductSerializer, RawMaterialSerializer, ProjectSerializer, RawMaterialUsedSerializer, \
     RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer, ExpenseCategorySerializer, \
-    InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer
+    InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer, StoreCategorySerializer
 from shop.models import InventoryItem, Sold, InventoryCategory
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory
 from products.models import Quotation, Product, ProductSalaryWorker, ProductContractor
 from project.models import Project
-from store.models import RawMaterial, Removed
+from store.models import RawMaterial, Removed, StoreCategory
 from workers.models import Contractors, SalaryWorkers
 from rest_framework import viewsets, status, permissions
 from django.contrib.auth import get_user_model
@@ -37,9 +37,16 @@ class ApiInventoryCategory(ModelViewSet):
     # permission_classes = [IsCEO | IsProjectManager]
 
 
+class ApiStoreCategory(ModelViewSet):
+    queryset = StoreCategory.objects.all()
+    serializer_class = StoreCategorySerializer
+    # permission_classes = [IsCEO | IsProjectManager]
+
+
 class ApiSold(ModelViewSet):
     serializer_class = SoldSerializer
     queryset = Sold.objects.all()
+
     # permission_classes = [IsCEO | IsStoreKeeper]
 
     def create(self, request, *args, **kwargs):
@@ -160,6 +167,7 @@ class ApiExpense(ModelViewSet):
     serializer_class = ExpenseSerializer
     queryset = Expense.objects.all()
     filter_class = ExpenseFilter
+
     # permission_classes = [IsCEO | IsProjectManager]
 
     def list(self, request, *args, **kwargs):
@@ -203,6 +211,7 @@ class ApiExpense(ModelViewSet):
             response_data["yearly_total"] = yearly_total
 
         return Response(response_data)
+
 
 # up next quotation
 
@@ -282,6 +291,7 @@ class ApiProductContractor(ModelViewSet):
 
 class ApiProductSalaryWorker(ModelViewSet):
     serializer_class = ProductSalaryWorkerSerializer
+
     # permission_classes = [IsCEO | IsProjectManager | IsStoreKeeperReadonly]
 
     def get_queryset(self):
@@ -340,7 +350,110 @@ class ApiRawMaterial(ModelViewSet):
 class ApiRemoved(ModelViewSet):
     serializer_class = RemovedSerializer
     queryset = Removed.objects.all()
+
     # permission_classes = [IsCEO | IsStoreKeeper]
+
+    def create(self, request, *args, **kwargs):
+        material = request.data.get("material")
+        quantity = request.data.get("quantity")
+        product = request.data.get("product")
+
+        if not material or not quantity or not product:
+            return Response(
+                {"error": "'material' and 'product' are all required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            quantity = int(quantity)
+            if quantity <= 0:
+                raise ValueError
+        except ValueError:
+            return Response(
+                {"error": "'quantity' must be a positive integer."}, status=status.HTTP_400_BAD_REQUEST)
+
+        material_data = get_object_or_404(RawMaterial, id=material)
+        product_data = get_object_or_404(product, id=product)
+        if quantity > material_data.quantity:
+            return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
+
+        Removed.objects.create(material=material, quantity=quantity, product=product)
+        material_data.quantity -= quantity
+        material_data.save()
+
+        return Response(
+            {"message": "Sale completed successfully."}, status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        removed_item = self.get_object()
+        material_data = get_object_or_404(RawMaterial, id=material)
+        material_data.quantity += sold_item.quantity
+        material_data.save()
+        removed_item.delete()
+
+        return Response({"message": "Material deleted successfully."}, status=204)
+
+    def update(self, request, *args, **kwargs):
+        raise MethodNotAllowed("PUT")
+
+    def partial_update(self, request, *args, **kwargs):
+        material = request.data.get("material")
+        quantity = request.data.get("quantity")
+        product = request.data.get("product")
+        removed_item = self.get_object()
+
+        if not material and not quantity and not product:
+            return Response(
+                {"error": "Either one of 'material', 'quantity', 'product' or more is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if quantity is not None:
+            try:
+                quantity = int(quantity)
+                if quantity <= 0:
+                    return Response({"error": "Quantity must be a positive number."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+            except ValueError:
+                return Response({"error": "quantity most be an number"}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            if material and int(material) != int(removed_item.material.id):
+
+                old_raw_material_item = get_object_or_404(RawMaterial, id=removed_item.material.id)
+                old_raw_material_item.quantity += removed_item.quantity
+
+                new_raw_material_item = get_object_or_404(RawMaterial, id=material)
+
+                if quantity is None:
+                    quantity = removed_item.quantity
+                if quantity > new_raw_material_item.quantity:
+                    return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
+
+                old_inventory_item.save()
+                new_inventory_item.stock -= quantity
+                new_inventory_item.save()
+
+                sold_item.item.id = item_id
+                sold_item.quantity = quantity
+                sold_item.save()
+
+                return Response({"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
+
+            if quantity is not None and quantity != sold_item.quantity:
+                inventory_item = get_object_or_404(InventoryItem, id=sold_item.item.id)
+                difference = abs(quantity - sold_item.quantity)
+
+                if quantity > sold_item.quantity:
+                    if difference > inventory_item.stock:
+                        return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
+                    inventory_item.stock -= difference
+                else:
+                    inventory_item.stock += difference
+
+                inventory_item.save()
+                sold_item.quantity = quantity
+                sold_item.save()
+
+                return Response({"message": "Sale quantity edited successfully."}, status=status.HTTP_200_OK)
+
+            return Response({"message": "No changes made."}, status=status.HTTP_200_OK)
 
 
 class ApiContractors(ModelViewSet):

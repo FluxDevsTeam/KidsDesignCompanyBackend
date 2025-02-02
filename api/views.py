@@ -210,7 +210,32 @@ class ApiExpense(ModelViewSet):
 class ApiQuotation(ModelViewSet):
     serializer_class = QuotationSerializer
     queryset = Quotation.objects.all()
-    # permission_classes = [IsCEO | IsProjectManager | IsStoreKeeperReadonly]
+
+    def create(self, request, *args, **kwargs):
+        product_id = self.kwargs.get('product_pk')
+        product = get_object_or_404(Product, pk=product_id)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(product=product)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        product_id = self.kwargs.get('product_pk')
+        product = get_object_or_404(Product, pk=product_id)
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(product=product)
+        return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
 
 
 # class ApiRawMaterialUsed(ModelViewSet):

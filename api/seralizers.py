@@ -118,7 +118,8 @@ class ProductContractorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductContractor
-        fields = ["contractor", "cost"]
+        fields = ["id", "product", "contractor", "cost"]
+        read_only_fields = ['id', 'product']
 
 
 class ProductSalaryWorkerSerializer(serializers.ModelSerializer):
@@ -126,7 +127,8 @@ class ProductSalaryWorkerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductSalaryWorker
-        fields = ["salary_worker", "cost"]
+        fields = ["id", "product", "salary_worker", "cost"]
+        read_only_fields = ['id', 'product']
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -141,10 +143,10 @@ class ProductSerializer(serializers.ModelSerializer):
         ]
 
 
-# class RawMaterialUsedSerializer(ModelSerializer):
-#     class Meta:
-#         model = RawMaterialUsed
-#         fields = '__all__'
+class RawMaterialUsedSerializer(ModelSerializer):
+    class Meta:
+        model = Removed
+        fields = '__all__'
 
 
 # ##################################################

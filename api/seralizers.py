@@ -6,7 +6,7 @@ from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory
 from products.models import Quotation, Product, ProductContractor, ProductSalaryWorker
 from project.models import Project
-from store.models import RawMaterial, Removed
+from store.models import RawMaterial, Removed, StoreCategory
 from workers.models import Contractors, SalaryWorkers
 from django.db.models import Sum
 from datetime import datetime
@@ -150,13 +150,20 @@ class RawMaterialUsedSerializer(ModelSerializer):
 
 
 # ##################################################
+class StoreCategorySerializer(ModelSerializer):
+    class Meta:
+        model = StoreCategory
+        fields = ['id', 'name']
+        read_only_fields = ['id']
 
 
-# store
 class RawMaterialSerializer(ModelSerializer):
+    store_category = StoreCategorySerializer(source="category", read_only=True)
+
     class Meta:
         model = RawMaterial
-        fields = '__all__'
+        fields = ["id", "name", "unit", "quantity", "price", "category", "store_category", "description", "image", "cost_per_unit"]
+        read_only_fields = ["id"]
 
 
 class ProjectSerializer(ModelSerializer):

@@ -21,7 +21,7 @@ router.register('customer', views.ApiCustomer, basename='customer')
 product_router = NestedDefaultRouter(router, 'product', lookup='product')
 product_router.register('contractor', views.ApiProductContractor, basename='product_contractor')
 product_router.register('salary', views.ApiProductSalaryWorker, basename='product_salary')
-product_router.register('raw-materials-used', views.ApiRawMaterialUsed, basename='raw-materials-used')
+# product_router.register('raw-materials-used', views.ApiRawMaterialUsed, basename='raw-materials-used')
 product_router.register('quotation', views.ApiQuotation, basename='quotation')
 
 urlpatterns = [

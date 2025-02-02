@@ -426,32 +426,32 @@ class ApiRemoved(ModelViewSet):
                 if quantity > new_raw_material_item.quantity:
                     return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
 
-                old_inventory_item.save()
-                new_inventory_item.stock -= quantity
-                new_inventory_item.save()
+                old_raw_material_item.save()
+                new_raw_material_item.quantity -= quantity
+                new_raw_material_item.save()
 
-                sold_item.item.id = item_id
-                sold_item.quantity = quantity
-                sold_item.save()
+                removed_item.material.id = material
+                removed_item.quantity = quantity
+                removed_item.save()
 
-                return Response({"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
+                return Response({"message": "removed raw material edited successfully."}, status=status.HTTP_200_OK)
 
-            if quantity is not None and quantity != sold_item.quantity:
-                inventory_item = get_object_or_404(InventoryItem, id=sold_item.item.id)
-                difference = abs(quantity - sold_item.quantity)
+            if quantity is not None and quantity != removed_item.quantity:
+                raw_material_item = get_object_or_404(RawMaterial, id=removed_item.quantity.id)
+                difference = abs(quantity - removed_item.quantity)
 
-                if quantity > sold_item.quantity:
-                    if difference > inventory_item.stock:
+                if quantity > removed_item.quantity:
+                    if difference > raw_material_item.quantity:
                         return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
-                    inventory_item.stock -= difference
+                    raw_material_item.stock -= difference
                 else:
-                    inventory_item.stock += difference
+                    raw_material_item.stock += difference
 
-                inventory_item.save()
-                sold_item.quantity = quantity
-                sold_item.save()
+                raw_material_item.save()
+                removed_item.quantity = quantity
+                removed_item.save()
 
-                return Response({"message": "Sale quantity edited successfully."}, status=status.HTTP_200_OK)
+                return Response({"message": "removed raw material quantity edited successfully."}, status=status.HTTP_200_OK)
 
             return Response({"message": "No changes made."}, status=status.HTTP_200_OK)
 

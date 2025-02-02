@@ -5,9 +5,9 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly, \
     IsArtisanReadOnly, IsStoreKeeperReadonly, IsManager
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
-    QuotationSerializer, ProductSerializer, RawMaterialSerializer, ProjectSerializer, \
+    QuotationSerializer, ProductSerializer, RawMaterialSerializer, ProjectSerializer, RawMaterialUsedSerializer,\
     RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer, ExpenseCategorySerializer, \
     InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer
 from shop.models import InventoryItem, Sold, InventoryCategory
@@ -209,7 +209,10 @@ class ApiExpense(ModelViewSet):
 
 class ApiQuotation(ModelViewSet):
     serializer_class = QuotationSerializer
-    queryset = Quotation.objects.all()
+
+    def get_queryset(self):
+        product_id = self.kwargs.get('product_pk')
+        return Quotation.objects.filter(product=product_id)
 
     def create(self, request, *args, **kwargs):
         product_id = self.kwargs.get('product_pk')
@@ -230,30 +233,89 @@ class ApiQuotation(ModelViewSet):
         serializer.save(product=product)
         return Response(serializer.data)
 
-    def partial_update(self, request, *args, **kwargs):
-        kwargs['partial'] = True
-        return self.update(request, *args, **kwargs)
 
-    def destroy(self, request, *args, **kwargs):
-        return super().destroy(request, *args, **kwargs)
+class ApiRawMaterialUsed(ReadOnlyModelViewSet):
+    serializer_class = RawMaterialUsedSerializer
 
-
-# class ApiRawMaterialUsed(ModelViewSet):
-#     serializer_class = RawMaterialUsedSerializer
-#     queryset = RawMaterialUsed.objects.all()
-#     # permission_classes = [IsCEO | IsProjectManager | IsStoreKeeperReadonly]
+    def get_queryset(self):
+        product_id = self.kwargs.get('product_pk')
+        return Removed.objects.filter(product=product_id)
+    # permission_classes = [IsCEO | IsProjectManager | IsStoreKeeperReadonly]
 
 
 class ApiProductContractor(ModelViewSet):
     serializer_class = ProductContractorSerializer
-    queryset = ProductContractor.objects.all()
-    # permission_classes = [IsCEO | IsProjectManager | IsStoreKeeperReadonly]
+
+    def get_queryset(self):
+        product_id = self.kwargs.get('product_pk')
+        return ProductContractor.objects.filter(product=product_id)
+
+    def create(self, request, *args, **kwargs):
+        product_id = self.kwargs.get('product_pk')
+        product = get_object_or_404(Product, pk=product_id)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        contractor = serializer.validated_data.get("contractor")
+        cost = serializer.validated_data.get("cost")
+        try:
+            instance = ProductContractor.objects.get(product=product, contractor=contractor)
+            instance.cost = cost
+            instance.save()
+            serializer = self.get_serializer(instance)
+            status_code = status.HTTP_200_OK
+        except ProductContractor.DoesNotExist:
+            instance = serializer.save(product=product)
+            status_code = status.HTTP_201_CREATED
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status_code, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        product_id = self.kwargs.get('product_pk')
+        product = get_object_or_404(Product, pk=product_id)
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(product=product)
+        return Response(serializer.data)
 
 
 class ApiProductSalaryWorker(ModelViewSet):
     serializer_class = ProductSalaryWorkerSerializer
-    queryset = ProductSalaryWorker.objects.all()
     # permission_classes = [IsCEO | IsProjectManager | IsStoreKeeperReadonly]
+
+    def get_queryset(self):
+        product_id = self.kwargs.get('product_pk')
+        return ProductSalaryWorker.objects.filter(product=product_id)
+
+    def create(self, request, *args, **kwargs):
+        product_id = self.kwargs.get('product_pk')
+        product = get_object_or_404(Product, pk=product_id)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        contractor = serializer.validated_data.get("contractor")
+        cost = serializer.validated_data.get("cost")
+        try:
+            instance = ProductSalaryWorker.objects.get(product=product, contractor=contractor)
+            instance.cost = cost
+            instance.save()
+            serializer = self.get_serializer(instance)
+            status_code = status.HTTP_200_OK
+        except ProductSalaryWorker.DoesNotExist:
+            instance = serializer.save(product=product)
+            status_code = status.HTTP_201_CREATED
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status_code, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        product_id = self.kwargs.get('product_pk')
+        product = get_object_or_404(Product, pk=product_id)
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(product=product)
+        return Response(serializer.data)
 
 
 class ApiProduct(ModelViewSet):

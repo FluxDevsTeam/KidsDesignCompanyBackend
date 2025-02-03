@@ -1,12 +1,10 @@
 from django.db import models
 from customers.models import Customer
-from products.models import Product
 from shop.models import InventoryItem
 
 
 class Project(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT)
-    products = models.ManyToManyField(Product, related_name="projects")
     shop_items = models.ManyToManyField(InventoryItem, related_name="shop")
     invoice_image = models.ImageField(upload_to="project_invoice/", blank=True, null=True)
     status = models.CharField(max_length=50)

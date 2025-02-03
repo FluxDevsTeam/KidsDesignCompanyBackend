@@ -168,8 +168,9 @@ class RawMaterialSerializer(ModelSerializer):
 
 class ProjectSerializer(ModelSerializer):
     class Meta:
-        model = Product
+        model = Project
         fields = '__all__'
+        read_only_fields = ["id", "start_date"]
 
 
 class RemovedSerializer(ModelSerializer):

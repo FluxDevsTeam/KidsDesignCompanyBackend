@@ -11,7 +11,7 @@ class InventoryCategory(models.Model):
 
 
 class InventoryItem(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     category = models.ForeignKey(InventoryCategory, on_delete=models.PROTECT, null=True, blank=True)
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(upload_to="shop/", blank=True, null=True)

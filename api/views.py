@@ -371,11 +371,11 @@ class ApiRemoved(ModelViewSet):
                 {"error": "'quantity' must be a positive integer."}, status=status.HTTP_400_BAD_REQUEST)
 
         material_data = get_object_or_404(RawMaterial, id=material)
-        product_data = get_object_or_404(product, id=product)
+        product_data = get_object_or_404(Product, id=product)
         if quantity > material_data.quantity:
             return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
 
-        Removed.objects.create(material=material, quantity=quantity, product=product)
+        Removed.objects.create(material=material_data, quantity=quantity, product=product_data)
         material_data.quantity -= quantity
         material_data.save()
 

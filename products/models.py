@@ -1,21 +1,20 @@
 from django.db import models
 from workers.models import Contractors, SalaryWorkers
 from project.models import Project
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class Product(models.Model):
-    # project = models.ForeignKey(Project, on_delete=models.PROTECT)
-    # quantity = models.IntegerField(default=1)
+    project = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True)
     name = models.CharField(max_length=100)
     quantity = models.PositiveIntegerField()
     images = models.ImageField(upload_to="product/", blank=True, null=True)
     dimensions = models.CharField(max_length=50)
     colour = models.CharField(max_length=50)
     design = models.TextField()
-    # contractors = models.ManyToManyField(Contractors, through='ProductContractor')
-    # salary_workers = models.ManyToManyField(SalaryWorkers, through='ProductSalaryWorker')
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
     overhead_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    progress = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)], help_text="Progress as a whole number percentage (0 to 100).")
     production_note = models.TextField()
 
     @property

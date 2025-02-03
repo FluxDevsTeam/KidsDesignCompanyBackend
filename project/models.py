@@ -1,17 +1,19 @@
+import datetime
+
 from django.db import models
 from customers.models import Customer
-from shop.models import InventoryItem
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class Project(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT)
-    shop_items = models.ManyToManyField(InventoryItem, related_name="shop")
     invoice_image = models.ImageField(upload_to="project_invoice/", blank=True, null=True)
     status = models.CharField(max_length=50)
-    start_date = models.DateField()
+    start_date = models.DateField(default=datetime.date.today)
     deadline = models.DateField()
-    running_expenses = models.DecimalField(max_digits=10, decimal_places=2)
+    date_delivered = models.DateField()
     other_expensis = models.DecimalField(max_digits=10, decimal_places=2)
+    is_delivered = models.BooleanField(default=False)
 
     @property
     def timeframe(self):

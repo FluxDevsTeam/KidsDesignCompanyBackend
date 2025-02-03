@@ -2,6 +2,8 @@ from django.db import models
 from customers.models import Customer
 from django.utils.timezone import now
 
+from project.models import Project
+
 
 class InventoryCategory(models.Model):
     name = models.CharField(max_length=200)
@@ -34,6 +36,7 @@ class InventoryItem(models.Model):
 
 class Sold(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT)
+    project = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True)
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField()
     date = models.DateTimeField(auto_now_add=True)

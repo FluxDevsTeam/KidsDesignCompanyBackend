@@ -9,9 +9,9 @@ from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOw
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
     QuotationSerializer, ProductSerializer, RawMaterialSerializer, ProjectSerializer, RawMaterialUsedSerializer, \
-    RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer, ExpenseCategorySerializer, \
+    RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer, ExpenseCategorySerializer, AddSockSerializer,\
     InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer, StoreCategorySerializer
-from shop.models import InventoryItem, Sold, InventoryCategory
+from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory
 from products.models import Quotation, Product, ProductSalaryWorker, ProductContractor
@@ -20,7 +20,7 @@ from store.models import RawMaterial, Removed, StoreCategory
 from workers.models import Contractors, SalaryWorkers
 from rest_framework import viewsets, status, permissions
 from django.contrib.auth import get_user_model
-from .filters import ExpenseFilter
+from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter
 from django.db.models import Sum
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -32,6 +32,20 @@ class ApiInventoryItem(ModelViewSet):
     queryset = InventoryItem.objects.all()
     # permission_classes = [IsCEO | IsStoreKeeper | IsManager]
 
+
+class ApiAddStock(ModelViewSet):
+    serializer_class = AddSockSerializer
+    queryset = AddStock.objects.all()
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = AddStockFilter
+    search_fields = ['item']
+    # permission_classes = [IsCEO | IsStoreKeeper | IsManager]
+
+    def list(self, request, *args, **kwargs):
+
+    def create(self, request, *args, **kwargs):
+        item = self.request.get("item")
+        quantity = self.request.get("quntity")
 
 class ApiInventoryCategory(ModelViewSet):
     queryset = InventoryCategory.objects.all()

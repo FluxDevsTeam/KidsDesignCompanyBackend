@@ -1,7 +1,7 @@
 from rest_framework.fields import SerializerMethodField
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
-from shop.models import InventoryItem, Sold, InventoryCategory
+from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory
 from products.models import Quotation, Product, ProductContractor, ProductSalaryWorker
@@ -37,6 +37,12 @@ class SoldSerializer(ModelSerializer):
         model = Sold
         fields = ['id', 'quantity', 'date', 'updated_on', 'customer', 'item', 'total_price', 'profit']
         read_only_fields = ['id', 'updated_on']
+
+
+class AddSockSerializer(ModelSerializer):
+    class Meta:
+        model = AddStock
+        fields = '__all__'
 
 
 class CustomerSerializer(ModelSerializer):

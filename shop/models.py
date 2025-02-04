@@ -21,6 +21,7 @@ class InventoryItem(models.Model):
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
     dimensions = models.CharField(max_length=100)
+    archived = models.BooleanField(default=False)
 
     @property
     def total_price(self):
@@ -61,3 +62,11 @@ class Sold(models.Model):
 
     class Meta:
         ordering = ["-date"]
+
+
+class AddStock(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True)
+    item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField()
+    date = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(null=True, blank=True)

@@ -34,18 +34,35 @@ class ApiInventoryItem(ModelViewSet):
 
 
 class ApiAddStock(ModelViewSet):
-    serializer_class = AddSockSerializer
+    serializer_class = AddStockSerializer
     queryset = AddStock.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = AddStockFilter
-    search_fields = ['item']
+    search_fields = ['item__name']
     # permission_classes = [IsCEO | IsStoreKeeper | IsManager]
 
-    def list(self, request, *args, **kwargs):
-
     def create(self, request, *args, **kwargs):
-        item = self.request.get("item")
-        quantity = self.request.get("quntity")
+        item_id = request.data.get("item")
+        quantity = request.data.get("quantity")
+
+        try:
+            quantity = int(quantity)
+            if quantity <= 0:
+                raise ValueError("Quantity must be greater than zero")
+        except (ValueError, TypeError):
+            return Response({"error": "Invalid quantity"}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            item = get_object_or_404(InventoryItem, id=item_id)
+            item.stock += quantity
+            item.save()
+
+            serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({"success": "Item added successfully", "data": serializer.data}, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class ApiInventoryCategory(ModelViewSet):
     queryset = InventoryCategory.objects.all()

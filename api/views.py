@@ -1,6 +1,7 @@
 from django.db import transaction
 from rest_framework.exceptions import MethodNotAllowed
 from django.shortcuts import get_object_or_404
+from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly, \
@@ -21,6 +22,7 @@ from rest_framework import viewsets, status, permissions
 from django.contrib.auth import get_user_model
 from .filters import ExpenseFilter
 from django.db.models import Sum
+from django_filters.rest_framework import DjangoFilterBackend
 
 User = get_user_model()
 
@@ -35,6 +37,9 @@ class ApiInventoryCategory(ModelViewSet):
     queryset = InventoryCategory.objects.all()
     serializer_class = InventoryCategorySerializer
     # permission_classes = [IsCEO | IsProjectManager]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = InventoryItemFilter
+    search_fields = ['name', 'description']
 
 
 class ApiStoreCategory(ModelViewSet):

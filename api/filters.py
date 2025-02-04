@@ -2,7 +2,32 @@ import django_filters
 from expensis.models import Expense
 from datetime import datetime
 import django_filters
-from shop.models import InventoryItem
+from shop.models import InventoryItem, AddStock
+
+
+class AddStockFilter(django_filters.FilterSet):
+    month = django_filters.NumberFilter(field_name='date__month', method='filter_by_month', required=False)
+    year = django_filters.NumberFilter(field_name='date__year', method='filter_by_year', required=False)
+    day = django_filters.NumberFilter(field_name='date__day', method='filter_by_day', required=False)
+
+    class Meta:
+        model = AddStock
+        fields = ['month', 'year', 'day']
+
+    def filter_by_month(self, queryset, name, value):
+        if not value:
+            value = datetime.now().month
+        return queryset.filter(date__month=int(value))
+
+    def filter_by_year(self, queryset, name, value):
+        if not value:
+            value = datetime.now().year
+        return queryset.filter(date__year=int(value))
+
+    def filter_by_day(self, queryset, name, value):
+        if not value:
+            value = datetime.now().day
+        return queryset.filter(date__day=int(value))
 
 
 class ExpenseFilter(django_filters.FilterSet):

@@ -65,8 +65,6 @@ class Sold(models.Model):
 
 
 class AddStock(models.Model):
-    project = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True)
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField()
     date = models.DateTimeField(auto_now_add=True)
-    updated_on = models.DateTimeField(null=True, blank=True)

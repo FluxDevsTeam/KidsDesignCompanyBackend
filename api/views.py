@@ -20,7 +20,7 @@ from store.models import RawMaterial, Removed, StoreCategory
 from workers.models import Contractors, SalaryWorkers
 from rest_framework import viewsets, status, permissions
 from django.contrib.auth import get_user_model
-from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter
+from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter
 from django.db.models import Sum
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -35,6 +35,7 @@ class ApiInventoryItem(ModelViewSet):
     filterset_class = InventoryItemFilter
     search_fields = ['name', 'description']
 
+
 class ApiAddStock(ModelViewSet):
     serializer_class = AddSockSerializer
     queryset = AddStock.objects.all()
@@ -46,6 +47,9 @@ class ApiAddStock(ModelViewSet):
     def create(self, request, *args, **kwargs):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
+
+        if not item_id:
+            return Response({"error": "please input an item"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             quantity = int(quantity)
@@ -72,7 +76,6 @@ class ApiInventoryCategory(ModelViewSet):
     # permission_classes = [IsCEO | IsProjectManager]
 
 
-
 class ApiStoreCategory(ModelViewSet):
     queryset = StoreCategory.objects.all()
     serializer_class = StoreCategorySerializer
@@ -82,9 +85,13 @@ class ApiStoreCategory(ModelViewSet):
 class ApiSold(ModelViewSet):
     serializer_class = SoldSerializer
     queryset = Sold.objects.all()
-
     # permission_classes = [IsCEO | IsStoreKeeper]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = SoldFilter
+    search_fields = ['item__name', 'customer__name']
 
+    # def list(self, request, *args, **kwargs):
+    #
     def create(self, request, *args, **kwargs):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
@@ -129,11 +136,14 @@ class ApiSold(ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
+        selling_price = request.data.get("selling_price")
+        cost_price = request.data.get("cost_price")
+        project = request.data.get("project")
         sold_item = self.get_object()
 
-        if not item_id and not quantity:
+        if not item_id and not quantity and not selling_price and not cost_price:
             return Response(
-                {"error": "Either 'item' or 'quantity' or both is required."}, status=status.HTTP_400_BAD_REQUEST)
+                {"error": "Either one or more of 'item' or 'quantity' or 'cost_price' or 'selling_price' is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         if quantity is not None:
             try:
@@ -142,7 +152,31 @@ class ApiSold(ModelViewSet):
                     return Response({"error": "Quantity must be a positive number."},
                                     status=status.HTTP_400_BAD_REQUEST)
             except ValueError:
-                return Response({"error": "quantity most be an number"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "quantity most be a number"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if cost_price is not None:
+            try:
+                cost_price = float(cost_price)
+                if cost_price <= 0:
+                    return Response({"error": "cost_price must be a positive number."}, status=status.HTTP_400_BAD_REQUEST)
+
+            except ValueError:
+                return Response({"error": "cost_price most be a number"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if selling_price is not None:
+            try:
+                selling_price = float(selling_price)
+                if selling_price <= 0:
+                    return Response({"error": "selling_price must be a positive number."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+            except ValueError:
+                return Response({"error": "selling_price most be a number"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if project is not None:
+            try:
+                get_object_or_404(Project, id=project)
+            except ValueError:
+                return Response({"error": "invalid project"}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             if item_id and int(item_id) != int(sold_item.item.id):
@@ -156,6 +190,13 @@ class ApiSold(ModelViewSet):
                     quantity = sold_item.quantity
                 if quantity > new_inventory_item.stock:
                     return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
+
+                if cost_price:
+                    sold_item.cost_price = cost_price
+                if selling_price:
+                    sold_item.selling_price = selling_price
+                if project:
+                    sold_item.project = project
 
                 old_inventory_item.save()
                 new_inventory_item.stock -= quantity
@@ -178,11 +219,43 @@ class ApiSold(ModelViewSet):
                 else:
                     inventory_item.stock += difference
 
+                if cost_price:
+                    sold_item.cost_price = cost_price
+                if selling_price:
+                    sold_item.selling_price = selling_price
+                if project:
+                    sold_item.project = project
+
                 inventory_item.save()
                 sold_item.quantity = quantity
                 sold_item.save()
 
                 return Response({"message": "Sale quantity edited successfully."}, status=status.HTTP_200_OK)
+            if (cost_price and float(cost_price) != float(sold_item.selling_price)) or (selling_price and int(item_id) != int(sold_item.item.id)) or (project and int(item_id) != int(sold_item.item.id)):
+
+                if project:
+                    sold_item.project = project
+                    if cost_price:
+                        sold_item.cost_price = cost_price
+                        if selling_price:
+                            sold_item.selling_price = selling_price
+                            sold_item.save()
+                            return Response({"data": "project, cost price and selling price updated successfully"})
+                        sold_item.save()
+                        return Response({"data": "project and cost price updated successfully"})
+                    return Response({"data": "project updated successfully"})
+                if cost_price:
+                    sold_item.cost_price = cost_price
+                    if selling_price:
+                        sold_item.selling_price = selling_price
+                        sold_item.save()
+                        return Response({"data": "cost price and selling price updated successfully"})
+                    sold_item.save()
+                    return Response({"data": "cost price updated successfully"})
+                if selling_price:
+                    sold_item.selling_price = selling_price
+                    sold_item.save()
+                    return Response({"data": "selling price updated successfully"})
 
             return Response({"message": "No changes made."}, status=status.HTTP_200_OK)
 

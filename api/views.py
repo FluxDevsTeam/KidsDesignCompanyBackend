@@ -231,31 +231,24 @@ class ApiSold(ModelViewSet):
                 sold_item.save()
 
                 return Response({"message": "Sale quantity edited successfully."}, status=status.HTTP_200_OK)
-            if (cost_price and float(cost_price) != float(sold_item.selling_price)) or (selling_price and int(item_id) != int(sold_item.item.id)) or (project and int(item_id) != int(sold_item.item.id)):
+            updated_fields = []
 
-                if project:
-                    sold_item.project = project
-                    if cost_price:
-                        sold_item.cost_price = cost_price
-                        if selling_price:
-                            sold_item.selling_price = selling_price
-                            sold_item.save()
-                            return Response({"data": "project, cost price and selling price updated successfully"})
-                        sold_item.save()
-                        return Response({"data": "project and cost price updated successfully"})
-                    return Response({"data": "project updated successfully"})
-                if cost_price:
-                    sold_item.cost_price = cost_price
-                    if selling_price:
-                        sold_item.selling_price = selling_price
-                        sold_item.save()
-                        return Response({"data": "cost price and selling price updated successfully"})
-                    sold_item.save()
-                    return Response({"data": "cost price updated successfully"})
-                if selling_price:
-                    sold_item.selling_price = selling_price
-                    sold_item.save()
-                    return Response({"data": "selling price updated successfully"})
+            if project and project != sold_item.item.id:
+                sold_item.project = project
+                updated_fields.append("project")
+
+            if cost_price and float(cost_price) != float(sold_item.selling_price):
+                sold_item.cost_price = cost_price
+                updated_fields.append("cost price")
+
+            if selling_price and float(selling_price) != float(sold_item.selling_price):
+                sold_item.selling_price = selling_price
+                updated_fields.append("selling price")
+
+            # Save only if something was updated
+            if updated_fields:
+                sold_item.save()
+                return Response({"data": f"{', '.join(updated_fields)} updated successfully"})
 
             return Response({"message": "No changes made."}, status=status.HTTP_200_OK)
 

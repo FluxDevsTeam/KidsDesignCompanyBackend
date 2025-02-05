@@ -27,22 +27,55 @@ class InventoryItemSerializer(ModelSerializer):
     class Meta:
         model = InventoryItem
         fields = ['id', 'name', 'category', 'inventory_category', 'description', 'image', 'stock', 'cost_price',
-                  'selling_price', 'dimensions']
+                  'selling_price', 'dimensions', "archived", "profit_per_item", "total_price"]
         read_only_fields = ['id']
         extra_kwargs = {'category': {'write_only': True}}
 
 
+class SimpleInventoryItemSerializer(ModelSerializer):
+    inventory_category = InventoryCategorySerializer(source="category", read_only=True)
+
+    class Meta:
+        model = InventoryItem
+        fields = ['id', 'name', 'dimensions', 'inventory_category']
+        read_only_fields = ['id']
+
+
+class SimpleCustomerSerializer(ModelSerializer):
+
+    class Meta:
+        model = Customer
+        fields = ['id', 'name']
+        read_only_fields = ['id']
+
+
+class SimpleProductSerializer(ModelSerializer):
+    inventory_category = InventoryCategorySerializer(source="category", read_only=True)
+
+    class Meta:
+        model = InventoryItem
+        fields = ['id', 'name', 'inventory_category', 'dimensions']
+        read_only_fields = ['id']
+
+
 class SoldSerializer(ModelSerializer):
+    item_sold = SimpleInventoryItemSerializer(source="item", read_only=True)
+    sold_to = SimpleCustomerSerializer(source="customer", read_only=True)
+
     class Meta:
         model = Sold
-        fields = ['id', 'quantity', 'date', 'updated_on', 'customer', 'item', 'total_price', 'profit']
+        fields = ['id', 'quantity', 'date', 'updated_on', 'customer', 'sold_to', 'project', 'item', 'item_sold', 'cost_price','selling_price', 'total_price', 'profit']
         read_only_fields = ['id', 'updated_on']
+        extra_kwargs = {'customer': {'write_only': True}, 'item': {'write_only': True}}
 
 
 class AddSockSerializer(ModelSerializer):
+    inventory_item = InventoryItemSerializer(source="category", read_only=True)
+
     class Meta:
         model = AddStock
-        fields = '__all__'
+        fields = ["item", "inventory_item", "quantity", "date"]
+        extra_kwargs = {'item': {'write_only': True}}
 
 
 class CustomerSerializer(ModelSerializer):
@@ -168,7 +201,8 @@ class RawMaterialSerializer(ModelSerializer):
 
     class Meta:
         model = RawMaterial
-        fields = ["id", "name", "unit", "quantity", "price", "category", "store_category", "description", "image", "cost_per_unit"]
+        fields = ["id", "name", "unit", "quantity", "price", "category", "store_category", "description", "image",
+                  "cost_per_unit"]
         read_only_fields = ["id"]
 
 

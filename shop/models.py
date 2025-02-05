@@ -1,3 +1,4 @@
+from django.core.validators import MinValueValidator
 from django.db import models
 from customers.models import Customer
 from django.utils.timezone import now
@@ -17,7 +18,7 @@ class InventoryItem(models.Model):
     category = models.ForeignKey(InventoryCategory, on_delete=models.PROTECT, null=True, blank=True)
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(upload_to="shop/", blank=True, null=True)
-    stock = models.PositiveIntegerField(default=0)
+    stock = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
     dimensions = models.CharField(max_length=100)
@@ -28,7 +29,7 @@ class InventoryItem(models.Model):
         return self.stock * self.selling_price
 
     @property
-    def profit(self):
+    def profit_per_item(self):
         return self.selling_price - self.cost_price
 
     def __str__(self):
@@ -39,7 +40,7 @@ class Sold(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT)
     project = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True)
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT)
-    quantity = models.PositiveIntegerField()
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
     date = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(null=True, blank=True)
 
@@ -66,5 +67,5 @@ class Sold(models.Model):
 
 class AddStock(models.Model):
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT)
-    quantity = models.PositiveIntegerField()
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
     date = models.DateTimeField(auto_now_add=True)

@@ -7,12 +7,10 @@ from expensis.models import Expense, ExpenseCategory
 from products.models import Quotation, Product, ProductContractor, ProductSalaryWorker
 from project.models import Project
 from store.models import RawMaterial, Removed, StoreCategory
-from workers.models import Contractors, SalaryWorkers
-from django.db.models import Sum
-from datetime import datetime
-from django.db.models.functions import TruncDate
+from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryWorkersRecord
+from django.db.models import Sum, F, ExpressionWrapper, DecimalField
 from django.shortcuts import get_object_or_404
-
+from decimal import Decimal
 
 class InventoryCategorySerializer(ModelSerializer):
     class Meta:
@@ -42,30 +40,30 @@ class SimpleInventoryItemSerializer(ModelSerializer):
 
 
 class SimpleCustomerSerializer(ModelSerializer):
-
     class Meta:
         model = Customer
         fields = ['id', 'name']
         read_only_fields = ['id']
 
 
-class SimpleProductSerializer(ModelSerializer):
-    inventory_category = InventoryCategorySerializer(source="category", read_only=True)
-
+class SimpleProjectSerializer(ModelSerializer):
     class Meta:
-        model = InventoryItem
-        fields = ['id', 'name', 'inventory_category', 'dimensions']
-        read_only_fields = ['id']
+        model = Project
+        fields = ['id', 'name']
+        read_only_fields = ["id"]
 
 
 class SoldSerializer(ModelSerializer):
     item_sold = SimpleInventoryItemSerializer(source="item", read_only=True)
     sold_to = SimpleCustomerSerializer(source="customer", read_only=True)
+    linked_project = SimpleProjectSerializer(source="project", read_only=True)
 
     class Meta:
         model = Sold
-        fields = ['id', 'quantity', 'date', 'updated_on', 'customer', 'sold_to', 'project', 'item', 'item_sold', 'cost_price','selling_price', 'total_price', 'profit']
-        read_only_fields = ['id', 'updated_on']
+        fields = ['id', 'quantity', 'date', 'updated_on', 'customer', 'sold_to', 'project', 'linked_project', 'item',
+                  'item_sold',
+                  'cost_price', 'selling_price', 'total_price', 'profit']
+        read_only_fields = ['id', 'updated_on', 'project']
         extra_kwargs = {'customer': {'write_only': True}, 'item': {'write_only': True}}
 
 
@@ -142,7 +140,6 @@ class QuotationSerializer(serializers.ModelSerializer):
                 "name": f"{salary_worker_obj.first_name} {salary_worker_obj.last_name}"
             })
 
-        data["contractor"] = contractor_list
         data["salary_worker"] = salary_worker_list
         return data
 
@@ -153,7 +150,6 @@ class QuotationSerializer(serializers.ModelSerializer):
 
 
 class ProductContractorSerializer(serializers.ModelSerializer):
-    # contractor = ContractorsSerializer()
 
     class Meta:
         model = ProductContractor
@@ -162,7 +158,6 @@ class ProductContractorSerializer(serializers.ModelSerializer):
 
 
 class ProductSalaryWorkerSerializer(serializers.ModelSerializer):
-    # salary_worker = SalaryWorkersSerializer()
 
     class Meta:
         model = ProductSalaryWorker
@@ -170,16 +165,45 @@ class ProductSalaryWorkerSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'product']
 
 
-class ProductSerializer(serializers.ModelSerializer):
+class ProductSerializer(ModelSerializer):
     contractors = ProductContractorSerializer(source="productcontractor_set", many=True, read_only=True)
     salary_workers = ProductSalaryWorkerSerializer(source="productsalaryworker_set", many=True, read_only=True)
+
+    total_raw_material_cost = serializers.SerializerMethodField()
+    total_artisan_cost = serializers.SerializerMethodField()
+    total_production_cost = serializers.SerializerMethodField()
+    grand_total = serializers.SerializerMethodField()
+    profit = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
             "id", "name", "quantity", "images", "dimensions", "colour", "design",
-            "contractors", "salary_workers", "selling_price", "overhead_cost", "total_production_cost", "profit"
+            "contractors", "salary_workers", "selling_price", "overhead_cost",
+            "total_raw_material_cost", "total_artisan_cost",
+            "total_production_cost", "grand_total", "profit"
         ]
+
+    def get_total_raw_material_cost(self, obj):
+        raw_materials = Removed.objects.filter(product=obj).annotate(
+            total_cost=ExpressionWrapper(F("quantity") * F("material__price"), output_field=DecimalField())
+        ).aggregate(total=Sum("total_cost"))["total"]
+
+        return raw_materials or Decimal(0)
+
+    def get_total_artisan_cost(self, obj):
+        contractor_cost = ProductContractor.objects.filter(product=obj).aggregate(total=Sum("cost"))["total"] or Decimal(0)
+        salary_worker_cost = ProductSalaryWorker.objects.filter(product=obj).aggregate(total=Sum("cost"))["total"] or Decimal(0)
+        return contractor_cost + salary_worker_cost
+
+    def get_total_production_cost(self, obj):
+        return self.get_total_artisan_cost(obj) + self.get_total_raw_material_cost(obj)
+
+    def get_grand_total(self, obj):
+        return obj.overhead_cost + self.get_total_production_cost(obj)
+
+    def get_profit(self, obj):
+        return (obj.selling_price * obj.quantity) - self.get_grand_total(obj)
 
 
 class RawMaterialUsedSerializer(ModelSerializer):
@@ -213,7 +237,55 @@ class ProjectSerializer(ModelSerializer):
         read_only_fields = ["id", "start_date"]
 
 
+class SimpleProductSerializer(ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'name']
+
+
+class SimpleRawMaterialSerializer(ModelSerializer):
+    class Meta:
+        model = RawMaterial
+        fields = ['id', 'name']
+
+
 class RemovedSerializer(ModelSerializer):
+    product_its_used = SimpleProductSerializer(source="product", read_only=True)
+    raw_material = SimpleRawMaterialSerializer(source="material", read_only=True)
+
     class Meta:
         model = Removed
-        fields = '__all__'
+        fields = ["id", "material", "raw_material", "quantity", "product", "product_its_used", "date"]
+        read_only_fields = ["id", "date"]
+        extra_kwargs = {'material': {'write_only': True}, 'product': {'write_only': True}}
+
+
+class SimpleContractorsSerializer(ModelSerializer):
+    class Meta:
+        model = Contractors
+        fields = ['id', 'first_name', 'last_name']
+
+
+class SimpleSalaryWorkersSerializer(ModelSerializer):
+    class Meta:
+        model = SalaryWorkers
+        fields = ['id', 'first_name', 'last_name']
+
+
+class ContractorRecordSerializer(ModelSerializer):
+    worker = SimpleContractorsSerializer(source="contractor", read_only=True)
+
+    class Meta:
+        model = ContractorRecord
+        fields = ['id', 'report', 'date', 'worker']
+        read_only_fields = ['id', 'date']
+
+
+class SalaryWorkersRecordSerializer(ModelSerializer):
+    worker = SimpleContractorsSerializer(source="salary_worker", read_only=True)
+
+    class Meta:
+        model = SalaryWorkersRecord
+        fields = ['id', 'report', 'date', 'worker']
+        read_only_fields = ['id', 'date']
+

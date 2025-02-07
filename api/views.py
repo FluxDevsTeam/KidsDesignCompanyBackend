@@ -9,20 +9,23 @@ from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOw
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
     QuotationSerializer, ProductSerializer, RawMaterialSerializer, ProjectSerializer, RawMaterialUsedSerializer, \
-    RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer, ExpenseCategorySerializer, AddSockSerializer,\
-    InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer, StoreCategorySerializer
+    RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer, ExpenseCategorySerializer, AddSockSerializer, \
+    InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer, StoreCategorySerializer, \
+    SalaryWorkersRecordSerializer, ContractorRecordSerializer
 from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory
 from products.models import Quotation, Product, ProductSalaryWorker, ProductContractor
 from project.models import Project
 from store.models import RawMaterial, Removed, StoreCategory
-from workers.models import Contractors, SalaryWorkers
+from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryWorkersRecord
 from rest_framework import viewsets, status, permissions
 from django.contrib.auth import get_user_model
 from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter
 from django.db.models import Sum
 from django_filters.rest_framework import DjangoFilterBackend
+from datetime import datetime
+from django.db.models import F, ExpressionWrapper, DecimalField, Sum
 
 User = get_user_model()
 
@@ -90,8 +93,43 @@ class ApiSold(ModelViewSet):
     filterset_class = SoldFilter
     search_fields = ['item__name', 'customer__name']
 
-    # def list(self, request, *args, **kwargs):
-    #
+    def list(self, request, *args, **kwargs):
+        filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
+        filtered_solds = filterset.qs.order_by('-date')
+        daily_data = []
+        current_date = None
+        daily_solds = []
+        for sold in filtered_solds:
+            sold_date = sold.date.date() if isinstance(sold.date, datetime) else sold.date
+            if current_date != sold_date:
+                if daily_solds:
+                    daily_data.append({
+                        "date": current_date.strftime('%Y-%m-%d'),
+                        "entries": self.get_serializer(daily_solds, many=True).data,
+                        "daily_total": sum(s.total_price for s in daily_solds)
+                    })
+                current_date = sold_date
+                daily_solds = [sold]
+            else:
+                daily_solds.append(sold)
+        if daily_solds:
+            daily_data.append({
+                "date": current_date.strftime('%Y-%m-%d'),
+                "entries": self.get_serializer(daily_solds, many=True).data,
+                "daily_total": sum(s.total_price for s in daily_solds)
+            })
+        total_price_expr = ExpressionWrapper(F('quantity') * F('selling_price'), output_field=DecimalField(max_digits=10, decimal_places=2))
+        monthly_total = filtered_solds.aggregate(total=Sum(total_price_expr))['total'] or 0.0
+        response_data = {
+            "daily_data": daily_data,
+            "monthly_total": monthly_total,
+        }
+        year = request.query_params.get('year', None)
+        if year:
+            yearly_total = self.get_queryset().filter(date__year=year).aggregate(total=Sum(total_price_expr))['total'] or 0.0
+            response_data["yearly_total"] = yearly_total
+        return Response(response_data)
+
     def create(self, request, *args, **kwargs):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
@@ -141,10 +179,13 @@ class ApiSold(ModelViewSet):
         project = request.data.get("project")
         sold_item = self.get_object()
 
-        if not item_id and not quantity and not selling_price and not cost_price:
-            return Response(
-                {"error": "Either one or more of 'item' or 'quantity' or 'cost_price' or 'selling_price' is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if project:
+            project_db = get_object_or_404(Project, id=int(project))
+            project = project_db
 
+        if all(field is None for field in [item_id, quantity, selling_price, cost_price, project]):
+            return Response(
+                {"error": "At least one of 'item', 'quantity', 'cost_price', 'selling_price', or 'project' is required."}, status=status.HTTP_400_BAD_REQUEST)
         if quantity is not None:
             try:
                 quantity = int(quantity)
@@ -172,46 +213,43 @@ class ApiSold(ModelViewSet):
             except ValueError:
                 return Response({"error": "selling_price most be a number"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if project is not None:
-            try:
-                get_object_or_404(Project, id=project)
-            except ValueError:
-                return Response({"error": "invalid project"}, status=status.HTTP_400_BAD_REQUEST)
-
         with transaction.atomic():
             if item_id and int(item_id) != int(sold_item.item.id):
-
+                updated_fields = []
                 old_inventory_item = get_object_or_404(InventoryItem, id=sold_item.item.id)
                 old_inventory_item.stock += sold_item.quantity
 
                 new_inventory_item = get_object_or_404(InventoryItem, id=item_id)
-
                 if quantity is None:
                     quantity = sold_item.quantity
                 if quantity > new_inventory_item.stock:
                     return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
 
-                if cost_price:
+                if cost_price and float(cost_price) != float(sold_item.cost_price):
                     sold_item.cost_price = cost_price
-                if selling_price:
+                    updated_fields.append("cost price")
+
+                if selling_price and float(selling_price) != float(sold_item.selling_price):
                     sold_item.selling_price = selling_price
-                if project:
+                    updated_fields.append("selling price")
+                if project and project != sold_item.project:
                     sold_item.project = project
 
                 old_inventory_item.save()
                 new_inventory_item.stock -= quantity
                 new_inventory_item.save()
 
-                sold_item.item.id = item_id
+                sold_item.item = new_inventory_item
                 sold_item.quantity = quantity
                 sold_item.save()
+                updated_fields.append("Sales")
 
-                return Response({"message": "Sale edited successfully."}, status=status.HTTP_200_OK)
+                return Response({"data": f"{', '.join(updated_fields)} updated successfully"}, status=status.HTTP_200_OK)
 
             if quantity is not None and quantity != sold_item.quantity:
                 inventory_item = get_object_or_404(InventoryItem, id=sold_item.item.id)
                 difference = abs(quantity - sold_item.quantity)
-
+                updated_fields = []
                 if quantity > sold_item.quantity:
                     if difference > inventory_item.stock:
                         return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
@@ -219,25 +257,29 @@ class ApiSold(ModelViewSet):
                 else:
                     inventory_item.stock += difference
 
-                if cost_price:
+                if cost_price and float(cost_price) != float(sold_item.cost_price):
                     sold_item.cost_price = cost_price
-                if selling_price:
+                    updated_fields.append("cost price")
+
+                if selling_price and float(selling_price) != float(sold_item.selling_price):
                     sold_item.selling_price = selling_price
-                if project:
+                    updated_fields.append("selling price")
+                if project and project != sold_item.project:
                     sold_item.project = project
 
                 inventory_item.save()
                 sold_item.quantity = quantity
                 sold_item.save()
+                updated_fields.append("Quantity")
 
-                return Response({"message": "Sale quantity edited successfully."}, status=status.HTTP_200_OK)
+                return Response({"data": f"{', '.join(updated_fields)} updated successfully"}, status=status.HTTP_200_OK)
             updated_fields = []
 
-            if project and project != sold_item.item.id:
+            if project and project != sold_item.project:
                 sold_item.project = project
                 updated_fields.append("project")
 
-            if cost_price and float(cost_price) != float(sold_item.selling_price):
+            if cost_price and float(cost_price) != float(sold_item.cost_price):
                 sold_item.cost_price = cost_price
                 updated_fields.append("cost price")
 
@@ -248,7 +290,7 @@ class ApiSold(ModelViewSet):
             # Save only if something was updated
             if updated_fields:
                 sold_item.save()
-                return Response({"data": f"{', '.join(updated_fields)} updated successfully"})
+                return Response({"data": f"{', '.join(updated_fields)} updated successfully"}, status=status.HTTP_200_OK)
 
             return Response({"message": "No changes made."}, status=status.HTTP_200_OK)
 
@@ -568,3 +610,39 @@ class ApiSalaryWorkers(ModelViewSet):
     serializer_class = SalaryWorkersSerializer
     queryset = SalaryWorkers.objects.all()
     # permission_classes = [IsCEO | IsArtisanReadOnly]
+
+
+class ApiSalaryWorkersRecord(ModelViewSet):
+    serializer_class = SalaryWorkersRecordSerializer
+
+    def get_queryset(self):
+        salary_id = self.kwargs.get('salary_worker_pk')
+        return SalaryWorkersRecord.objects.filter(salary_worker=salary_id)
+
+    def perform_create(self, serializer):
+        salary_id = self.kwargs.get('salary_worker_pk')
+        salary_worker = get_object_or_404(SalaryWorkers, pk=salary_id)
+        serializer.save(salary_worker=salary_worker)
+
+    def perform_update(self, serializer):
+        salary_id = self.kwargs.get('salary_worker_pk')
+        salary_worker = get_object_or_404(SalaryWorkers, pk=salary_id)
+        serializer.save(salary_worker=salary_worker)
+
+
+class ApiContractorRecord(ModelViewSet):
+    serializer_class = ContractorRecordSerializer
+
+    def get_queryset(self):
+        contractor_id = self.kwargs.get('contractor_pk')
+        return ContractorRecord.objects.filter(contractor=contractor_id)
+
+    def perform_create(self, serializer):
+        contractor_id = self.kwargs.get('contractor_pk')
+        contractor = get_object_or_404(Contractors, pk=contractor_id)
+        serializer.save(contractor=contractor)
+
+    def perform_update(self, serializer):
+        contractor_id = self.kwargs.get('contractor_pk')
+        contractor = get_object_or_404(Contractors, pk=contractor_id)
+        serializer.save(contractor=contractor)

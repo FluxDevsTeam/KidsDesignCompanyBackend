@@ -3,6 +3,7 @@ import datetime
 from django.db import models
 from customers.models import Customer
 from decimal import Decimal
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class Project(models.Model):
@@ -12,8 +13,11 @@ class Project(models.Model):
     status = models.CharField(max_length=50, default="Not started")
     start_date = models.DateField(default=datetime.date.today)
     deadline = models.DateField(blank=True, null=True)
+    progress = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)], help_text="Progress as a whole number percentage (0 to 100).")
     date_delivered = models.DateField(blank=True, null=True)
-    other_expensis = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    logistics = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    service_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     is_delivered = models.BooleanField(default=False)
     archived = models.BooleanField(default=False)
 
@@ -25,7 +29,7 @@ class Project(models.Model):
         return sum(self.products.total_production_cost) + sum(self.shop_items.selling_price) + self.running_expenses + self.other_expensis
 
     def __str__(self):
-        return f"Project for {self.customer} )"
+        return f"Project {self.name}"
 
     class Meta:
         ordering = ["deadline"]

@@ -2,43 +2,34 @@ from django.db import models
 from workers.models import Contractors, SalaryWorkers
 from project.models import Project
 from django.core.validators import MinValueValidator, MaxValueValidator
+import project.utils as p
 
 
 class Product(models.Model):
     project = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True)
     name = models.CharField(max_length=100)
-    quantity = models.PositiveIntegerField()
+    quantity = models.PositiveIntegerField(default=1)
     images = models.ImageField(upload_to="product/", blank=True, null=True)
+    sketch = models.ImageField(upload_to="product/sketch/", blank=True, null=True)
     dimensions = models.CharField(max_length=50)
     colour = models.CharField(max_length=50)
-    design = models.TextField()
+    design = models.TextField(null=True, blank=True)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
     overhead_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    overhead_cost_base_at_creation = models.DecimalField(max_digits=15, decimal_places=2, blank=True, null=True)
     progress = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)], help_text="Progress as a whole number percentage (0 to 100).")
-    production_note = models.TextField()
+    production_note = models.TextField(null=True, blank=True)
 
-    @property
-    def total_production_cost(self):
-        total_cost = 5
-
-        return total_cost
-
-    @property
-    def total_artisan_cost(self):
-        total_cost = 0
-        total_cost += int(sum([pc.cost for pc in self.productcontractor_set.all()]))
-        total_cost += sum([psw.cost for psw in self.productsalaryworker_set.all()])
-        return total_cost
-
-    @property
-    def profit(self):
-        return (self.selling_price - self.total_production_cost) * self.quantity
+    def save(self, *args, **kwargs):
+        if self.overhead_cost_base_at_creation is None:
+            self.overhead_cost_base_at_creation = p.get_overhead_cost_instance()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
 
     class Meta:
-        ordering = ["name"]
+        ordering = ["progress"]
 
 
 class Quotation(models.Model):
@@ -64,7 +55,6 @@ class ProductContractor(models.Model):
 class ProductSalaryWorker(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     salary_worker = models.ForeignKey(SalaryWorkers, on_delete=models.PROTECT)
-    cost = models.DecimalField(max_digits=10, decimal_places=2)  # Individual pay
 
     def __str__(self):
         return f"{self.salary_worker.name} for {self.product.name}"

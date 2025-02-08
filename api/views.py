@@ -3,7 +3,6 @@ from rest_framework.exceptions import MethodNotAllowed
 from django.shortcuts import get_object_or_404
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.response import Response
-from rest_framework.decorators import action
 from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly, \
     IsArtisanReadOnly, IsStoreKeeperReadonly, IsManager
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
@@ -11,18 +10,17 @@ from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSeriali
     QuotationSerializer, ProductSerializer, RawMaterialSerializer, ProjectSerializer, RawMaterialUsedSerializer, \
     RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer, ExpenseCategorySerializer, AddSockSerializer, \
     InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer, StoreCategorySerializer, \
-    SalaryWorkersRecordSerializer, ContractorRecordSerializer
+    SalaryWorkersRecordSerializer, ContractorRecordSerializer, OverheadCostSerializer
 from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory
 from products.models import Quotation, Product, ProductSalaryWorker, ProductContractor
-from project.models import Project
+from project.models import Project, OverheadCost
 from store.models import RawMaterial, Removed, StoreCategory
 from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryWorkersRecord
-from rest_framework import viewsets, status, permissions
+from rest_framework import viewsets, status, permissions, mixins
 from django.contrib.auth import get_user_model
-from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter
-from django.db.models import Sum
+from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter, ProjectFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from datetime import datetime
 from django.db.models import F, ExpressionWrapper, DecimalField, Sum
@@ -37,6 +35,12 @@ class ApiInventoryItem(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = InventoryItemFilter
     search_fields = ['name', 'description']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if 'archived' not in self.request.query_params:
+            qs = qs.filter(archived=False)
+        return qs
 
 
 class ApiAddStock(ModelViewSet):
@@ -134,10 +138,26 @@ class ApiSold(ModelViewSet):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
         customer = request.data.get("customer")
+        project = request.data.get("project")
+        logistics = request.data.get("logistics")
 
-        if not item_id or not quantity or not customer:
+        if bool(customer) == bool(project):
+            if not customer:
+                return Response({"error": "Either 'customer' or 'project' is required."}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({"error": "Only one of 'customer' or 'project' is allowed."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if (customer and (not logistics)) or (logistics and (not customer)):
             return Response(
-                {"error": "'item', 'customer' and 'quantity' are all required."}, status=status.HTTP_400_BAD_REQUEST)
+                {"error": "both 'customer' and 'logistics' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if project and logistics:
+            return Response(
+                {"error": "you cant set logistics for item sold in a project"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not item_id or not quantity:
+            return Response(
+                {"error": "'item', and 'quantity' are both required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             quantity = int(quantity)
@@ -148,14 +168,18 @@ class ApiSold(ModelViewSet):
                 {"error": "'quantity' must be a positive integer."}, status=status.HTTP_400_BAD_REQUEST)
 
         inventory_item = get_object_or_404(InventoryItem, id=item_id)
-        customer_data = get_object_or_404(Customer, id=customer)
         if quantity > inventory_item.stock:
             return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
+        if project:
+            project_instance = get_object_or_404(Project, id=project)
+            customer = project_instance.customer
+            Sold.objects.create(item=inventory_item, quantity=quantity, customer=customer, cost_price=inventory_item.cost_price, selling_price=inventory_item.selling_price, project=project_instance)
+        else:
+            customer_data = get_object_or_404(Customer, id=customer)
+            Sold.objects.create(item=inventory_item, quantity=quantity, customer=customer_data, cost_price=inventory_item.cost_price, selling_price=inventory_item.selling_price, logistics=logistics)
 
-        Sold.objects.create(item=inventory_item, quantity=quantity, customer=customer_data)
         inventory_item.stock -= quantity
         inventory_item.save()
-
         return Response(
             {"message": "Sale completed successfully."}, status=status.HTTP_200_OK)
 
@@ -177,15 +201,33 @@ class ApiSold(ModelViewSet):
         selling_price = request.data.get("selling_price")
         cost_price = request.data.get("cost_price")
         project = request.data.get("project")
+        customer = request.data.get("customer")
+        logistics = request.data.get("logistics")
         sold_item = self.get_object()
 
+        if (customer and (not logistics)) and (logistics and (not customer)) and (customer and (not sold_item.logistics)) and (logistics and (not sold_item.customer)):
+            return Response(
+                {"error": "both 'customer' and 'logistics' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if (((project and logistics) or (project and sold_item.logistics) or (sold_item.project and logistics)) and (not customer) and project) and (project and (logistics or customer)):
+            return Response(
+                {"error": "you cant set logistics for item sold in a project"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if customer and project:
+            return Response(
+                {"error": "only one of either 'customer' or 'project' is required."}, status=status.HTTP_400_BAD_REQUEST)
         if project:
             project_db = get_object_or_404(Project, id=int(project))
             project = project_db
 
-        if all(field is None for field in [item_id, quantity, selling_price, cost_price, project]):
+        if customer:
+            customer_db = get_object_or_404(Customer, id=int(customer))
+            customer = customer_db
+
+        if all(field is None for field in [item_id, quantity, selling_price, cost_price, project, customer, logistics]):
             return Response(
-                {"error": "At least one of 'item', 'quantity', 'cost_price', 'selling_price', or 'project' is required."}, status=status.HTTP_400_BAD_REQUEST)
+                {"error": "At least one of 'item', 'quantity', 'cost_price', 'selling_price', 'customer', 'logistics' or 'project' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
         if quantity is not None:
             try:
                 quantity = int(quantity)
@@ -194,6 +236,15 @@ class ApiSold(ModelViewSet):
                                     status=status.HTTP_400_BAD_REQUEST)
             except ValueError:
                 return Response({"error": "quantity most be a number"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if logistics is not None:
+            try:
+                logistics = float(logistics)
+                if logistics <= 0:
+                    return Response({"error": "logistics must be a positive number."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+            except ValueError:
+                return Response({"error": "logistics most be a number"}, status=status.HTTP_400_BAD_REQUEST)
 
         if cost_price is not None:
             try:
@@ -232,8 +283,21 @@ class ApiSold(ModelViewSet):
                 if selling_price and float(selling_price) != float(sold_item.selling_price):
                     sold_item.selling_price = selling_price
                     updated_fields.append("selling price")
+
                 if project and project != sold_item.project:
                     sold_item.project = project
+                    sold_item.customer = None
+                    sold_item.logistics = None
+                    updated_fields.append("project")
+
+                if customer and customer != sold_item.customer:
+                    sold_item.project = None
+                    sold_item.customer = customer
+                    updated_fields.append("customer")
+
+                if logistics and logistics != sold_item.logistics:
+                    sold_item.logistics = logistics
+                    updated_fields.append("logistics")
 
                 old_inventory_item.save()
                 new_inventory_item.stock -= quantity
@@ -264,8 +328,21 @@ class ApiSold(ModelViewSet):
                 if selling_price and float(selling_price) != float(sold_item.selling_price):
                     sold_item.selling_price = selling_price
                     updated_fields.append("selling price")
+
                 if project and project != sold_item.project:
                     sold_item.project = project
+                    sold_item.customer = None
+                    sold_item.logistics = None
+                    updated_fields.append("project")
+
+                if customer and customer != sold_item.customer:
+                    sold_item.project = None
+                    sold_item.customer = customer
+                    updated_fields.append("customer")
+
+                if logistics and logistics != sold_item.logistics:
+                    sold_item.logistics = logistics
+                    updated_fields.append("logistics")
 
                 inventory_item.save()
                 sold_item.quantity = quantity
@@ -277,7 +354,14 @@ class ApiSold(ModelViewSet):
 
             if project and project != sold_item.project:
                 sold_item.project = project
+                sold_item.customer = None
+                sold_item.logistics = None
                 updated_fields.append("project")
+
+            if customer and customer != sold_item.customer:
+                sold_item.project = None
+                sold_item.customer = customer
+                updated_fields.append("customer")
 
             if cost_price and float(cost_price) != float(sold_item.cost_price):
                 sold_item.cost_price = cost_price
@@ -286,6 +370,10 @@ class ApiSold(ModelViewSet):
             if selling_price and float(selling_price) != float(sold_item.selling_price):
                 sold_item.selling_price = selling_price
                 updated_fields.append("selling price")
+
+            if logistics and logistics != sold_item.logistics:
+                sold_item.logistics = logistics
+                updated_fields.append("logistics")
 
             # Save only if something was updated
             if updated_fields:
@@ -357,7 +445,6 @@ class ApiExpense(ModelViewSet):
         return Response(response_data)
 
 
-# up next quotation
 
 
 class ApiQuotation(ModelViewSet):
@@ -475,7 +562,6 @@ class ApiProductSalaryWorker(ModelViewSet):
 class ApiProduct(ModelViewSet):
     serializer_class = ProductSerializer
     queryset = Product.objects.prefetch_related("productcontractor_set", "productsalaryworker_set")
-
     # permission_classes = [IsCEO | IsProjectManager]
 
 
@@ -483,7 +569,15 @@ class ApiProject(ModelViewSet):
     serializer_class = ProjectSerializer
     queryset = Project.objects.all()
     # permission_classes = [IsCEO | IsProjectManager]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = ProjectFilter
+    search_fields = ['customer__name', 'name']
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if 'archived' not in self.request.query_params:
+            qs = qs.filter(archived=False)
+        return qs
 
 class ApiRawMaterial(ModelViewSet):
     serializer_class = RawMaterialSerializer
@@ -646,3 +740,27 @@ class ApiContractorRecord(ModelViewSet):
         contractor_id = self.kwargs.get('contractor_pk')
         contractor = get_object_or_404(Contractors, pk=contractor_id)
         serializer.save(contractor=contractor)
+
+
+class OverheadCostViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
+    serializer_class = OverheadCostSerializer
+
+    def get_queryset(self):
+        return OverheadCost.objects.all()
+
+    def get_object(self):
+        instance, created = OverheadCost.objects.get_or_create(id=1)
+        return instance
+
+    def list(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def update(self, request, *args, **kwargs):
+        if request.method.upper() == 'PUT':
+            return Response(
+                {'detail': 'PUT method is not allowed; only PATCH is permitted.'},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
+        return super().update(request, *args, **kwargs)

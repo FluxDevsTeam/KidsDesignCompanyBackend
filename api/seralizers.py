@@ -326,38 +326,33 @@ class ProjectSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'start_date']
 
     def get_total_grand_total(self, obj):
-        return round(Product.objects.filter(project=obj).aggregate(
-            total=Sum(F('overhead_cost') * F('overhead_cost_base_at_creation') + F('total_production_cost')))[
-                         'total'] or 0)
+        return round(sum(product.get_grand_total() for product in obj.product_set.all()))
 
     def get_total_production_cost(self, obj):
-        return round(Product.objects.filter(project=obj).aggregate(total=Sum('total_production_cost'))['total'] or 0)
+        return round(sum(product.get_total_production_cost() for product in obj.product_set.all()))
 
     def get_total_artisan_cost(self, obj):
-        return round(Product.objects.filter(project=obj).aggregate(total=Sum('total_artisan_cost'))['total'] or 0)
+        return round(sum(product.get_total_artisan_cost() for product in obj.product_set.all()))
 
     def get_total_overhead_cost(self, obj):
-        return round(Product.objects.filter(project=obj).aggregate(total=Sum('overhead_cost'))['total'] or 0)
+        return round(sum(product.overhead_cost for product in obj.product_set.all()))
 
     def get_total_raw_material_cost(self, obj):
-        return round(Product.objects.filter(project=obj).aggregate(total=Sum('total_raw_material_cost'))['total'] or 0)
+        return round(sum(product.get_total_raw_material_cost() for product in obj.product_set.all()))
 
     def get_total_profit(self, obj):
         product_profit = self.get_total_grand_total(obj)
-        sold_profit = Sold.objects.filter(project=obj).aggregate(total=Sum(F('quantity') * F('item__selling_price')))[
-                          'total'] or 0
+        sold_profit = sum(sold.quantity * sold.item.selling_price for sold in obj.sold_set.all())
         return round(product_profit + sold_profit)
 
     def get_total_expenses(self, obj):
-        return round(Expense.objects.filter(project=obj).aggregate(total=Sum('amount'))['total'] or 0)
+        return round(sum(expense.amount for expense in obj.expense_set.all()))
 
     def get_total_cost_price_sold_items(self, obj):
-        return round(
-            Sold.objects.filter(project=obj).aggregate(total=Sum(F('quantity') * F('item__cost_price')))['total'] or 0)
+        return round(sum(sold.quantity * sold.item.cost_price for sold in obj.sold_set.all()))
 
     def get_total_selling_price_sold_items(self, obj):
-        return round(Sold.objects.filter(project=obj).aggregate(total=Sum(F('quantity') * F('item__selling_price')))[
-                         'total'] or 0)
+        return round(sum(sold.quantity * sold.item.selling_price for sold in obj.sold_set.all()))
 
     def get_total_project_cost(self, obj):
         return self.get_total_grand_total(obj) + self.get_total_cost_price_sold_items(obj)

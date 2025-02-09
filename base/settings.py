@@ -188,6 +188,8 @@ JAZZMIN_SETTINGS = {
 JAZZMIN_UI_TWEAKS = {
     "theme": "cyborg",
 }
+
+CORS_ALLOW_ALL_ORIGINS = True
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_USE_SSL = True
 EMAIL_USE_TSL = False

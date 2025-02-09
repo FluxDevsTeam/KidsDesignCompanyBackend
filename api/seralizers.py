@@ -1,3 +1,4 @@
+from django.core.serializers.json import DjangoJSONEncoder
 from rest_framework.fields import SerializerMethodField
 from rest_framework.serializers import ModelSerializer, ListSerializer
 from rest_framework import serializers
@@ -6,9 +7,10 @@ from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory, Assets
 from products.models import Quotation, Product, ProductContractor, ProductSalaryWorker
 from project.models import Project, OverheadCost
-from store.models import RawMaterial, Removed, StoreCategory
+from store.models import RawMaterial, Removed, StoreCategory, AddRawMaterials
 from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryWorkersRecord
 from django.db.models import Sum, F, ExpressionWrapper, DecimalField
+import json
 
 from django.shortcuts import get_object_or_404
 from decimal import Decimal
@@ -69,13 +71,13 @@ class SoldSerializer(ModelSerializer):
     class Meta:
         model = Sold
         fields = ['id', 'quantity', 'date', 'updated_on', 'customer', 'sold_to', 'project', 'linked_project', 'item',
-                  'item_sold','logistics', 'cost_price', 'selling_price', 'total_price', 'profit']
+                  'item_sold', 'logistics', 'cost_price', 'selling_price', 'total_price', 'profit']
         read_only_fields = ['id', 'updated_on', 'selling_price', 'cost_price']
         extra_kwargs = {'customer': {'write_only': True}, 'item': {'write_only': True}, 'project': {'write_only': True}}
 
 
 class AddSockSerializer(ModelSerializer):
-    inventory_item = InventoryItemSerializer(source="category", read_only=True)
+    inventory_item = SimpleInventoryItemSerializer(source="item", read_only=True)
 
     class Meta:
         model = AddStock
@@ -156,59 +158,27 @@ class ProductContractorSerializer(serializers.ModelSerializer):
 class ProductSalaryWorkerSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductSalaryWorker
-        fields = ["id", "product", "salary_worker", "cost"]
+        fields = ["id", "product", "salary_worker", ]
         read_only_fields = ['id', 'product']
 
 
 class ProductSerializer(ModelSerializer):
     contractors = ProductContractorSerializer(source="productcontractor_set", many=True, read_only=True)
     salary_workers = ProductSalaryWorkerSerializer(source="productsalaryworker_set", many=True, read_only=True)
-    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.filter(archived=False, is_delivered=False), required=False, allow_null=True, write_only=True)
-    total_raw_material_cost = serializers.SerializerMethodField()
-    total_artisan_cost = serializers.SerializerMethodField()
-    total_production_cost = serializers.SerializerMethodField()
-    grand_total = serializers.SerializerMethodField()
-    grand_total_per_item = serializers.SerializerMethodField()
-    profit_per_item = serializers.SerializerMethodField()
-    profit = serializers.SerializerMethodField()
+    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.filter(archived=False, is_delivered=False),
+                                                 required=False, allow_null=True, write_only=True)
     linked_project = SimpleProjectSerializer(source="project", read_only=True)
 
     class Meta:
         model = Product
         fields = [
-            "id", "project", "linked_project", "name", "images", "sketch", "dimensions", "colour", "design", "production_note", "progress",
+            "id", "project", "linked_project", "name", "images", "sketch", "dimensions", "colour", "design",
+            "production_note", "progress",
             "contractors", "salary_workers", "selling_price", "overhead_cost", "overhead_cost_base_at_creation",
-            "total_raw_material_cost", "total_artisan_cost", "quantity", "total_production_cost", "grand_total", "grand_total_per_item", "profit", "profit_per_item"
+            "total_raw_material_cost", "total_artisan_cost", "quantity", "total_production_cost", "grand_total",
+            "grand_total_per_item", "profit", "profit_per_item"
         ]
         read_only_fields = ['overhead_cost_base_at_creation']
-
-    def get_total_raw_material_cost(self, obj):
-        raw_materials = Removed.objects.filter(product=obj).annotate(
-            total_cost=ExpressionWrapper(F("quantity") * F("material__price"), output_field=DecimalField())
-        ).aggregate(total=Sum("total_cost"))["total"]
-
-        return raw_materials or Decimal(0)
-
-    def get_total_artisan_cost(self, obj):
-        contractor_cost = ProductContractor.objects.filter(product=obj).aggregate(total=Sum("cost"))["total"] or Decimal(0)
-        return round(contractor_cost)
-
-    def get_total_production_cost(self, obj):
-        return round(self.get_total_artisan_cost(obj) + self.get_total_raw_material_cost(obj))
-
-    def get_grand_total(self, obj):
-        calculated_overhead = obj.overhead_cost * obj.overhead_cost_base_at_creation
-        return round(calculated_overhead + self.get_total_production_cost(obj))
-
-    def get_grand_total_per_item(self, obj):
-        calculated_overhead = obj.overhead_cost * obj.overhead_cost_base_at_creation
-        return round((calculated_overhead + self.get_total_production_cost(obj)) / obj.quantity)
-
-    def get_profit(self, obj):
-        return round((obj.selling_price * obj.quantity) - self.get_grand_total(obj))
-
-    def get_profit_per_item(self, obj):
-        return round(self.get_profit(obj) / obj.quantity)
 
 
 class RawMaterialUsedSerializer(ModelSerializer):
@@ -232,6 +202,13 @@ class RawMaterialSerializer(ModelSerializer):
         model = RawMaterial
         fields = ["id", "name", "unit", "quantity", "price", "category", "store_category", "description", "image",
                   "cost_per_unit"]
+        read_only_fields = ["id"]
+
+
+class SimpleRawMaterialSerializer(ModelSerializer):
+    class Meta:
+        model = RawMaterial
+        fields = ["id", "name", "unit"]
         read_only_fields = ["id"]
 
 
@@ -270,79 +247,100 @@ class SimpleExpenseSerializer(serializers.ModelSerializer):
         fields = ['name', 'amount']
 
 
-class SimpleProductSerializer(serializers.ModelSerializer):
-    grand_total = serializers.SerializerMethodField()
-    profit = serializers.SerializerMethodField()
-
+class SimpleProductSerializer(ModelSerializer):
     class Meta:
         model = Product
-        fields = ['id', 'name', 'grand_total', 'profit']
-
-    def get_grand_total(self, obj):
-        total_artisan_cost = ProductContractor.objects.filter(product=obj).aggregate(total=Sum('cost'))['total'] or 0
-        total_raw_material_cost = Removed.objects.filter(product=obj).annotate(
-            total_cost=ExpressionWrapper(F("quantity") * F("material__price"), output_field=DecimalField())
-        ).aggregate(total=Sum("total_cost"))["total"] or 0
-        return round(total_artisan_cost + total_raw_material_cost) + (obj.overhead_cost * obj.overhead_cost_base_at_creation)
-
-    def get_profit(self, obj):
-        return round((obj.selling_price * obj.quantity) - self.get_grand_total(obj))
+        fields = ['id', 'name', 'selling_price', 'grand_total', 'profit']
 
 
 class SimpleSoldSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='item.name', read_only=True)
-    total_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Sold
-        fields = ['id', 'name', 'quantity', 'total_price']
-
-    def get_total_price(self, obj):
-        return round(obj.quantity * obj.item.selling_price)
+        fields = ['id', 'name', 'quantity', 'cost_price', 'selling_price', 'total_price']
 
 
 class ProjectSerializer(serializers.ModelSerializer):
-    products = SimpleProductSerializer(many=True, read_only=True, source='product_set')
-    sold_items = SimpleSoldSerializer(many=True, read_only=True, source='sold_set')
-    expenses = SimpleExpenseSerializer(many=True, read_only=True, source='expense_set')
-
-    total_grand_total = serializers.SerializerMethodField()
-    total_production_cost = serializers.SerializerMethodField()
-    total_artisan_cost = serializers.SerializerMethodField()
-    total_overhead_cost = serializers.SerializerMethodField()
-    total_raw_material_cost = serializers.SerializerMethodField()
-    total_profit = serializers.SerializerMethodField()
-    total_expenses = serializers.SerializerMethodField()
-    total_cost_price_sold_items = serializers.SerializerMethodField()
-    total_selling_price_sold_items = serializers.SerializerMethodField()
+    products = serializers.SerializerMethodField()
+    sold_items = serializers.SerializerMethodField()
+    expenses = serializers.SerializerMethodField()
     total_project_cost = serializers.SerializerMethodField()
+    total_project_selling_price = serializers.SerializerMethodField()
     total_paid = serializers.SerializerMethodField()
     total_money_spent = serializers.SerializerMethodField()
     final_profit = serializers.SerializerMethodField()
+    customer_detail = SimpleCustomerSerializer(source="customer", read_only=True)
 
     class Meta:
         model = Project
-        fields = '__all__'
+        fields = [
+            'id', 'name', 'invoice_image', 'status', 'start_date', 'deadline', 'timeframe', 'date_delivered',
+            'all_items', 'total_project_selling_price','is_delivered', 'archived', 'customer', 'customer_detail',
+            'products', 'sold_items', 'expenses', 'selling_price', 'logistics',
+            'service_charge', 'total_project_cost', 'total_paid', 'total_money_spent', 'final_profit', 'note'
+        ]
         read_only_fields = ['id', 'start_date']
+        extra_kwargs = {'customer': {'write_only': True}}
+
+        # """   format    """
+        # {
+        #     "Task A": {"completed": false},
+        #     "Task B": {"completed": true}
+        # }
+
+    def get_products(self, obj):
+        products = SimpleProductSerializer(obj.product_set.all(), many=True).data
+        return {
+            "progress": obj.computed_progress,
+            "total_project_selling_price": self.get_total_project_selling_price(obj),
+            "total_production_cost": self.get_total_production_cost(obj),
+            "total_artisan_cost": self.get_total_artisan_cost(obj),
+            "total_overhead_cost": self.get_total_overhead_cost(obj),
+            "total_raw_material_cost": self.get_total_raw_material_cost(obj),
+            "total_grand_total": self.get_total_grand_total(obj),
+            "total_profit": self.get_total_profit(obj),
+            "products": products
+        }
+
+    def get_sold_items(self, obj):
+        sold_items = SimpleSoldSerializer(obj.sold_set.all(), many=True).data
+        return {
+            "total_cost_price_sold_items": self.get_total_cost_price_sold_items(obj),
+            "total_selling_price_sold_items": self.get_total_selling_price_sold_items(obj),
+            "sold_items": sold_items
+        }
+
+    def get_expenses(self, obj):
+        expenses = SimpleExpenseSerializer(obj.expense_set.all(), many=True).data
+        return {
+            "total_expenses": self.get_total_expenses(obj),
+            "expenses": expenses
+        }
 
     def get_total_grand_total(self, obj):
-        return round(sum(product.get_grand_total() for product in obj.product_set.all()))
+        return round(sum(product.grand_total for product in obj.product_set.all()))
+
+    def get_total_project_selling_price(self, obj):
+        return round(sum(product.selling_price for product in obj.product_set.all()))
 
     def get_total_production_cost(self, obj):
-        return round(sum(product.get_total_production_cost() for product in obj.product_set.all()))
+        return round(sum(product.total_production_cost for product in obj.product_set.all()))
 
     def get_total_artisan_cost(self, obj):
-        return round(sum(product.get_total_artisan_cost() for product in obj.product_set.all()))
+        return round(sum(product.total_artisan_cost for product in obj.product_set.all()))
 
     def get_total_overhead_cost(self, obj):
-        return round(sum(product.overhead_cost for product in obj.product_set.all()))
+        return round(
+            sum(product.overhead_cost * product.overhead_cost_base_at_creation for product in obj.product_set.all()))
 
     def get_total_raw_material_cost(self, obj):
-        return round(sum(product.get_total_raw_material_cost() for product in obj.product_set.all()))
+        return round(sum(product.total_raw_material_cost for product in obj.product_set.all()))
 
     def get_total_profit(self, obj):
-        product_profit = self.get_total_grand_total(obj)
-        sold_profit = sum(sold.quantity * sold.item.selling_price for sold in obj.sold_set.all())
+        product_profit = sum(product.profit for product in obj.product_set.all())
+        sold_profit = sum(
+            sold.quantity * (sold.item.selling_price - sold.item.cost_price) for sold in obj.sold_set.all())
         return round(product_profit + sold_profit)
 
     def get_total_expenses(self, obj):
@@ -416,7 +414,8 @@ class ExpenseSerializer(ModelSerializer):
 
     class Meta:
         model = Expense
-        fields = ['id', 'name', 'category', 'expense_category', 'description', 'project', 'shop', 'linked_project', 'sold_item', 'amount', 'quantity', 'date']
+        fields = ['id', 'name', 'category', 'expense_category', 'description', 'project', 'shop', 'linked_project',
+                  'sold_item', 'amount', 'quantity', 'date']
         read_only_fields = ['id', 'date']
         extra_kwargs = {'category': {'write_only': True}, 'project': {'write_only': True}, 'shop': {'write_only': True}}
 
@@ -450,7 +449,15 @@ class SalaryWorkersRecordSerializer(ModelSerializer):
 
 
 class AssetsSerializer(ModelSerializer):
-
     class Meta:
         model = Assets
         fields = ['name', 'value', 'expected_lifespan', 'is_still_available', 'get_total_value']
+
+
+class AddRawMaterialsSerializer(ModelSerializer):
+    material = SimpleRawMaterialSerializer(source="item", read_only=True)
+
+    class Meta:
+        model = AddRawMaterials
+        fields = ["item", "material", "quantity", "date"]
+        extra_kwargs = {'item': {'write_only': True}}

@@ -13,11 +13,3 @@ class Customer(models.Model):
 
     class Meta:
         ordering = ["name"]
-
-
-# class Payment(models.Model):
-#     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
-#     amount = models.IntegerField()
-#
-#     def __str__(self):
-#         return f"{self.customer.first_name} {self.customer.last_name} payment"

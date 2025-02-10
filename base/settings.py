@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
-
+import warnings
 from datetime import timedelta
 from pathlib import Path
 import os
@@ -198,3 +198,13 @@ EMAIL_PORT = 465
 EMAIL_HOST_USER = os.getenv("EMAIL")
 EMAIL_HOST_PASSWORD = os.getenv("PASSWORD")
 DEFAULT_FROM_EMAIL = os.getenv("EMAIL")
+
+
+
+# Silence specific warnings
+warnings.filterwarnings(
+    "ignore",
+    category=RuntimeWarning,
+    module="django.db.models.fields",
+    message="DateTimeField.*received a naive datetime.*"
+)

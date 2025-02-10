@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 from workers.models import Contractors, SalaryWorkers
 from project.models import Project
@@ -25,6 +27,52 @@ class Product(models.Model):
             self.overhead_cost_base_at_creation = p.get_overhead_cost_instance()
         super().save(*args, **kwargs)
 
+    @property
+    def total_raw_material_cost(self):
+        from django.db.models import Sum, F, ExpressionWrapper
+        from django.db.models.functions import Coalesce
+        from store.models import Removed
+        from django.db.models import Sum, F, ExpressionWrapper, DecimalField
+        raw_materials = Removed.objects.filter(product=self).annotate(
+            total_cost=ExpressionWrapper(
+                F("quantity") * F("material__price"),
+                output_field=DecimalField(max_digits=10, decimal_places=2)
+            )
+        ).aggregate(total=Coalesce(Sum("total_cost"), Decimal(0)))
+        return raw_materials['total']
+
+    @property
+    def total_artisan_cost(self):
+        from django.db.models import Sum
+        contractor_cost = ProductContractor.objects.filter(product=self).aggregate(total=Sum("cost"))["total"] or 0
+        return round(contractor_cost)
+
+    @property
+    def total_production_cost(self):
+        return round(self.total_artisan_cost + self.total_raw_material_cost)
+
+    @property
+    def grand_total(self):
+        calculated_overhead = self.overhead_cost * self.overhead_cost_base_at_creation
+        return round(calculated_overhead + self.total_production_cost)
+
+    @property
+    def grand_total_per_item(self):
+        if self.quantity == 0:
+            return 0
+        calculated_overhead = self.overhead_cost * self.overhead_cost_base_at_creation
+        return round((calculated_overhead + self.total_production_cost) / self.quantity)
+
+    @property
+    def profit(self):
+        return round((self.selling_price * self.quantity) - self.grand_total)
+
+    @property
+    def profit_per_item(self):
+        if self.quantity == 0:
+            return 0
+        return round(self.profit / self.quantity)
+
     def __str__(self):
         return self.name
 
@@ -46,7 +94,7 @@ class Quotation(models.Model):
 class ProductContractor(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     contractor = models.ForeignKey(Contractors, on_delete=models.PROTECT)
-    cost = models.DecimalField(max_digits=10, decimal_places=2)  # Individual pay
+    cost = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
         return f"{self.contractor.name} for {self.product.name}"

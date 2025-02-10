@@ -89,6 +89,7 @@ class ProjectSerializer(serializers.Serializer):
     balance = serializers.DecimalField(max_digits=15, decimal_places=2)
     is_owing = serializers.BooleanField()
 
+
 class ShopItemSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     item_name = serializers.CharField(source='item.name')
@@ -96,6 +97,7 @@ class ShopItemSerializer(serializers.Serializer):
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_paid = serializers.DecimalField(max_digits=10, decimal_places=2)
     date = serializers.DateTimeField()
+
 
 class CustomerSerializer(serializers.Serializer):
     id = serializers.IntegerField()
@@ -108,7 +110,18 @@ class CustomerSerializer(serializers.Serializer):
     total_balance = serializers.DecimalField(max_digits=15, decimal_places=2)
     is_owing = serializers.BooleanField()
 
+
 class CustomerDashboardSerializer(serializers.Serializer):
     total_customers = serializers.IntegerField()
     all_customers = CustomerSerializer(many=True)
     owing_customers = serializers.DictField()
+
+
+class CEODashboardSerializer(serializers.Serializer):
+    key_metrics = serializers.DictField()
+    income_breakdown = serializers.DictField()
+    expense_breakdown = serializers.DictField()
+    project_statistics = serializers.DictField()
+    monthly_trends = serializers.DictField()
+    categorical_data = serializers.DictField()
+    additional_metrics = serializers.DictField()

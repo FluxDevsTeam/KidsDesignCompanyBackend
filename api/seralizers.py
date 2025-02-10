@@ -6,7 +6,7 @@ from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory, Assets
 from products.models import Quotation, Product, ProductContractor, ProductSalaryWorker
-from project.models import Project, OverheadCost
+from project.models import Project, OverheadCost, OtherProduction
 from store.models import RawMaterial, Removed, StoreCategory, AddRawMaterials
 from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryWorkersRecord
 from django.db.models import Sum, F, ExpressionWrapper, DecimalField
@@ -187,7 +187,6 @@ class RawMaterialUsedSerializer(ModelSerializer):
         fields = '__all__'
 
 
-# ##################################################
 class StoreCategorySerializer(ModelSerializer):
     class Meta:
         model = StoreCategory
@@ -200,8 +199,7 @@ class RawMaterialSerializer(ModelSerializer):
 
     class Meta:
         model = RawMaterial
-        fields = ["id", "name", "unit", "quantity", "price", "category", "store_category", "description", "image",
-                  "cost_per_unit"]
+        fields = ["id", "name", "unit", "quantity", "price", "category", "store_category", "description", "image",]
         read_only_fields = ["id"]
 
 
@@ -212,33 +210,19 @@ class SimpleRawMaterialSerializer(ModelSerializer):
         read_only_fields = ["id"]
 
 
-# class SimpleSoldSerializer(ModelSerializer):
-#     name = serializers.CharField(source='item.name', read_only=True)
-#
-#     class Meta:
-#         model = Sold
-#         fields = ['id', 'name', 'quantity']
-#
-#
-# class SimpleProductSerializer(ModelSerializer):
-#     class Meta:
-#         model = Product
-#         fields = ['id', 'name']
-#
-#
-# class ProjectSerializer(ModelSerializer):
-#     products = SimpleProductSerializer(many=True, read_only=True, source='product_set')
-#     sold_items = SimpleSoldSerializer(many=True, read_only=True, source='sold_set')
-#     progress = serializers.IntegerField(source='computed_progress', read_only=True)
-#
-#     class Meta:
-#         model = Project
-#         fields = '__all__'
-#         read_only_fields = ["id", "start_date"]
+class OthersSimpleProductSerializer(ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'name']
 
 
-#  #########################################
-#  ###################################
+class OtherProductionSerializer(ModelSerializer):
+    project_link = OthersSimpleProductSerializer(source="project", read_only=True)
+
+    class Meta:
+        model = OtherProduction
+        fields = ['id', 'name', 'budget', 'project_link', 'cost']
+        read_only_fields = ['id']
 
 
 class SimpleExpenseSerializer(serializers.ModelSerializer):
@@ -261,6 +245,12 @@ class SimpleSoldSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'quantity', 'cost_price', 'selling_price', 'total_price']
 
 
+class SimpleOtherProductionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OtherProduction
+        fields = ['id', 'name', 'cost']
+
+
 class ProjectSerializer(serializers.ModelSerializer):
     products = serializers.SerializerMethodField()
     sold_items = serializers.SerializerMethodField()
@@ -270,14 +260,15 @@ class ProjectSerializer(serializers.ModelSerializer):
     total_paid = serializers.SerializerMethodField()
     total_money_spent = serializers.SerializerMethodField()
     final_profit = serializers.SerializerMethodField()
+    other_productions = serializers.SerializerMethodField()
     customer_detail = SimpleCustomerSerializer(source="customer", read_only=True)
 
     class Meta:
         model = Project
         fields = [
             'id', 'name', 'invoice_image', 'status', 'start_date', 'deadline', 'timeframe', 'date_delivered',
-            'all_items', 'total_project_selling_price','is_delivered', 'archived', 'customer', 'customer_detail',
-            'products', 'sold_items', 'expenses', 'selling_price', 'logistics',
+            'all_items', 'total_project_selling_price', 'is_delivered', 'archived', 'customer', 'customer_detail',
+            'products', 'sold_items', 'expenses', 'other_productions', 'selling_price', 'logistics',
             'service_charge', 'total_project_cost', 'total_paid', 'total_money_spent', 'final_profit', 'note'
         ]
         read_only_fields = ['id', 'start_date']
@@ -317,6 +308,20 @@ class ProjectSerializer(serializers.ModelSerializer):
             "total_expenses": self.get_total_expenses(obj),
             "expenses": expenses
         }
+
+    def get_other_productions(self, obj):
+        other_productions = SimpleOtherProductionSerializer(obj.otherproduction_set.all(), many=True).data
+        return {
+            "total_cost": self.get_total_other_productions_cost(obj),
+            "total_budget": self.get_total_other_productions_budget(obj),
+            "other_productions": other_productions
+        }
+
+    def get_total_other_productions_cost(self, obj):
+        return round(sum(op.cost for op in obj.otherproduction_set.all() if op.cost is not None))
+
+    def get_total_other_productions_budget(self, obj):
+        return round(sum(op.budget for op in obj.otherproduction_set.all()))
 
     def get_total_grand_total(self, obj):
         return round(sum(product.grand_total for product in obj.product_set.all()))
@@ -359,7 +364,8 @@ class ProjectSerializer(serializers.ModelSerializer):
         return round(obj.selling_price + obj.logistics + obj.service_charge)
 
     def get_total_money_spent(self, obj):
-        return self.get_total_expenses(obj) + self.get_total_project_cost(obj)
+        return (self.get_total_expenses(obj) + self.get_total_project_cost(obj) + self.get_total_other_productions_cost(
+            obj))
 
     def get_final_profit(self, obj):
         return self.get_total_paid(obj) - self.get_total_money_spent(obj)
@@ -381,7 +387,7 @@ class RemovedSerializer(ModelSerializer):
 
     class Meta:
         model = Removed
-        fields = ["id", "material", "raw_material", "quantity", "product", "product_its_used", "date"]
+        fields = ["id", "material", "raw_material", "quantity", "price", "product", "product_its_used", "date"]
         read_only_fields = ["id", "date"]
         extra_kwargs = {'material': {'write_only': True}, 'product': {'write_only': True}}
 
@@ -461,3 +467,5 @@ class AddRawMaterialsSerializer(ModelSerializer):
         model = AddRawMaterials
         fields = ["item", "material", "quantity", "date"]
         extra_kwargs = {'item': {'write_only': True}}
+
+

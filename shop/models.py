@@ -37,29 +37,37 @@ class InventoryItem(models.Model):
 
 
 class Sold(models.Model):
-    customer = models.ForeignKey(Customer, on_delete=models.PROTECT)
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, null=True, blank=True)
     project = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True)
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
     date = models.DateTimeField(auto_now_add=True)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2)
+    logistics = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2)
     updated_on = models.DateTimeField(null=True, blank=True)
 
     @property
     def total_price(self):
-        return self.quantity * self.item.selling_price
+        return round(self.quantity * self.selling_price)
 
     @property
     def profit(self):
-        return (self.item.selling_price - self.item.cost_price) * self.quantity
+        return (self.selling_price - self.cost_price) * self.quantity
+
+    def clean(self):
+        if self.project and self.logistics:
+            raise ValueError("You can't set project and logistics value at the ame time. You can only set logistics value if the sold item is not to a project. ")
 
     def save(self, *args, **kwargs):
         if self.date:
             self.updated_on = now()
+        # self.clean()
 
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.name
+        return self.item.name
 
     class Meta:
         ordering = ["-date"]
@@ -69,3 +77,6 @@ class AddStock(models.Model):
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
     date = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"added {self.quantity} {self.item.name}"

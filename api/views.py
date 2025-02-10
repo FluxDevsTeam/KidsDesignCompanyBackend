@@ -3,6 +3,8 @@ from rest_framework.exceptions import MethodNotAllowed
 from django.shortcuts import get_object_or_404
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.response import Response
+
+from .pagination import AssetsPagination
 from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly, \
     IsArtisanReadOnly, IsStoreKeeperReadonly, IsManager
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
@@ -10,20 +12,25 @@ from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSeriali
     QuotationSerializer, ProductSerializer, RawMaterialSerializer, ProjectSerializer, RawMaterialUsedSerializer, \
     RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer, ExpenseCategorySerializer, AddSockSerializer, \
     InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer, StoreCategorySerializer, \
-    SalaryWorkersRecordSerializer, ContractorRecordSerializer, OverheadCostSerializer
+    SalaryWorkersRecordSerializer, ContractorRecordSerializer, OverheadCostSerializer, AssetsSerializer, \
+    AddRawMaterialsSerializer, OtherProductionSerializer
 from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
-from expensis.models import Expense, ExpenseCategory
+from expensis.models import Expense, ExpenseCategory, Assets
 from products.models import Quotation, Product, ProductSalaryWorker, ProductContractor
-from project.models import Project, OverheadCost
-from store.models import RawMaterial, Removed, StoreCategory
+from project.models import Project, OverheadCost, OtherProduction
+from store.models import RawMaterial, Removed, StoreCategory, AddRawMaterials
 from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryWorkersRecord
 from rest_framework import viewsets, status, permissions, mixins
 from django.contrib.auth import get_user_model
-from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter, ProjectFilter
+from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter, ProjectFilter, \
+    AddRawMaterialsFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from datetime import datetime
 from django.db.models import F, ExpressionWrapper, DecimalField, Sum
+from django.db.models import Avg
+from django.db.models import Avg, IntegerField
+from django.db.models.functions import Round, Cast
 
 User = get_user_model()
 
@@ -41,6 +48,29 @@ class ApiInventoryItem(ModelViewSet):
         if 'archived' not in self.request.query_params:
             qs = qs.filter(archived=False)
         return qs
+
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            instance = serializer.save()
+            AddStock.objects.create(item=instance, quantity=instance.quantity)
+
+
+class ApiAddStock(ModelViewSet):
+    serializer_class = AddSockSerializer
+    queryset = AddStock.objects.all()
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = AddStockFilter
+    search_fields = ['item__name']
+    # permission_classes = [IsCEO | IsStoreKeeper | IsManager]
+
+
+class ApiAddRawMaterials(ModelViewSet):
+    serializer_class = AddRawMaterialsSerializer
+    queryset = AddRawMaterials.objects.all()
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = AddRawMaterialsFilter
+    search_fields = ['item__name']
+    # permission_classes = [IsCEO | IsStoreKeeper | IsManager]
 
 
 class ApiAddStock(ModelViewSet):
@@ -563,26 +593,36 @@ class ApiProduct(ModelViewSet):
     serializer_class = ProductSerializer
     queryset = Product.objects.prefetch_related("productcontractor_set", "productsalaryworker_set")
     # permission_classes = [IsCEO | IsProjectManager]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['project']
+    search_fields = ['project__name', 'name']
+    ordering = ['progress']
 
 
 class ApiProject(ModelViewSet):
     serializer_class = ProjectSerializer
     queryset = Project.objects.all()
     # permission_classes = [IsCEO | IsProjectManager]
-    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ProjectFilter
     search_fields = ['customer__name', 'name']
+    ordering = ['progress']
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if 'archived' not in self.request.query_params:
-            qs = qs.filter(archived=False)
+        qs = qs.annotate(computed_progress=Cast(Round(Avg('product__progress')), output_field=IntegerField()))
         return qs
+
 
 class ApiRawMaterial(ModelViewSet):
     serializer_class = RawMaterialSerializer
     queryset = RawMaterial.objects.all()
     # permission_classes = [IsCEO | IsStoreKeeper]
+
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            instance = serializer.save()
+            AddRawMaterials.objects.create(item=instance, quantity=instance.quantity)
 
 
 class ApiRemoved(ModelViewSet):
@@ -613,7 +653,7 @@ class ApiRemoved(ModelViewSet):
         if quantity > material_data.quantity:
             return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
 
-        Removed.objects.create(material=material_data, quantity=quantity, product=product_data)
+        Removed.objects.create(material=material_data, quantity=quantity, product=product_data, price=material_data.price)
         material_data.quantity -= quantity
         material_data.save()
 
@@ -670,6 +710,7 @@ class ApiRemoved(ModelViewSet):
 
                 removed_item.material.id = material
                 removed_item.quantity = quantity
+                removed_item.price = new_raw_material_item.price
                 removed_item.save()
 
                 return Response({"message": "removed raw material edited successfully."}, status=status.HTTP_200_OK)
@@ -764,3 +805,28 @@ class OverheadCostViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
                 status=status.HTTP_405_METHOD_NOT_ALLOWED
             )
         return super().update(request, *args, **kwargs)
+
+
+class ApiAssets(ModelViewSet):
+    serializer_class = AssetsSerializer
+    queryset = Assets.objects.all().order_by('-is_still_available')
+    pagination_class = AssetsPagination
+
+
+class ApiOtherProductionRecord(ModelViewSet):
+    serializer_class = OtherProductionSerializer
+
+    def get_queryset(self):
+        project_id = self.kwargs.get('project_pk')
+        return OtherProduction.objects.filter(project=project_id)
+
+    def perform_create(self, serializer):
+        project_id = self.kwargs.get('project_pk')
+        project = get_object_or_404(Project, pk=project_id)
+        serializer.save(project=project)
+
+    def perform_update(self, serializer):
+        project_id = self.kwargs.get('project_pk')
+        project = get_object_or_404(Project, pk=project_id)
+        serializer.save(project=project)
+

@@ -2,7 +2,8 @@ from django.urls import path, include
 from . import views
 from rest_framework.routers import DefaultRouter
 from rest_framework_nested.routers import NestedDefaultRouter
-
+from .dashboard_views import RawMaterialDashboardViewSet, InventoryDashboardViewSet, WorkersDashboardViewSet, \
+    ExpenseDashboardViewSet, CustomerDashboardViewSet, CEODashboardViewSet
 
 router = DefaultRouter()
 router.register('sold', views.ApiSold, basename='sold')
@@ -16,8 +17,9 @@ router.register('expense', views.ApiExpense, basename='expense')
 router.register('expense-category', views.ApiExpenseCategory, basename='expense_category')
 router.register('inventory-item', views.ApiInventoryItem, basename='inventory-item')
 router.register('inventory-item-category', views.ApiInventoryCategory, basename='inventory_item_category')
-router.register('store-category', views.ApiStoreCategory, basename='store_category')
+router.register('raw-materials-category', views.ApiStoreCategory, basename='raw_materials_category')
 router.register('customer', views.ApiCustomer, basename='customer')
+router.register('assets', views.ApiAssets, basename='assets')
 
 product_router = NestedDefaultRouter(router, 'product', lookup='product')
 product_router.register('contractor', views.ApiProductContractor, basename='product_contractor')
@@ -25,8 +27,35 @@ product_router.register('salary', views.ApiProductSalaryWorker, basename='produc
 product_router.register('raw-materials-used', views.ApiRawMaterialUsed, basename='raw-materials-used')
 product_router.register('quotation', views.ApiQuotation, basename='quotation')
 
+salary_router = NestedDefaultRouter(router, 'salary-workers', lookup='salary_worker')
+salary_router.register('record', views.ApiSalaryWorkersRecord, basename='Salary_worker_record')
+
+contractor_router = NestedDefaultRouter(router, 'contractors', lookup='contractor')
+contractor_router.register('record', views.ApiContractorRecord, basename='contractors_record')
+
+project_router = NestedDefaultRouter(router, 'project', lookup='project')
+project_router.register('other-production-record', views.ApiOtherProductionRecord, basename='other_production_record')
+
+overhead_cost_view = views.OverheadCostViewSet.as_view({'get': 'list', 'patch': 'partial_update'})
+
+
 urlpatterns = [
     path("", include(router.urls)),
     path("", include(product_router.urls)),
-]
+    path("", include(salary_router.urls)),
+    path("", include(contractor_router.urls)),
+    path("", include(project_router.urls)),
+    path('view-added-stock/', views.ApiAddStock.as_view({'get': 'list'}), name='view_added_stock'),
+    path('add-stock/', views.ApiAddStock.as_view({'post': 'create'}), name='add_stock'),
+    path('view-added-raw-materials/', views.ApiAddRawMaterials.as_view({'get': 'list'}), name='view_added_raw_materials'),
+    path('add-raw-materials/', views.ApiAddRawMaterials.as_view({'post': 'create'}), name='add_raw_materials'),
+    path('overhead-cost/', overhead_cost_view, name='overhead-cost'),
 
+    #     ############ dashboard #####################
+    path('raw-material-dashboard/', RawMaterialDashboardViewSet.as_view({'get': 'list'})),
+    path('inventory-dashboard/', InventoryDashboardViewSet.as_view({'get': 'list'})),
+    path('workers-dashboard/', WorkersDashboardViewSet.as_view({'get': 'list'})),
+    path('expense-dashboard/', ExpenseDashboardViewSet.as_view({'get': 'list'})),
+    path('customer-dashboard/', CustomerDashboardViewSet.as_view({'get': 'list'})),
+    path('ceo-dashboard/', CEODashboardViewSet.as_view({'get': 'list'}))
+]

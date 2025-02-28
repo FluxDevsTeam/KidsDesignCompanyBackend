@@ -427,7 +427,6 @@ class CustomerDashboardViewSet(viewsets.ViewSet):
                     'date': sold.date
                 })
 
-            # Calculate totals
             project_total = sum(p['total_paid'] for p in projects)
             shop_total = sum(s['total_paid'] for s in shop_items)
 

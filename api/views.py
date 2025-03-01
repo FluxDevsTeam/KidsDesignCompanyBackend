@@ -52,7 +52,7 @@ class ApiInventoryItem(ModelViewSet):
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-            AddStock.objects.create(item=instance, quantity=instance.quantity)
+            AddStock.objects.create(item=instance, quantity=instance.stock)
 
 
 class ApiAddStock(ModelViewSet):
@@ -473,8 +473,6 @@ class ApiExpense(ModelViewSet):
             response_data["yearly_total"] = yearly_total
 
         return Response(response_data)
-
-
 
 
 class ApiQuotation(ModelViewSet):

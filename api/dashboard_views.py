@@ -16,6 +16,7 @@ from project.models import Project, OtherProduction
 
 
 class RawMaterialDashboardViewSet(viewsets.ViewSet):
+
     def list(self, request):
         today = timezone.now().date()
         start_week = today - timezone.timedelta(days=today.weekday())

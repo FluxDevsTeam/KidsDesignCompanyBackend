@@ -71,8 +71,8 @@ class SoldSerializer(ModelSerializer):
     class Meta:
         model = Sold
         fields = ['id', 'quantity', 'date', 'updated_on', 'customer', 'sold_to', 'project', 'linked_project', 'item',
-                  'item_sold', 'logistics', 'cost_price', 'selling_price', 'total_price', 'profit']
-        read_only_fields = ['id', 'updated_on', 'selling_price', 'cost_price']
+                  'name', 'item_sold', 'logistics', 'cost_price', 'selling_price', 'total_price', 'profit']
+        read_only_fields = ['id', 'updated_on', 'selling_price', 'cost_price', 'name']
         extra_kwargs = {'customer': {'write_only': True}, 'item': {'write_only': True}, 'project': {'write_only': True}}
 
 
@@ -81,8 +81,9 @@ class AddSockSerializer(ModelSerializer):
 
     class Meta:
         model = AddStock
-        fields = ["item", "inventory_item", "quantity", "date"]
+        fields = ["id", "item", "inventory_item", "name", "quantity", "cost_price", "date"]
         extra_kwargs = {'item': {'write_only': True}}
+        read_only_fields = ['id', 'name', 'cost_price']
 
 
 class CustomerSerializer(ModelSerializer):

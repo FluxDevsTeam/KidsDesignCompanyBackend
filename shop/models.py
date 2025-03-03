@@ -15,7 +15,7 @@ class InventoryCategory(models.Model):
 
 class InventoryItem(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    category = models.ForeignKey(InventoryCategory, on_delete=models.PROTECT, null=True, blank=True)
+    category = models.ForeignKey(InventoryCategory, on_delete=models.CASCADE, null=True, blank=True)
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(upload_to="shop/", blank=True, null=True)
     stock = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
@@ -37,9 +37,10 @@ class InventoryItem(models.Model):
 
 
 class Sold(models.Model):
-    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, null=True, blank=True)
-    project = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True)
-    item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT)
+    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True)
+    project = models.ForeignKey(Project, on_delete=models.SET_NULL, null=True, blank=True)
+    item = models.ForeignKey(InventoryItem, on_delete=models.SET_NULL, null=True)
+    name = models.CharField(max_length=100)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
     date = models.DateTimeField(auto_now_add=True)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -74,8 +75,10 @@ class Sold(models.Model):
 
 
 class AddStock(models.Model):
-    item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT)
+    item = models.ForeignKey(InventoryItem, on_delete=models.SET_NULL, null=True)
+    name = models.CharField(max_length=100)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

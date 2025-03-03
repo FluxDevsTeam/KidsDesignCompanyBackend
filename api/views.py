@@ -98,19 +98,19 @@ class ApiAddStock(ModelViewSet):
 class ApiInventoryCategory(ModelViewSet):
     queryset = InventoryCategory.objects.all()
     serializer_class = InventoryCategorySerializer
-    permission_classes = [IsCEO | IsProjectManager]
+    # permission_classes = [IsCEO | IsProjectManager]
 
 
 class ApiStoreCategory(ModelViewSet):
     queryset = StoreCategory.objects.all()
     serializer_class = StoreCategorySerializer
-    permission_classes = [IsCEO | IsProjectManager]
+    # permission_classes = [IsCEO | IsProjectManager]
 
 
 class ApiSold(ModelViewSet):
     serializer_class = SoldSerializer
     queryset = Sold.objects.all()
-    permission_classes = [IsCEO | IsStoreKeeper]
+    # permission_classes = [IsCEO | IsStoreKeeper]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = SoldFilter
     search_fields = ['item__name', 'customer__name']

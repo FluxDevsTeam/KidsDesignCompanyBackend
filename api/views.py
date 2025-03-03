@@ -55,15 +55,6 @@ class ApiInventoryItem(ModelViewSet):
             AddStock.objects.create(item=instance, quantity=instance.stock)
 
 
-class ApiAddStock(ModelViewSet):
-    serializer_class = AddSockSerializer
-    queryset = AddStock.objects.all()
-    filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_class = AddStockFilter
-    search_fields = ['item__name']
-    # permission_classes = [IsCEO | IsStoreKeeper | IsManager]
-
-
 class ApiAddRawMaterials(ModelViewSet):
     serializer_class = AddRawMaterialsSerializer
     queryset = AddRawMaterials.objects.all()
@@ -78,33 +69,30 @@ class ApiAddStock(ModelViewSet):
     queryset = AddStock.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = AddStockFilter
-    search_fields = ['item__name']
+    search_fields = ["item__name"]
     # permission_classes = [IsCEO | IsStoreKeeper | IsManager]
 
-    def create(self, request, *args, **kwargs):
-        item_id = request.data.get("item")
-        quantity = request.data.get("quantity")
+    def perform_create(self, serializer):
+        item_id = self.request.data.get("item")
+        quantity = self.request.data.get("quantity")
 
         if not item_id:
-            return Response({"error": "please input an item"}, status=status.HTTP_400_BAD_REQUEST)
+            raise ValueError("Please input a valid item.")
 
         try:
             quantity = int(quantity)
             if quantity <= 0:
-                raise ValueError("Quantity must be greater than zero")
+                raise ValueError("Quantity must be greater than zero.")
         except (ValueError, TypeError):
-            return Response({"error": "Invalid quantity"}, status=status.HTTP_400_BAD_REQUEST)
+            raise ValueError("Invalid quantity.")
+
+        item = get_object_or_404(InventoryItem, id=item_id)
 
         with transaction.atomic():
-            item = get_object_or_404(InventoryItem, id=item_id)
             item.stock += quantity
             item.save()
 
-            serializer = self.get_serializer(data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response({"success": "Item added successfully", "data": serializer.data}, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            serializer.save(item=item, name=item.name, cost_price=item.cost_price)
 
 
 class ApiInventoryCategory(ModelViewSet):
@@ -203,10 +191,10 @@ class ApiSold(ModelViewSet):
         if project:
             project_instance = get_object_or_404(Project, id=project)
             customer = project_instance.customer
-            Sold.objects.create(item=inventory_item, quantity=quantity, customer=customer, cost_price=inventory_item.cost_price, selling_price=inventory_item.selling_price, project=project_instance)
+            Sold.objects.create(item=inventory_item, quantity=quantity, customer=customer, cost_price=inventory_item.cost_price, selling_price=inventory_item.selling_price, project=project_instance, name=inventory_item.name)
         else:
             customer_data = get_object_or_404(Customer, id=customer)
-            Sold.objects.create(item=inventory_item, quantity=quantity, customer=customer_data, cost_price=inventory_item.cost_price, selling_price=inventory_item.selling_price, logistics=logistics)
+            Sold.objects.create(item=inventory_item, quantity=quantity, customer=customer_data, cost_price=inventory_item.cost_price, selling_price=inventory_item.selling_price, logistics=logistics, name=inventory_item.name)
 
         inventory_item.stock -= quantity
         inventory_item.save()

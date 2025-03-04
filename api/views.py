@@ -52,7 +52,7 @@ class ApiInventoryItem(ModelViewSet):
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-            AddStock.objects.create(item=instance, quantity=instance.stock)
+            AddStock.objects.create(item=instance, name=instance.name, cost_price=instance.cost_price, quantity=instance.stock)
 
 
 class ApiAddRawMaterials(ModelViewSet):

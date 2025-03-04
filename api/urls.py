@@ -20,6 +20,8 @@ router.register('inventory-item-category', views.ApiInventoryCategory, basename=
 router.register('raw-materials-category', views.ApiStoreCategory, basename='raw_materials_category')
 router.register('customer', views.ApiCustomer, basename='customer')
 router.register('assets', views.ApiAssets, basename='assets')
+router.register('add-raw-materials', views.ApiAddRawMaterials, basename='add_raw_material')
+router.register('add-stock', views.ApiAddStock, basename='add_stock')
 
 product_router = NestedDefaultRouter(router, 'product', lookup='product')
 product_router.register('contractor', views.ApiProductContractor, basename='product_contractor')
@@ -45,10 +47,10 @@ urlpatterns = [
     path("", include(salary_router.urls)),
     path("", include(contractor_router.urls)),
     path("", include(project_router.urls)),
-    path('view-added-stock/', views.ApiAddStock.as_view({'get': 'list'}), name='view_added_stock'),
-    path('add-stock/', views.ApiAddStock.as_view({'post': 'create'}), name='add_stock'),
-    path('view-added-raw-materials/', views.ApiAddRawMaterials.as_view({'get': 'list'}), name='view_added_raw_materials'),
-    path('add-raw-materials/', views.ApiAddRawMaterials.as_view({'post': 'create'}), name='add_raw_materials'),
+    # path('view-added-stock/', views.ApiAddStock.as_view({'get': 'list'}), name='view_added_stock'),
+    # path('add-stock/', views.ApiAddStock.as_view({'post': 'create'}), name='add_stock'),
+    # path('view-added-raw-materials/', views.ApiAddRawMaterials.as_view({'get': 'list'}), name='view_added_raw_materials'),
+    # path('add-raw-materials/', views.ApiAddRawMaterials.as_view({'post': 'create'}), name='add_raw_materials'),
     path('overhead-cost/', overhead_cost_view, name='overhead-cost'),
 
     #     ############ dashboard #####################

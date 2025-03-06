@@ -14,18 +14,18 @@ from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSeriali
     RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer, ExpenseCategorySerializer, AddSockSerializer, \
     InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer, StoreCategorySerializer, \
     SalaryWorkersRecordSerializer, ContractorRecordSerializer, OverheadCostSerializer, AssetsSerializer, \
-    AddRawMaterialsSerializer, OtherProductionSerializer
+    AddRawMaterialsSerializer, OtherProductionSerializer, PaidSerializer
 from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory, Assets
 from products.models import Quotation, Product, ProductSalaryWorker, ProductContractor
 from project.models import Project, OverheadCost, OtherProduction
 from store.models import RawMaterial, Removed, StoreCategory, AddRawMaterials
-from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryWorkersRecord
+from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryWorkersRecord, Paid
 from rest_framework import viewsets, status, permissions, mixins
 from django.contrib.auth import get_user_model
 from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter, ProjectFilter, \
-    AddRawMaterialsFilter
+    AddRawMaterialsFilter, PaidFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from datetime import datetime
 from django.db.models import F, ExpressionWrapper, DecimalField, Sum
@@ -770,6 +770,26 @@ class ApiSalaryWorkers(ModelViewSet):
     queryset = SalaryWorkers.objects.all()
     # permission_classes = [IsCEO | IsArtisanReadOnly]
 
+    def list(self, request, *args, **kwargs):
+        today = timezone.now().date()
+        start_of_week = today - timezone.timedelta(days=today.weekday())
+
+        all_salary_workers = self.queryset
+        salary_workers_count = all_salary_workers.count()
+        active_salary_workers_count = all_salary_workers.filter(is_still_active=True).count()
+        total_salary_workers_monthly_pay = all_salary_workers.aggregate(total=Sum("salary"))["total"] or 0.0
+        total_paid = all_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+        data = self.serializer_class(all_salary_workers, many=True).data
+
+        response_data = {
+            "salary_workers_count": salary_workers_count,
+            "active_salary_workers_count": active_salary_workers_count,
+            "total_salary_workers_monthly_pay": total_salary_workers_monthly_pay,
+            "total_paid": total_paid,
+            "contractor": data,
+        }
+
+        return Response(response_data)
 
 class ApiSalaryWorkersRecord(ModelViewSet):
     serializer_class = SalaryWorkersRecordSerializer
@@ -871,3 +891,64 @@ class ApiOtherProductionRecord(ModelViewSet):
         project = get_object_or_404(Project, pk=project_id)
         serializer.save(project=project)
 
+
+class ApiPaid(ModelViewSet):
+    serializer_class = PaidSerializer
+    queryset = Paid.objects.all().order_by('-date')
+    filter_class = PaidFilter
+
+    def list(self, request, *args, **kwargs):
+        filterset = self.filter_class(request.GET, queryset=self.get_queryset())
+        filtered_paid = filterset.qs.order_by('-date')
+
+        # Group paid records by day
+        daily_data = []
+        current_date = None
+        daily_payments = []
+
+        for payment in filtered_paid:
+            payment_date = payment.date
+
+            if payment_date != current_date:
+                if daily_payments:
+                    daily_data.append({
+                        "date": current_date,
+                        "entries": PaidSerializer(daily_payments, many=True).data,
+                        "daily_total": sum(p.amount for p in daily_payments),
+                    })
+                current_date = payment_date
+                daily_payments = [payment]
+            else:
+                daily_payments.append(payment)
+
+        if daily_payments:
+            daily_data.append({
+                "date": current_date,
+                "entries": PaidSerializer(daily_payments, many=True).data,
+                "daily_total": sum(p.amount for p in daily_payments),
+            })
+
+        # Weekly, monthly, and yearly totals
+        today = timezone.now().date()
+        start_of_week = today - timezone.timedelta(days=today.weekday())
+
+        monthly_transaction_count = filtered_paid.filter(date__month=today.month).count()
+        monthly_total = filtered_paid.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        weekly_total = filtered_paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        daily_total = filtered_paid.filter(date=today).aggregate(Sum('amount'))['amount__sum'] or 0.0
+
+        response_data = {
+            "monthly_transaction_count": monthly_transaction_count,
+            "monthly_total": monthly_total,
+            "weekly_total": weekly_total,
+            "daily_total": daily_total,
+            "daily_data": daily_data,
+        }
+
+        # Yearly total if requested
+        year = request.query_params.get('year', None)
+        if year:
+            yearly_total = Paid.objects.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
+            response_data["yearly_total"] = yearly_total
+
+        return Response(response_data)

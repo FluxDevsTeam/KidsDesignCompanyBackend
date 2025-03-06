@@ -3,6 +3,7 @@ from rest_framework.exceptions import MethodNotAllowed
 from django.shortcuts import get_object_or_404
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.response import Response
+from django.utils import timezone
 
 from .pagination import AssetsPagination
 from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly, \
@@ -28,7 +29,6 @@ from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFil
 from django_filters.rest_framework import DjangoFilterBackend
 from datetime import datetime
 from django.db.models import F, ExpressionWrapper, DecimalField, Sum
-from django.db.models import Avg
 from django.db.models import Avg, IntegerField
 from django.db.models.functions import Round, Cast
 
@@ -424,19 +424,22 @@ class ApiExpense(ModelViewSet):
         filterset = self.filter_class(request.GET, queryset=self.get_queryset())
         filtered_expenses = filterset.qs.order_by('-date')
 
+        # Group expenses by day
         daily_data = []
         current_date = None
         daily_expenses = []
-        for expense in filtered_expenses:
 
-            if expense.date.date() != current_date:
+        for expense in filtered_expenses:
+            expense_date = expense.date.date()
+
+            if expense_date != current_date:
                 if daily_expenses:
                     daily_data.append({
                         "date": current_date,
                         "entries": ExpenseSerializer(daily_expenses, many=True).data,
                         "daily_total": sum(e.amount for e in daily_expenses),
                     })
-                current_date = expense.date.date()
+                current_date = expense_date
                 daily_expenses = [expense]
             else:
                 daily_expenses.append(expense)
@@ -448,11 +451,22 @@ class ApiExpense(ModelViewSet):
                 "daily_total": sum(e.amount for e in daily_expenses),
             })
 
-        monthly_total = filtered_expenses.aggregate(Sum('amount'))['amount__sum'] or 0.0
+        today = timezone.now().date()
+        start_of_week = today - timezone.timedelta(days=today.weekday())
+
+        monthly_total = filtered_expenses.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        weekly_total = filtered_expenses.filter(date__date__range=[start_of_week, today]).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        monthly_project_expenses_total = filtered_expenses.filter(project__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        monthly_shop_expenses_total = filtered_expenses.filter(shop__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        daily_total = filtered_expenses.filter(date__date=today).aggregate(Sum('amount'))['amount__sum'] or 0.0
 
         response_data = {
-            "daily_data": daily_data,
             "monthly_total": monthly_total,
+            "weekly_total": weekly_total,
+            "daily_total": daily_total,
+            "monthly_project_expenses_total": monthly_project_expenses_total,
+            "monthly_shop_expenses_total": monthly_shop_expenses_total,
+            "daily_data": daily_data,
         }
 
         year = request.query_params.get('year', None)
@@ -726,6 +740,30 @@ class ApiContractors(ModelViewSet):
     queryset = Contractors.objects.all()
     # permission_classes = [IsCEO | IsArtisanReadOnly | IsProjectManager]
 
+    def list(self, request, *args, **kwargs):
+        today = timezone.now().date()
+        start_of_week = today - timezone.timedelta(days=today.weekday())
+
+        all_contractors = self.queryset
+        all_contractors_count = all_contractors.count()
+        all_active_contractors_count = all_contractors.filter(is_still_active=True).count()
+
+        total_contractors_monthly_pay = all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+
+        total_contractors_weekly_pay = all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+
+        data = self.serializer_class(all_contractors, many=True).data
+
+        response_data = {
+            "all_contractors_count": all_contractors_count,
+            "all_active_contractors_count": all_active_contractors_count,
+            "total_contractors_monthly_pay": total_contractors_monthly_pay,
+            "total_contractors_weekly_pay": total_contractors_weekly_pay,
+            "contractor": data,
+        }
+
+        return Response(response_data)
+
 
 class ApiSalaryWorkers(ModelViewSet):
     serializer_class = SalaryWorkersSerializer
@@ -797,6 +835,23 @@ class ApiAssets(ModelViewSet):
     serializer_class = AssetsSerializer
     queryset = Assets.objects.all().order_by('-is_still_available')
     pagination_class = AssetsPagination
+
+    def list(self, request, *args, **kwargs):
+        all_assets = self.queryset
+        all_assets_total = all_assets.filter(is_still_available=True).aggregate(Sum('value'))['value__sum'] or 0.0
+        no_of_good_assets = all_assets.filter(is_still_available=True).count()
+        no_of_bad_assets = all_assets.filter(is_still_available=False).count()
+        total_assets_count = all_assets.count()
+        data = self.serializer_class(all_assets, many=True).data
+        response_data = {
+            "total_assets_count": total_assets_count,
+            "good_assets_count": no_of_good_assets,
+            "good_assets_value": all_assets_total,
+            "depreciated_assets_count": no_of_bad_assets,
+            "assets": data
+        }
+
+        return Response(response_data)
 
 
 class ApiOtherProductionRecord(ModelViewSet):

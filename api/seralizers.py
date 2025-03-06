@@ -200,7 +200,7 @@ class RawMaterialSerializer(ModelSerializer):
 
     class Meta:
         model = RawMaterial
-        fields = ["id", "name", "unit", "quantity", "price", "category", "store_category", "description", "image",]
+        fields = ["id", "name", "unit", "quantity", "price", "category", "store_category", "description", "image", ]
         read_only_fields = ["id"]
 
 
@@ -468,5 +468,3 @@ class AddRawMaterialsSerializer(ModelSerializer):
         model = AddRawMaterials
         fields = ["item", "material", "quantity", "date"]
         extra_kwargs = {'item': {'write_only': True}}
-
-

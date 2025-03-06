@@ -13,7 +13,7 @@ class Contractors(models.Model):
     image = models.ImageField(blank=True, null=True)
     agreement_form_image = models.ImageField(blank=True, null=True)
     date_joined = models.DateField(auto_now_add=True)
-    date_left = models.DateField(auto_now_add=True)
+    date_left = models.DateField(null=True, blank=True)
     guarantor_name = models.CharField(max_length=20, blank=True, null=True)
     guarantor_phone_number = models.CharField(max_length=20, blank=True, null=True)
     guarantor_address = models.TextField(blank=True, null=True)
@@ -39,7 +39,7 @@ class SalaryWorkers(models.Model):
     image = models.ImageField(blank=True, null=True)
     agreement_form_image = models.ImageField(blank=True, null=True)
     date_joined = models.DateField(auto_now_add=True)
-    date_left = models.DateField(auto_now_add=True)
+    date_left = models.DateField(null=True, blank=True)
     guarantor_name = models.CharField(max_length=20, blank=True, null=True)
     guarantor_phone_number = models.CharField(max_length=20, blank=True, null=True)
     guarantor_address = models.TextField(blank=True, null=True)
@@ -77,3 +77,10 @@ class SalaryWorkersRecord(models.Model):
 
     class Meta:
         ordering = ["-date"]
+
+
+class Paid(models.Model):
+    salary = models.ForeignKey(SalaryWorkers, on_delete=models.CASCADE, null=True, blank=True)
+    contract = models.ForeignKey(Contractors, on_delete=models.CASCADE, null=True, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    date = models.DateField(auto_now_add=True)

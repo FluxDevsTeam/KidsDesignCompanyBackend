@@ -8,7 +8,7 @@ from expensis.models import Expense, ExpenseCategory, Assets
 from products.models import Quotation, Product, ProductContractor, ProductSalaryWorker
 from project.models import Project, OverheadCost, OtherProduction
 from store.models import RawMaterial, Removed, StoreCategory, AddRawMaterials
-from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryWorkersRecord
+from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryWorkersRecord, Paid
 from django.db.models import Sum, F, ExpressionWrapper, DecimalField
 import json
 
@@ -103,6 +103,12 @@ class ExpenseCategorySerializer(ModelSerializer):
 class ContractorsSerializer(ModelSerializer):
     class Meta:
         model = Contractors
+        fields = '__all__'
+
+
+class PaidSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Paid
         fields = '__all__'
 
 

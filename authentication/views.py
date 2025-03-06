@@ -675,7 +675,7 @@ class LogoutViewSet(viewsets.ViewSet):
 
             # Invalidate the refresh token
             token = RefreshToken(refresh_token)
-            token.blacklist()  # This will invalidate the refresh token
+            token.blacklist()
 
             return Response({"detail": "Logout successful."}, status=status.HTTP_200_OK)
         except Exception as e:

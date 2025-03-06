@@ -17,9 +17,6 @@ class IsOwnerOrAdmin(permissions.BasePermission):
         return obj.owner == request.user
 
 
-from rest_framework import permissions
-
-
 class IsCEO(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.groups.filter(name='CEO').exists()

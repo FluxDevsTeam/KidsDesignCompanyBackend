@@ -72,7 +72,7 @@ class CategoryBreakdownSerializer(serializers.Serializer):
     percentage = serializers.DecimalField(max_digits=5, decimal_places=2)
 
 
-class ExpenseDashboardSerializer(serializers.Serializer):
+class AdminSerializer(serializers.Serializer):
     financial_health = FinancialHealthSerializer()
     category_breakdown = CategoryBreakdownSerializer(many=True)
     monthly_trend = serializers.ListField()

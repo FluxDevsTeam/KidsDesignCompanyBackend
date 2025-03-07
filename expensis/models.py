@@ -15,7 +15,7 @@ class ExpenseCategory(models.Model):
 
 class Expense(models.Model):
     name = models.CharField(max_length=200)
-    category = models.ForeignKey(ExpenseCategory, on_delete=models.PROTECT, null=True, blank=True)
+    category = models.ForeignKey(ExpenseCategory, on_delete=models.SET_NULL, null=True)
     project = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True)
     shop = models.ForeignKey(Sold, on_delete=models.PROTECT, null=True, blank=True)
     description = models.TextField(null=True, blank=True)

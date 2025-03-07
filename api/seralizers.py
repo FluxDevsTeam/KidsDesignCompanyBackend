@@ -290,7 +290,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     def get_products(self, obj):
         products = SimpleProductSerializer(obj.product_set.all(), many=True).data
         return {
-            "progress": obj.computed_progress,
+            "progress": getattr(obj, "computed_progress", 0),
             "total_project_selling_price": self.get_total_project_selling_price(obj),
             "total_production_cost": self.get_total_production_cost(obj),
             "total_artisan_cost": self.get_total_artisan_cost(obj),
@@ -325,54 +325,74 @@ class ProjectSerializer(serializers.ModelSerializer):
         }
 
     def get_total_other_productions_cost(self, obj):
-        return round(sum(op.cost for op in obj.otherproduction_set.all() if op.cost is not None))
+        return round(sum(getattr(op, "cost", 0) for op in obj.otherproduction_set.all()))
 
     def get_total_other_productions_budget(self, obj):
-        return round(sum(op.budget for op in obj.otherproduction_set.all()))
+        return round(sum(getattr(op, "budget", 0) for op in obj.otherproduction_set.all()))
 
     def get_total_grand_total(self, obj):
-        return round(sum(product.grand_total for product in obj.product_set.all()))
+        return round(sum(getattr(product, "grand_total", 0) for product in obj.product_set.all()))
 
     def get_total_project_selling_price(self, obj):
-        return round(sum(product.selling_price for product in obj.product_set.all()))
+        return round(sum(getattr(product, "selling_price", 0) for product in obj.product_set.all()))
 
     def get_total_production_cost(self, obj):
-        return round(sum(product.total_production_cost for product in obj.product_set.all()))
+        return round(sum(getattr(product, "total_production_cost", 0) for product in obj.product_set.all()))
 
     def get_total_artisan_cost(self, obj):
-        return round(sum(product.total_artisan_cost for product in obj.product_set.all()))
+        return round(sum(getattr(product, "total_artisan_cost", 0) for product in obj.product_set.all()))
 
     def get_total_overhead_cost(self, obj):
-        return round(
-            sum(product.overhead_cost * product.overhead_cost_base_at_creation for product in obj.product_set.all()))
+        return round(sum(
+            getattr(product, "overhead_cost", 0) * getattr(product, "overhead_cost_base_at_creation", 0)
+            for product in obj.product_set.all()
+        ))
 
     def get_total_raw_material_cost(self, obj):
-        return round(sum(product.total_raw_material_cost for product in obj.product_set.all()))
+        return round(sum(getattr(product, "total_raw_material_cost", 0) for product in obj.product_set.all()))
 
     def get_total_profit(self, obj):
-        product_profit = sum(product.profit for product in obj.product_set.all())
+        product_profit = sum(getattr(product, "profit", 0) for product in obj.product_set.all())
         sold_profit = sum(
-            sold.quantity * (sold.item.selling_price - sold.item.cost_price) for sold in obj.sold_set.all())
+            getattr(sold, "quantity", 0) * (
+                getattr(getattr(sold, "item", None), "selling_price", 0) -
+                getattr(getattr(sold, "item", None), "cost_price", 0)
+            )
+            for sold in obj.sold_set.all()
+        )
         return round(product_profit + sold_profit)
 
     def get_total_expenses(self, obj):
-        return round(sum(expense.amount for expense in obj.expense_set.all()))
+        return round(sum(getattr(expense, "amount", 0) for expense in obj.expense_set.all()))
 
     def get_total_cost_price_sold_items(self, obj):
-        return round(sum(sold.quantity * sold.item.cost_price for sold in obj.sold_set.all()))
+        return round(sum(
+            getattr(sold, "quantity", 0) * getattr(getattr(sold, "item", None), "cost_price", 0)
+            for sold in obj.sold_set.all()
+        ))
 
     def get_total_selling_price_sold_items(self, obj):
-        return round(sum(sold.quantity * sold.item.selling_price for sold in obj.sold_set.all()))
+        return round(sum(
+            getattr(sold, "quantity", 0) * getattr(getattr(sold, "item", None), "selling_price", 0)
+            for sold in obj.sold_set.all()
+        ))
 
     def get_total_project_cost(self, obj):
         return self.get_total_grand_total(obj) + self.get_total_cost_price_sold_items(obj)
 
     def get_total_paid(self, obj):
-        return round(obj.selling_price + obj.logistics + obj.service_charge)
+        return round(
+            getattr(obj, "selling_price", 0) +
+            getattr(obj, "logistics", 0) +
+            getattr(obj, "service_charge", 0)
+        )
 
     def get_total_money_spent(self, obj):
-        return (self.get_total_expenses(obj) + self.get_total_project_cost(obj) + self.get_total_other_productions_cost(
-            obj))
+        return (
+            self.get_total_expenses(obj) +
+            self.get_total_project_cost(obj) +
+            self.get_total_other_productions_cost(obj)
+        )
 
     def get_final_profit(self, obj):
         return self.get_total_paid(obj) - self.get_total_money_spent(obj)

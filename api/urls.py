@@ -3,7 +3,7 @@ from . import views
 from rest_framework.routers import DefaultRouter
 from rest_framework_nested.routers import NestedDefaultRouter
 from .dashboard_views import RawMaterialDashboardViewSet, InventoryDashboardViewSet, WorkersDashboardViewSet, \
-    ExpenseDashboardViewSet, CustomerDashboardViewSet, CEODashboardViewSet
+    ApiAdminDashboard, CustomerDashboardViewSet, CEODashboardViewSet
 
 router = DefaultRouter()
 router.register('sold', views.ApiSold, basename='sold')
@@ -58,7 +58,7 @@ urlpatterns = [
     path('raw-material-dashboard/', RawMaterialDashboardViewSet.as_view({'get': 'list'})),
     path('inventory-dashboard/', InventoryDashboardViewSet.as_view({'get': 'list'})),
     path('workers-dashboard/', WorkersDashboardViewSet.as_view({'get': 'list'})),
-    path('expense-dashboard/', ExpenseDashboardViewSet.as_view({'get': 'list'})),
+    path('admin-dashboard/', ApiAdminDashboard.as_view({'get': 'list'})),
     path('customer-dashboard/', CustomerDashboardViewSet.as_view({'get': 'list'})),
     path('ceo-dashboard/', CEODashboardViewSet.as_view({'get': 'list'}))
 ]

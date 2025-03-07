@@ -165,13 +165,13 @@ class ApiSold(ModelViewSet):
             else:
                 return Response({"error": "Only one of 'customer' or 'project' is allowed."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if (customer and (not logistics)) or (logistics and (not customer)):
-            return Response(
-                {"error": "both 'customer' and 'logistics' is required."}, status=status.HTTP_400_BAD_REQUEST)
-
         if project and logistics:
             return Response(
                 {"error": "you cant set logistics for item sold in a project"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if (customer and (not logistics)) or (logistics and (not customer)):
+            return Response(
+                {"error": "both 'customer' and 'logistics' is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         if not item_id or not quantity:
             return Response(
@@ -458,12 +458,10 @@ class ApiExpense(ModelViewSet):
         weekly_total = filtered_expenses.filter(date__date__range=[start_of_week, today]).aggregate(Sum('amount'))['amount__sum'] or 0.0
         monthly_project_expenses_total = filtered_expenses.filter(project__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
         monthly_shop_expenses_total = filtered_expenses.filter(shop__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        daily_total = filtered_expenses.filter(date__date=today).aggregate(Sum('amount'))['amount__sum'] or 0.0
 
         response_data = {
             "monthly_total": monthly_total,
             "weekly_total": weekly_total,
-            "daily_total": daily_total,
             "monthly_project_expenses_total": monthly_project_expenses_total,
             "monthly_shop_expenses_total": monthly_shop_expenses_total,
             "daily_data": daily_data,

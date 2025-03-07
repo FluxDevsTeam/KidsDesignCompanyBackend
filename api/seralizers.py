@@ -111,6 +111,15 @@ class PaidSerializer(serializers.ModelSerializer):
         model = Paid
         fields = '__all__'
 
+    def validate(self, attrs):
+        if not attrs.get("salary") and not attrs.get("contract"):
+            raise serializers.ValidationError({"error": "Either salary or contract is required."})
+
+        if attrs.get("salary") and attrs.get("contract"):
+            raise serializers.ValidationError({"error": "Only one of salary or contract is allowed."})
+
+        return attrs
+
 
 class SalaryWorkersSerializer(ModelSerializer):
     class Meta:

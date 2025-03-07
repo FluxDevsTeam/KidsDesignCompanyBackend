@@ -789,6 +789,7 @@ class ApiSalaryWorkers(ModelViewSet):
 
         return Response(response_data)
 
+
 class ApiSalaryWorkersRecord(ModelViewSet):
     serializer_class = SalaryWorkersRecordSerializer
 
@@ -855,7 +856,7 @@ class ApiAssets(ModelViewSet):
     pagination_class = AssetsPagination
 
     def list(self, request, *args, **kwargs):
-        all_assets = self.queryset
+        all_assets = self.get_queryset()
         all_assets_total = all_assets.filter(is_still_available=True).aggregate(Sum('value'))['value__sum'] or 0.0
         no_of_good_assets = all_assets.filter(is_still_available=True).count()
         no_of_bad_assets = all_assets.filter(is_still_available=False).count()

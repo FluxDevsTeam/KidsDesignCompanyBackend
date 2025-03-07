@@ -4,14 +4,14 @@ from django.utils import timezone
 from django.db.models import Sum, Q, F, Count, Subquery, OuterRef, FloatField, Prefetch, ExpressionWrapper
 from django.db.models.functions import Coalesce
 
-from api.dashboard_serializers import CustomerDashboardSerializer, CEODashboardSerializer
+from .dashboard_serializers import CustomerDashboardSerializer, CEODashboardSerializer, AdminSerializer
 from customers.models import Customer
 from expensis.models import Assets, ExpenseCategory, Expense
 from products.models import ProductContractor, Product
 from store.models import RawMaterial, Removed, AddRawMaterials
 from shop.models import InventoryItem, Sold, AddStock
 from datetime import timedelta
-from workers.models import Contractors, SalaryWorkers
+from workers.models import Contractors, SalaryWorkers, Paid
 from project.models import Project, OtherProduction
 
 
@@ -299,24 +299,25 @@ class WorkersDashboardViewSet(viewsets.ViewSet):
         })
 
 
-class ExpenseDashboardViewSet(viewsets.ViewSet):
+class ApiAdminDashboard(viewsets.ViewSet):
     def list(self, request):
         today = timezone.now().date()
-
+        assets = Assets.objects.all()
+        expense = Expense.objects.all()
+        paid = Paid.objects.all()
+        all_salary_workers = SalaryWorkers.objects.all()
+        all_contractors = Contractors.objects.all()
         # Financial Health
-        total_expenses = Expense.objects.aggregate(total=Sum('amount'))['total'] or 0
-        active_assets = Assets.objects.filter(is_still_available=True).aggregate(total=Sum('value'))['total'] or 0
-        deprecated_assets = Assets.objects.filter(is_still_available=False).aggregate(total=Sum('value'))['total'] or 0
+        total_expenses = expense.aggregate(total=Sum('amount'))['total'] or 0
+        active_assets = assets.filter(is_still_available=True).aggregate(total=Sum('value'))['total'] or 0
+        deprecated_assets = assets.filter(is_still_available=False).aggregate(total=Sum('value'))['total'] or 0
 
-        # Category Breakdown with Percentage
-        categories = ExpenseCategory.objects.annotate(
-            total=Sum('expense__amount')
-        ).filter(total__gt=0).order_by('-total')
+        categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by('-total')
 
-        category_breakdown = []
+        expensis_category_breakdown = []
         for cat in categories:
-            percentage = (cat.total / total_expenses * 100) if total_expenses else 0
-            category_breakdown.append({
+            percentage = ((cat.total / total_expenses) * 100) if total_expenses else 0
+            expensis_category_breakdown.append({
                 'category': cat.name,
                 'total': cat.total,
                 'percentage': round(percentage, 2)
@@ -328,17 +329,17 @@ class ExpenseDashboardViewSet(viewsets.ViewSet):
             month_start = today.replace(day=1) - timedelta(days=30 * i)
             month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
 
-            month_total = Expense.objects.filter(
+            month_total = expense.filter(
                 date__gte=month_start,
                 date__lte=month_end
             ).aggregate(total=Sum('amount'))['total'] or 0
 
-            project_total = Expense.objects.filter(
+            project_total = expense.filter(
                 project__isnull=False,
                 date__range=[month_start, month_end]
             ).aggregate(total=Sum('amount'))['total'] or 0
 
-            shop_total = Expense.objects.filter(
+            shop_total = expense.filter(
                 shop__isnull=False,
                 date__range=[month_start, month_end]
             ).aggregate(total=Sum('amount'))['total'] or 0
@@ -354,16 +355,23 @@ class ExpenseDashboardViewSet(viewsets.ViewSet):
                     'others': float(others_total)
                 }
             })
-
+        start_of_week = today - timezone.timedelta(days=today.weekday())
         # Top 5 Categories
-        top_categories = ExpenseCategory.objects.annotate(
-            total=Sum('expense__amount')
-        ).filter(total__gt=0).order_by('-total')[:5].values('name', 'total')
+        top_categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by('-total')[:5].values('name', 'total')
+        monthly_total_paid = paid.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        weekly_total_paid = paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))['amount__sum'] or 0.0
 
-        # Asset Lifespan Analysis
-        asset_lifespan = Assets.objects.annotate(
-            lifespan_years=F('expected_lifespan')
-        ).values('name', 'value', 'lifespan_years', 'is_still_available')
+        salary_workers_count = all_salary_workers.count()
+        active_salary_workers_count = all_salary_workers.filter(is_still_active=True).count()
+        total_salary_workers_monthly_pay = all_salary_workers.aggregate(total=Sum("salary"))["total"] or 0.0
+        total_paid = all_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+
+        all_contractors_count = all_contractors.count()
+        all_active_contractors_count = all_contractors.filter(is_still_active=True).count()
+
+        total_contractors_monthly_pay = all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+
+        total_contractors_weekly_pay = all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))["total"] or 0.0
 
         data = {
             'financial_health': {
@@ -371,10 +379,24 @@ class ExpenseDashboardViewSet(viewsets.ViewSet):
                 'active_assets': active_assets,
                 'deprecated_assets': deprecated_assets
             },
-            'category_breakdown': category_breakdown,
-            'monthly_trend': list(reversed(monthly_trend)),
+            'workers': {
+                "salary_workers_count": salary_workers_count,
+                "active_salary_workers_count": active_salary_workers_count,
+                "total_salary_workers_monthly_pay": total_salary_workers_monthly_pay,
+                "all_contractors_count": all_contractors_count,
+                "all_active_contractors_count": all_active_contractors_count,
+            },
+            'paid': {
+                'monthly_total_paid': monthly_total_paid,
+                'weekly_total_paid': weekly_total_paid,
+                "total_paid": total_paid,
+                "total_contractors_monthly_pay": total_contractors_monthly_pay,
+                "total_contractors_weekly_pay": total_contractors_weekly_pay,
+            },
+
+            'expense_category_breakdown': expensis_category_breakdown,
+            'monthly_expense_trend': list(reversed(monthly_trend)),
             'top_categories': top_categories,
-            'asset_lifespan': asset_lifespan
         }
 
         return Response(data)

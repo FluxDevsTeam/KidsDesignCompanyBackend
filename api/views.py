@@ -742,7 +742,7 @@ class ApiContractors(ModelViewSet):
         today = timezone.now().date()
         start_of_week = today - timezone.timedelta(days=today.weekday())
 
-        all_contractors = self.queryset
+        all_contractors = self.get_queryset()
         all_contractors_count = all_contractors.count()
         all_active_contractors_count = all_contractors.filter(is_still_active=True).count()
 
@@ -772,7 +772,7 @@ class ApiSalaryWorkers(ModelViewSet):
         today = timezone.now().date()
         start_of_week = today - timezone.timedelta(days=today.weekday())
 
-        all_salary_workers = self.queryset
+        all_salary_workers = self.get_queryset()
         salary_workers_count = all_salary_workers.count()
         active_salary_workers_count = all_salary_workers.filter(is_still_active=True).count()
         total_salary_workers_monthly_pay = all_salary_workers.aggregate(total=Sum("salary"))["total"] or 0.0
@@ -784,7 +784,7 @@ class ApiSalaryWorkers(ModelViewSet):
             "active_salary_workers_count": active_salary_workers_count,
             "total_salary_workers_monthly_pay": total_salary_workers_monthly_pay,
             "total_paid": total_paid,
-            "contractor": data,
+            "workers": data,
         }
 
         return Response(response_data)

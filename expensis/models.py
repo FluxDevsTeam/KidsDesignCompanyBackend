@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Sum
@@ -43,11 +45,7 @@ class Assets(models.Model):
     value = models.DecimalField(max_digits=10, decimal_places=2)
     expected_lifespan = models.CharField(max_length=50)
     is_still_available = models.BooleanField(default=True)
-
-    @classmethod
-    def get_total_value(cls):
-        result = cls.objects.filter(is_still_available=True).aggregate(total=Sum('value'))
-        return result['total'] or 0
+    date_added = models.DateField(default=date.today)
 
     def __str__(self):
         return f"{self.name} -- {self.value}"

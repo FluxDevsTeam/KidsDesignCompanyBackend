@@ -408,7 +408,7 @@ class ApiCustomer(ModelViewSet):
     def list(self, request, *args, **kwargs):
         all_customers = self.get_queryset()
         all_customers_count = all_customers.count()
-        active_customers = all_customers.filter(project__is_delivered=False).count()
+        active_customers = all_customers.filter(project__is_delivered=False).distinct().count()
 
         page = self.paginate_queryset(all_customers)
         if page is not None:

@@ -87,9 +87,39 @@ class AddSockSerializer(ModelSerializer):
 
 
 class CustomerSerializer(ModelSerializer):
+    project = serializers.SerializerMethodField(read_only=True)
+    shop_item = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Customer
-        fields = '__all__'
+        fields = ["id", "name", "email", "phone_number", "address", "project", "shop_item", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+    def get_project(self, obj):
+        project = obj.project_set.first()
+        return SimpleProjectSerializer(project).data if project else None
+
+    def get_shop_item(self, obj):
+        shop_item = obj.sold_set.first()
+        return SimpleSoldSerializer(shop_item).data if shop_item else None
+
+
+class CustomerDetailSerializer(ModelSerializer):
+    project = serializers.SerializerMethodField(read_only=True)
+    shop_item = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Customer
+        fields = ["id", "name", "email", "phone_number", "address", "project", "shop_item", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+    def get_project(self, obj):
+        project = obj.project_set.all()
+        return SimpleProjectSerializer(project, many=True).data if project else None
+
+    def get_shop_item(self, obj):
+        shop_item = obj.sold_set.all()
+        return SimpleSoldSerializer(shop_item, many=True).data if shop_item else None
 
 
 class ExpenseCategorySerializer(ModelSerializer):
@@ -486,7 +516,8 @@ class SalaryWorkersRecordSerializer(ModelSerializer):
 class AssetsSerializer(ModelSerializer):
     class Meta:
         model = Assets
-        fields = ['name', 'value', 'expected_lifespan', 'is_still_available', 'get_total_value']
+        fields = ["id", 'name', 'value', 'expected_lifespan', 'is_still_available', "date_added"]
+        read_only_fields = ["id"]
 
 
 class AddRawMaterialsSerializer(ModelSerializer):

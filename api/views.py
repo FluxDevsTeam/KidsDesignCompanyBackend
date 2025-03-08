@@ -750,8 +750,19 @@ class ApiContractors(ModelViewSet):
 
         total_contractors_weekly_pay = all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))["total"] or 0.0
 
-        data = self.serializer_class(all_contractors, many=True).data
+        page = self.paginate_queryset(all_contractors)
+        if page is not None:
+            data = self.serializer_class(page, many=True).data
+            response_data = {
+                "all_contractors_count": all_contractors_count,
+                "all_active_contractors_count": all_active_contractors_count,
+                "total_contractors_monthly_pay": total_contractors_monthly_pay,
+                "total_contractors_weekly_pay": total_contractors_weekly_pay,
+                "contractor": data,
+            }
+            return self.get_paginated_response(response_data)
 
+        data = self.serializer_class(all_contractors, many=True).data
         response_data = {
             "all_contractors_count": all_contractors_count,
             "all_active_contractors_count": all_active_contractors_count,
@@ -777,8 +788,20 @@ class ApiSalaryWorkers(ModelViewSet):
         active_salary_workers_count = all_salary_workers.filter(is_still_active=True).count()
         total_salary_workers_monthly_pay = all_salary_workers.aggregate(total=Sum("salary"))["total"] or 0.0
         total_paid = all_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
-        data = self.serializer_class(all_salary_workers, many=True).data
 
+        page = self.paginate_queryset(all_salary_workers)
+        if page is not None:
+            data = self.serializer_class(page, many=True).data
+            response_data = {
+                "salary_workers_count": salary_workers_count,
+                "active_salary_workers_count": active_salary_workers_count,
+                "total_salary_workers_monthly_pay": total_salary_workers_monthly_pay,
+                "total_paid": total_paid,
+                "workers": data,
+            }
+            return self.get_paginated_response(response_data)
+
+        data = self.serializer_class(all_salary_workers, many=True).data
         response_data = {
             "salary_workers_count": salary_workers_count,
             "active_salary_workers_count": active_salary_workers_count,
@@ -861,6 +884,19 @@ class ApiAssets(ModelViewSet):
         no_of_good_assets = all_assets.filter(is_still_available=True).count()
         no_of_bad_assets = all_assets.filter(is_still_available=False).count()
         total_assets_count = all_assets.count()
+
+        page = self.paginate_queryset(all_assets)
+        if page is not None:
+            data = self.serializer_class(page, many=True).data
+            response_data = {
+                "total_assets_count": total_assets_count,
+                "good_assets_count": no_of_good_assets,
+                "good_assets_value": all_assets_total,
+                "depreciated_assets_count": no_of_bad_assets,
+                "assets": data
+            }
+            return self.get_paginated_response(response_data)
+
         data = self.serializer_class(all_assets, many=True).data
         response_data = {
             "total_assets_count": total_assets_count,

@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.db.models import Sum, Q, F, Count, Subquery, OuterRef, FloatField, Prefetch, ExpressionWrapper
 from django.db.models.functions import Coalesce
-
+from dateutil.relativedelta import relativedelta
 from .dashboard_serializers import CustomerDashboardSerializer, CEODashboardSerializer, AdminSerializer
 from customers.models import Customer
 from expensis.models import Assets, ExpenseCategory, Expense
@@ -326,8 +326,8 @@ class ApiAdminDashboard(viewsets.ViewSet):
         # Monthly Trend with Others
         monthly_trend = []
         for i in range(12):
-            month_start = today.replace(day=1) - timedelta(days=30 * i)
-            month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            month_start = (today.replace(day=1) - relativedelta(months=i))
+            month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
             month_total = expense.filter(
                 date__gte=month_start,

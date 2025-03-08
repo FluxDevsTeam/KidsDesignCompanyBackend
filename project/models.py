@@ -27,6 +27,10 @@ class Project(models.Model):
     def timeframe(self):
         return (self.deadline - self.start_date).days if self.deadline else None
 
+    @property
+    def paid(self):
+        return self.selling_price + self.logistics + self.service_charge
+
     def __str__(self):
         return f"Project {self.name}"
 

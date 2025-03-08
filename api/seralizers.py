@@ -59,7 +59,7 @@ class SimpleCustomerSerializer(ModelSerializer):
 class SimpleProjectSerializer(ModelSerializer):
     class Meta:
         model = Project
-        fields = ['id', 'name']
+        fields = ['id', 'name', "paid"]
         read_only_fields = ["id"]
 
 

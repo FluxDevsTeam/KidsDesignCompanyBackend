@@ -14,7 +14,7 @@ from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSeriali
     RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer, ExpenseCategorySerializer, AddSockSerializer, \
     InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer, StoreCategorySerializer, \
     SalaryWorkersRecordSerializer, ContractorRecordSerializer, OverheadCostSerializer, AssetsSerializer, \
-    AddRawMaterialsSerializer, OtherProductionSerializer, PaidSerializer
+    AddRawMaterialsSerializer, OtherProductionSerializer, PaidSerializer, CustomerDetailSerializer
 from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory, Assets
@@ -404,7 +404,49 @@ class ApiSold(ModelViewSet):
 class ApiCustomer(ModelViewSet):
     serializer_class = CustomerSerializer
     queryset = Customer.objects.all()
-    # permission_classes = [IsCEO | IsProjectManager]
+
+    def list(self, request, *args, **kwargs):
+        all_customers = self.get_queryset()
+        all_customers_count = all_customers.count()
+        active_customers = all_customers.filter(project__is_delivered=False).count()
+
+        page = self.paginate_queryset(all_customers)
+        if page is not None:
+            data = self.get_serializer(page, many=True).data
+            response_data = {
+                "all_customers_count": all_customers_count,
+                "active_customers": active_customers,
+                "all_customers": data
+            }
+            return self.get_paginated_response(response_data)
+
+        data = self.get_serializer(all_customers, many=True).data
+        response_data = {
+            "all_customers_count": all_customers_count,
+            "active_customers": active_customers,
+            "all_customers": data
+        }
+        return Response(response_data)
+
+    def retrieve(self, request, *args, **kwargs):
+        customer = self.get_object()
+
+        all_projects = customer.project_set.all()
+        total_projects_count = all_projects.count()
+        active_projects_count = all_projects.filter(is_delivered=False).count()
+
+        total_cost = all_projects.annotate(paid=ExpressionWrapper(F("selling_price") + F("logistics") + F("service_charge"),output_field=DecimalField())).aggregate(total=Sum("paid"))["total"] or 0.0
+
+        data = CustomerDetailSerializer(customer).data
+
+        response_data = {
+            "total_projects_count": total_projects_count,
+            "active_projects_count": active_projects_count,
+            "total_projects_cost": total_cost,
+            "customer_details": data
+        }
+
+        return Response(response_data)
 
 
 class ApiExpenseCategory(ModelViewSet):
@@ -875,7 +917,7 @@ class OverheadCostViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
 
 class ApiAssets(ModelViewSet):
     serializer_class = AssetsSerializer
-    queryset = Assets.objects.all().order_by('-is_still_available')
+    queryset = Assets.objects.all().order_by('-is_still_available', '-date_added')
     pagination_class = AssetsPagination
 
     def list(self, request, *args, **kwargs):

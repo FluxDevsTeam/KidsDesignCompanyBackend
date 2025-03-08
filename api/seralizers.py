@@ -410,13 +410,6 @@ class ProjectSerializer(serializers.ModelSerializer):
 #  #########################################
 #  ###################################
 
-
-class SimpleRawMaterialSerializer(ModelSerializer):
-    class Meta:
-        model = RawMaterial
-        fields = ['id', 'name']
-
-
 class RemovedSerializer(ModelSerializer):
     product_its_used = SimpleProductSerializer(source="product", read_only=True)
     raw_material = SimpleRawMaterialSerializer(source="material", read_only=True)

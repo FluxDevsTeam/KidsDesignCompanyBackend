@@ -19,7 +19,6 @@ class RawMaterial(models.Model):
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(upload_to="raw_materials/", blank=True, null=True)
 
-    @property
     def __str__(self):
         return self.name
 
@@ -31,11 +30,14 @@ class Removed(models.Model):
     material = models.ForeignKey(RawMaterial, on_delete=models.PROTECT)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True)
     date = models.DateField(auto_now_add=True)
 
     class Meta:
         ordering = ["-date"]
+
+    def __str__(self):
+        return f"{self.material} - {self.quantity}"
 
 
 class AddRawMaterials(models.Model):

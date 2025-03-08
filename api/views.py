@@ -434,15 +434,21 @@ class ApiCustomer(ModelViewSet):
         all_projects = customer.project_set.all()
         total_projects_count = all_projects.count()
         active_projects_count = all_projects.filter(is_delivered=False).count()
+        total_project_cost = all_projects.annotate(paid=ExpressionWrapper(F("selling_price") + F("logistics") + F("service_charge"),output_field=DecimalField())).aggregate(total=Sum("paid"))["total"] or 0.0
 
-        total_cost = all_projects.annotate(paid=ExpressionWrapper(F("selling_price") + F("logistics") + F("service_charge"),output_field=DecimalField())).aggregate(total=Sum("paid"))["total"] or 0.0
+        all_shop_items = customer.sold_set.all()
+        total_shop_items_count = all_shop_items.count()
+
+        total_shop_items_cost = all_shop_items.annotate(paid=ExpressionWrapper(F("logistics") + (F("selling_price") * F("quantity")),output_field=DecimalField())).aggregate(total=Sum("paid"))["total"] or 0.0
 
         data = CustomerDetailSerializer(customer).data
 
         response_data = {
             "total_projects_count": total_projects_count,
             "active_projects_count": active_projects_count,
-            "total_projects_cost": total_cost,
+            "total_projects_cost": total_project_cost,
+            "total_shop_items_count": total_shop_items_count,
+            "total_shop_items_cost": total_shop_items_cost,
             "customer_details": data
         }
 

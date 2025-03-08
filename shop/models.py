@@ -68,7 +68,10 @@ class Sold(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.item.name
+        try:
+            return self.item.name
+        except AttributeError:
+            return self.name
 
     class Meta:
         ordering = ["-date"]

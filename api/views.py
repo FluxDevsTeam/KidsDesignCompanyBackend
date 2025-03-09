@@ -27,10 +27,10 @@ from django.contrib.auth import get_user_model
 from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter, ProjectFilter, \
     AddRawMaterialsFilter, PaidFilter
 from django_filters.rest_framework import DjangoFilterBackend
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.db.models import F, ExpressionWrapper, DecimalField, Sum
 from django.db.models import Avg, IntegerField
-from django.db.models.functions import Round, Cast
+from django.db.models.functions import Round, Cast, Coalesce
 
 User = get_user_model()
 
@@ -38,10 +38,10 @@ User = get_user_model()
 class ApiInventoryItem(ModelViewSet):
     serializer_class = InventoryItemSerializer
     queryset = InventoryItem.objects.all()
-    # permission_classes = [IsCEO | IsStoreKeeper | IsManager]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = InventoryItemFilter
     search_fields = ['name', 'description']
+    pagination_class = PageNumberPagination  # Use DRF's default pagination
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -52,7 +52,71 @@ class ApiInventoryItem(ModelViewSet):
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-            AddStock.objects.create(item=instance, name=instance.name, cost_price=instance.cost_price, quantity=instance.stock)
+            AddStock.objects.create(
+                item=instance,
+                name=instance.name,
+                cost_price=instance.cost_price,
+                quantity=instance.stock
+            )
+
+    def list(self, request, *args, **kwargs):
+        # Apply filters to the full queryset
+        filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
+        filtered_items = filterset.qs
+
+        # Calculate totals for the full queryset
+        total_stock_value = filtered_items.aggregate(
+            total_stock_value=Coalesce(Sum(F('stock') * F('selling_price')), 0.0, output_field=DecimalField())
+        )['total_stock_value'] or 0.0
+
+        total_cost_value = filtered_items.aggregate(
+            total_cost_value=Coalesce(Sum(F('stock') * F('cost_price')), 0.0, output_field=DecimalField())
+        )['total_cost_value'] or 0.0
+
+        total_profit = total_stock_value - total_cost_value
+
+        # Group by category for the full queryset
+        category_data = []
+        categories = set(filtered_items.values_list('category__name', flat=True))
+        for category_name in categories:
+            if category_name:  # Ensure category_name is not None
+                category_items = filtered_items.filter(category__name=category_name)
+                category_stock_value = category_items.aggregate(
+                    stock_value=Coalesce(Sum(F('stock') * F('selling_price')), 0.0, output_field=DecimalField())
+                )['stock_value'] or 0.0
+
+                category_cost_value = category_items.aggregate(
+                    cost_value=Coalesce(Sum(F('stock') * F('cost_price')), 0.0, output_field=DecimalField())
+                )['cost_value'] or 0.0
+
+                category_profit = category_stock_value - category_cost_value
+
+                category_data.append({
+                    "category": category_name,
+                    "total_stock_value": float(category_stock_value),
+                    "total_cost_value": float(category_cost_value),
+                    "total_profit": float(category_profit),
+                })
+
+        # Paginate the filtered items
+        page = self.paginate_queryset(filtered_items)
+        if page is not None:
+            serialized_items = self.get_serializer(page, many=True).data
+        else:
+            serialized_items = self.get_serializer(filtered_items, many=True).data
+
+        # Build the response
+        response_data = {
+            "total_stock_value": float(total_stock_value),
+            "total_cost_value": float(total_cost_value),
+            "total_profit": float(total_profit),
+            "category_data": category_data,
+            "items": serialized_items,
+        }
+
+        if page is not None:
+            return self.get_paginated_response(response_data)
+        return Response(response_data)
 
 
 class ApiAddRawMaterials(ModelViewSet):
@@ -61,7 +125,88 @@ class ApiAddRawMaterials(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = AddRawMaterialsFilter
     search_fields = ['item__name']
-    # permission_classes = [IsCEO | IsStoreKeeper | IsManager]
+
+    def list(self, request, *args, **kwargs):
+        filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
+        filtered_raw_materials = filterset.qs.order_by('-date')
+
+        # Group by day
+        daily_data = []
+        current_date = None
+        daily_entries = []
+
+        for entry in filtered_raw_materials:
+            entry_date = entry.date.date()
+
+            if entry_date != current_date:
+                if daily_entries:
+                    daily_data.append({
+                        "date": current_date.strftime('%Y-%m-%d'),
+                        "entries": AddRawMaterialsSerializer(daily_entries, many=True).data,
+                        "daily_total": sum(float(e.quantity) for e in daily_entries),
+                    })
+                current_date = entry_date
+                daily_entries = [entry]
+            else:
+                daily_entries.append(entry)
+
+        if daily_entries:
+            daily_data.append({
+                "date": current_date.strftime('%Y-%m-%d'),
+                "entries": AddRawMaterialsSerializer(daily_entries, many=True).data,
+                "daily_total": sum(float(e.quantity) for e in daily_entries),
+            })
+
+        # Totals
+        today = timezone.now().date()
+        start_of_week = today - timedelta(days=today.weekday())
+
+        year = request.query_params.get('year', None)
+        month = request.query_params.get('month', None)
+
+        if year and not month:
+            monthly_data = []
+            for m in range(1, 13):
+                monthly_entries = filtered_raw_materials.filter(date__year=year, date__month=m)
+                total_for_the_month = monthly_entries.aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+
+                if monthly_entries.exists():
+                    entries = []
+                    for entry in monthly_entries:
+                        entries.append(AddRawMaterialsSerializer(entry).data)
+
+                    monthly_data.append({
+                        "month": f"{year}-{m:02d}",
+                        "entries": entries,
+                        "total_for_the_month": float(total_for_the_month),
+                    })
+
+            yearly_total = filtered_raw_materials.filter(date__year=year).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+
+            response_data = {
+                "monthly_total": filtered_raw_materials.filter(date__month=today.month).aggregate(Sum('quantity'))['quantity__sum'] or 0.0,
+                "weekly_total": filtered_raw_materials.filter(date__range=[start_of_week, today]).aggregate(Sum('quantity'))['quantity__sum'] or 0.0,
+                "daily_data": daily_data,
+                "monthly_data": monthly_data,
+                "yearly_total": float(yearly_total),
+            }
+        else:
+            if year and month:
+                monthly_total = filtered_raw_materials.filter(date__year=year, date__month=month).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+            else:
+                monthly_total = filtered_raw_materials.filter(date__month=today.month).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+
+            response_data = {
+                "monthly_total": float(monthly_total),
+                "weekly_total": filtered_raw_materials.filter(date__range=[start_of_week, today]).aggregate(Sum('quantity'))['quantity__sum'] or 0.0,
+                "daily_data": daily_data,
+            }
+
+            if year:
+                yearly_total = filtered_raw_materials.filter(date__year=year).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+                response_data["yearly_total"] = float(yearly_total)
+
+        return Response(response_data)
 
 
 class ApiAddStock(ModelViewSet):
@@ -94,6 +239,62 @@ class ApiAddStock(ModelViewSet):
 
             serializer.save(item=item, name=item.name, cost_price=item.cost_price)
 
+    def list(self, request, *args, **kwargs):
+        filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
+        filtered_stock = filterset.qs.order_by('-date')
+
+        # Group by day
+        daily_data = []
+        current_date = None
+        daily_entries = []
+
+        for entry in filtered_stock:
+            entry_date = entry.date
+
+            if entry_date != current_date:
+                if daily_entries:
+                    daily_data.append({
+                        "date": current_date,
+                        "entries": AddSockSerializer(daily_entries, many=True).data,
+                        "daily_total": sum(e.quantity for e in daily_entries),
+                    })
+                current_date = entry_date
+                daily_entries = [entry]
+            else:
+                daily_entries.append(entry)
+
+        if daily_entries:
+            daily_data.append({
+                "date": current_date,
+                "entries": AddSockSerializer(daily_entries, many=True).data,
+                "daily_total": sum(e.quantity for e in daily_entries),
+            })
+
+        # Totals
+        today = timezone.now().date()
+        start_of_week = today - timedelta(days=today.weekday())
+
+        year = request.query_params.get('year', None)
+        month = request.query_params.get('month', None)
+
+        if year and month:
+            monthly_total = filtered_stock.filter(date__year=year, date__month=month).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+        else:
+            monthly_total = filtered_stock.filter(date__month=today.month).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+
+        weekly_total = filtered_stock.filter(date__range=[start_of_week, today]).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+
+        response_data = {
+            "monthly_total": monthly_total,
+            "weekly_total": weekly_total,
+            "daily_data": daily_data,
+        }
+
+        if year:
+            yearly_total = filtered_stock.filter(date__year=year).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+            response_data["yearly_total"] = yearly_total
+
+        return Response(response_data)
 
 class ApiInventoryCategory(ModelViewSet):
     queryset = InventoryCategory.objects.all()
@@ -472,7 +673,49 @@ class ApiExpense(ModelViewSet):
         filterset = self.filter_class(request.GET, queryset=self.get_queryset())
         filtered_expenses = filterset.qs.order_by('-date')
 
-        # Group expenses by day
+        year = request.query_params.get('year', None)
+        month = request.query_params.get('month', None)
+
+        # Always calculate totals for the current month
+        today = timezone.now().date()
+        current_month_total = filtered_expenses.filter(date__month=today.month).aggregate(Sum('amount'))[
+                                  'amount__sum'] or 0.0
+        current_month_project_total = \
+        filtered_expenses.filter(project__isnull=False, date__month=today.month).aggregate(Sum('amount'))[
+            'amount__sum'] or 0.0
+        current_month_shop_total = \
+        filtered_expenses.filter(shop__isnull=False, date__month=today.month).aggregate(Sum('amount'))[
+            'amount__sum'] or 0.0
+
+        if year and not month:
+            monthly_data = []
+            for m in range(1, 13):
+                monthly_expenses = filtered_expenses.filter(date__year=year, date__month=m)
+                total_for_the_month = monthly_expenses.aggregate(Sum('amount'))['amount__sum'] or 0.0
+
+                # Only include months with data
+                if monthly_expenses.exists():
+                    entries = []
+                    for expense in monthly_expenses:
+                        entries.append(ExpenseSerializer(expense).data)
+
+                    monthly_data.append({
+                        "month": f"{year}-{m:02d}",
+                        "entries": entries,
+                        "total_for_the_month": total_for_the_month,
+                    })
+
+            yearly_total = filtered_expenses.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
+
+            response_data = {
+                "monthly_total": current_month_total,
+                "monthly_project_expenses_total": current_month_project_total,
+                "monthly_shop_expenses_total": current_month_shop_total,
+                "monthly_data": monthly_data,
+                "yearly_total": yearly_total,
+            }
+            return Response(response_data)
+
         daily_data = []
         current_date = None
         daily_expenses = []
@@ -483,7 +726,7 @@ class ApiExpense(ModelViewSet):
             if expense_date != current_date:
                 if daily_expenses:
                     daily_data.append({
-                        "date": current_date,
+                        "date": current_date.strftime('%Y-%m-%d'),
                         "entries": ExpenseSerializer(daily_expenses, many=True).data,
                         "daily_total": sum(e.amount for e in daily_expenses),
                     })
@@ -494,30 +737,25 @@ class ApiExpense(ModelViewSet):
 
         if daily_expenses:
             daily_data.append({
-                "date": current_date,
+                "date": current_date.strftime('%Y-%m-%d'),
                 "entries": ExpenseSerializer(daily_expenses, many=True).data,
                 "daily_total": sum(e.amount for e in daily_expenses),
             })
 
-        today = timezone.now().date()
-        start_of_week = today - timezone.timedelta(days=today.weekday())
-
-        monthly_total = filtered_expenses.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        weekly_total = filtered_expenses.filter(date__date__range=[start_of_week, today]).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        monthly_project_expenses_total = filtered_expenses.filter(project__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        monthly_shop_expenses_total = filtered_expenses.filter(shop__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        start_of_week = today - timedelta(days=today.weekday())
+        weekly_total = filtered_expenses.filter(date__date__range=[start_of_week, today]).aggregate(Sum('amount'))[
+                           'amount__sum'] or 0.0
 
         response_data = {
-            "monthly_total": monthly_total,
+            "monthly_total": current_month_total,
+            "monthly_project_expenses_total": current_month_project_total,
+            "monthly_shop_expenses_total": current_month_shop_total,
             "weekly_total": weekly_total,
-            "monthly_project_expenses_total": monthly_project_expenses_total,
-            "monthly_shop_expenses_total": monthly_shop_expenses_total,
             "daily_data": daily_data,
         }
 
-        year = request.query_params.get('year', None)
         if year:
-            yearly_total = Expense.objects.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
+            yearly_total = filtered_expenses.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
             response_data["yearly_total"] = yearly_total
 
         return Response(response_data)
@@ -1013,25 +1251,56 @@ class ApiPaid(ModelViewSet):
 
         # Weekly, monthly, and yearly totals
         today = timezone.now().date()
-        start_of_week = today - timezone.timedelta(days=today.weekday())
+        start_of_week = today - timedelta(days=today.weekday())
 
-        monthly_transaction_count = filtered_paid.filter(date__month=today.month).count()
-        monthly_total = filtered_paid.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        weekly_total = filtered_paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        daily_total = filtered_paid.filter(date=today).aggregate(Sum('amount'))['amount__sum'] or 0.0
-
-        response_data = {
-            "monthly_transaction_count": monthly_transaction_count,
-            "monthly_total": monthly_total,
-            "weekly_total": weekly_total,
-            "daily_total": daily_total,
-            "daily_data": daily_data,
-        }
-
-        # Yearly total if requested
         year = request.query_params.get('year', None)
-        if year:
-            yearly_total = Paid.objects.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
-            response_data["yearly_total"] = yearly_total
+        month = request.query_params.get('month', None)
+
+        if year and not month:
+            monthly_data = []
+            for m in range(1, 13):
+                monthly_expenses = filtered_paid.filter(date__year=year, date__month=m)
+                total_for_the_month = monthly_expenses.aggregate(Sum('amount'))['amount__sum'] or 0.0
+
+                if monthly_expenses.exists():
+                    entries = []
+                    for expense in monthly_expenses:
+                        entries.append(PaidSerializer(expense).data)
+
+                    monthly_data.append({
+                        "month": f"{year}-{m:02d}",
+                        "entries": entries,
+                        "total_for_the_month": total_for_the_month,
+                    })
+
+            yearly_total = filtered_paid.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
+
+            response_data = {
+                "monthly_total": filtered_paid.filter(date__month=today.month).aggregate(Sum('amount'))[
+                                     'amount__sum'] or 0.0,
+                "weekly_total": filtered_paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))[
+                                    'amount__sum'] or 0.0,
+                "daily_data": daily_data,
+                "monthly_data": monthly_data,
+                "yearly_total": yearly_total,
+            }
+        else:
+            if year and month:
+                monthly_total = filtered_paid.filter(date__year=year, date__month=month).aggregate(Sum('amount'))[
+                                    'amount__sum'] or 0.0
+            else:
+                monthly_total = filtered_paid.filter(date__month=today.month).aggregate(Sum('amount'))[
+                                    'amount__sum'] or 0.0
+
+            response_data = {
+                "monthly_total": monthly_total,
+                "weekly_total": filtered_paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))[
+                                    'amount__sum'] or 0.0,
+                "daily_data": daily_data,
+            }
+
+            if year:
+                yearly_total = filtered_paid.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
+                response_data["yearly_total"] = yearly_total
 
         return Response(response_data)

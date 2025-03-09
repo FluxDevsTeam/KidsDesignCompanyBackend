@@ -2,6 +2,7 @@ from django.db import transaction
 from rest_framework.exceptions import MethodNotAllowed
 from django.shortcuts import get_object_or_404
 from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from django.utils import timezone
 
@@ -41,7 +42,7 @@ class ApiInventoryItem(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = InventoryItemFilter
     search_fields = ['name', 'description']
-    pagination_class = PageNumberPagination  # Use DRF's default pagination
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -60,11 +61,9 @@ class ApiInventoryItem(ModelViewSet):
             )
 
     def list(self, request, *args, **kwargs):
-        # Apply filters to the full queryset
         filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
         filtered_items = filterset.qs
 
-        # Calculate totals for the full queryset
         total_stock_value = filtered_items.aggregate(
             total_stock_value=Coalesce(Sum(F('stock') * F('selling_price')), 0.0, output_field=DecimalField())
         )['total_stock_value'] or 0.0
@@ -75,11 +74,10 @@ class ApiInventoryItem(ModelViewSet):
 
         total_profit = total_stock_value - total_cost_value
 
-        # Group by category for the full queryset
         category_data = []
         categories = set(filtered_items.values_list('category__name', flat=True))
         for category_name in categories:
-            if category_name:  # Ensure category_name is not None
+            if category_name:
                 category_items = filtered_items.filter(category__name=category_name)
                 category_stock_value = category_items.aggregate(
                     stock_value=Coalesce(Sum(F('stock') * F('selling_price')), 0.0, output_field=DecimalField())
@@ -98,14 +96,12 @@ class ApiInventoryItem(ModelViewSet):
                     "total_profit": float(category_profit),
                 })
 
-        # Paginate the filtered items
         page = self.paginate_queryset(filtered_items)
         if page is not None:
             serialized_items = self.get_serializer(page, many=True).data
         else:
             serialized_items = self.get_serializer(filtered_items, many=True).data
 
-        # Build the response
         response_data = {
             "total_stock_value": float(total_stock_value),
             "total_cost_value": float(total_cost_value),

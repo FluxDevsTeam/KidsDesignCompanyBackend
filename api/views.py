@@ -886,12 +886,31 @@ class ApiProject(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ProjectFilter
     search_fields = ['customer__name', 'name']
-    ordering = ['progress']
+    ordering = ['progress', "deadline"]
 
     def get_queryset(self):
         qs = super().get_queryset()
         qs = qs.annotate(computed_progress=Cast(Round(Avg('product__progress')), output_field=IntegerField()))
         return qs
+
+    def list(self, request, *args, **kwargs):
+        projects = self.get_queryset()
+        all_projects_count = projects.count()
+
+        page = self.paginate_queryset(projects)
+        if page is not None:
+            all_projects = self.get_serializer(projects, many=True).data
+            response_data = {
+                "all_projects_count": all_projects_count,
+                "all_projects": all_projects
+            }
+            return Response(response_data)
+        all_projects = self.get_serializer(projects, many=True).data
+        response_data = {
+            "all_projects_count": all_projects_count,
+            "all_projects": all_projects
+        }
+        return Response(response_data)
 
 
 class ApiRawMaterial(ModelViewSet):

@@ -74,27 +74,7 @@ class ApiInventoryItem(ModelViewSet):
 
         total_profit = total_stock_value - total_cost_value
 
-        category_data = []
-        categories = set(filtered_items.values_list('category__name', flat=True))
-        for category_name in categories:
-            if category_name:
-                category_items = filtered_items.filter(category__name=category_name)
-                category_stock_value = category_items.aggregate(
-                    stock_value=Coalesce(Sum(F('stock') * F('selling_price')), 0.0, output_field=DecimalField())
-                )['stock_value'] or 0.0
 
-                category_cost_value = category_items.aggregate(
-                    cost_value=Coalesce(Sum(F('stock') * F('cost_price')), 0.0, output_field=DecimalField())
-                )['cost_value'] or 0.0
-
-                category_profit = category_stock_value - category_cost_value
-
-                category_data.append({
-                    "category": category_name,
-                    "total_stock_value": float(category_stock_value),
-                    "total_cost_value": float(category_cost_value),
-                    "total_profit": float(category_profit),
-                })
 
         page = self.paginate_queryset(filtered_items)
         if page is not None:
@@ -107,7 +87,7 @@ class ApiInventoryItem(ModelViewSet):
             "total_stock_value": float(total_stock_value),
             "total_cost_value": float(total_cost_value),
             "total_profit": float(total_profit),
-            "category_data": category_data,
+            # "category_data": category_data,
             "items": serialized_items,
         }
 
@@ -293,6 +273,7 @@ class ApiAddStock(ModelViewSet):
 
         return Response(response_data)
 
+
 class ApiInventoryCategory(ModelViewSet):
     queryset = InventoryCategory.objects.all()
     serializer_class = InventoryCategorySerializer
@@ -314,8 +295,18 @@ class ApiSold(ModelViewSet):
     search_fields = ['item__name', 'customer__name']
 
     def list(self, request, *args, **kwargs):
+        today = datetime.today().date()
+
         filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
         filtered_solds = filterset.qs.order_by('-date')
+
+        this_month_sold_count = filtered_solds.filter(date__month=today.month).count()
+        this_month_sales = filtered_solds.filter(date__month=today.month).aggregate(total=Sum(F("selling_price")* F("quantity")))["total"]
+        this_month_profit = filtered_solds.filter(date__month=today.month).aggregate(total=Sum((F("selling_price")* F("quantity") - (F("cost_price") * F("quantity"))), output_field=DecimalField(max_digits=10, decimal_places=2)))["total"]
+
+        this_month_project_sales = filtered_solds.filter(date__month=today.month, logistics=None).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"]
+        this_month_non_project_sales = filtered_solds.filter(date__month=today.month, project=None).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"]
+
         daily_data = []
         current_date = None
         daily_solds = []
@@ -341,6 +332,11 @@ class ApiSold(ModelViewSet):
         total_price_expr = ExpressionWrapper(F('quantity') * F('selling_price'), output_field=DecimalField(max_digits=10, decimal_places=2))
         monthly_total = filtered_solds.aggregate(total=Sum(total_price_expr))['total'] or 0.0
         response_data = {
+            "this_month_sales_count": this_month_sold_count,
+            "this_month_sales": this_month_sales,
+            "this_month_profit": this_month_profit,
+            "this_month_project_sales": this_month_project_sales,
+            "this_month_non_project_sales": this_month_non_project_sales,
             "daily_data": daily_data,
             "monthly_total": monthly_total,
         }
@@ -414,8 +410,6 @@ class ApiSold(ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         item_id = request.data.get("item")
         quantity = request.data.get("quantity")
-        selling_price = request.data.get("selling_price")
-        cost_price = request.data.get("cost_price")
         project = request.data.get("project")
         customer = request.data.get("customer")
         logistics = request.data.get("logistics")
@@ -440,7 +434,7 @@ class ApiSold(ModelViewSet):
             customer_db = get_object_or_404(Customer, id=int(customer))
             customer = customer_db
 
-        if all(field is None for field in [item_id, quantity, selling_price, cost_price, project, customer, logistics]):
+        if all(field is None for field in [item_id, quantity, project, customer, logistics]):
             return Response(
                 {"error": "At least one of 'item', 'quantity', 'cost_price', 'selling_price', 'customer', 'logistics' or 'project' is required."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -462,24 +456,6 @@ class ApiSold(ModelViewSet):
             except ValueError:
                 return Response({"error": "logistics most be a number"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if cost_price is not None:
-            try:
-                cost_price = float(cost_price)
-                if cost_price <= 0:
-                    return Response({"error": "cost_price must be a positive number."}, status=status.HTTP_400_BAD_REQUEST)
-
-            except ValueError:
-                return Response({"error": "cost_price most be a number"}, status=status.HTTP_400_BAD_REQUEST)
-
-        if selling_price is not None:
-            try:
-                selling_price = float(selling_price)
-                if selling_price <= 0:
-                    return Response({"error": "selling_price must be a positive number."},
-                                    status=status.HTTP_400_BAD_REQUEST)
-            except ValueError:
-                return Response({"error": "selling_price most be a number"}, status=status.HTTP_400_BAD_REQUEST)
-
         with transaction.atomic():
             if item_id and int(item_id) != int(sold_item.item.id):
                 updated_fields = []
@@ -491,14 +467,6 @@ class ApiSold(ModelViewSet):
                     quantity = sold_item.quantity
                 if quantity > new_inventory_item.stock:
                     return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
-
-                if cost_price and float(cost_price) != float(sold_item.cost_price):
-                    sold_item.cost_price = cost_price
-                    updated_fields.append("cost price")
-
-                if selling_price and float(selling_price) != float(sold_item.selling_price):
-                    sold_item.selling_price = selling_price
-                    updated_fields.append("selling price")
 
                 if project and project != sold_item.project:
                     sold_item.project = project
@@ -521,6 +489,9 @@ class ApiSold(ModelViewSet):
 
                 sold_item.item = new_inventory_item
                 sold_item.quantity = quantity
+                sold_item.cost_price = new_inventory_item.cost_price
+                sold_item.selling_price = new_inventory_item.selling_price
+                sold_item.name = new_inventory_item.name
                 sold_item.save()
                 updated_fields.append("Sales")
 
@@ -536,14 +507,6 @@ class ApiSold(ModelViewSet):
                     inventory_item.stock -= difference
                 else:
                     inventory_item.stock += difference
-
-                if cost_price and float(cost_price) != float(sold_item.cost_price):
-                    sold_item.cost_price = cost_price
-                    updated_fields.append("cost price")
-
-                if selling_price and float(selling_price) != float(sold_item.selling_price):
-                    sold_item.selling_price = selling_price
-                    updated_fields.append("selling price")
 
                 if project and project != sold_item.project:
                     sold_item.project = project
@@ -579,19 +542,10 @@ class ApiSold(ModelViewSet):
                 sold_item.customer = customer
                 updated_fields.append("customer")
 
-            if cost_price and float(cost_price) != float(sold_item.cost_price):
-                sold_item.cost_price = cost_price
-                updated_fields.append("cost price")
-
-            if selling_price and float(selling_price) != float(sold_item.selling_price):
-                sold_item.selling_price = selling_price
-                updated_fields.append("selling price")
-
             if logistics and logistics != sold_item.logistics:
                 sold_item.logistics = logistics
                 updated_fields.append("logistics")
 
-            # Save only if something was updated
             if updated_fields:
                 sold_item.save()
                 return Response({"data": f"{', '.join(updated_fields)} updated successfully"}, status=status.HTTP_200_OK)

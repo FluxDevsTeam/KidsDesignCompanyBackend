@@ -2,8 +2,8 @@ from django.urls import path, include
 from . import views
 from rest_framework.routers import DefaultRouter
 from rest_framework_nested.routers import NestedDefaultRouter
-from .dashboard_views import RawMaterialDashboardViewSet, InventoryDashboardViewSet, WorkersDashboardViewSet, \
-    ApiAdminDashboard, ApiFactoryManagerDashboard, CEODashboardViewSet
+from .dashboard_views import RawMaterialDashboardViewSet, WorkersDashboardViewSet, \
+    ApiAdminDashboard, ApiFactoryManagerDashboard, CEODashboardViewSet, ApiShopkeeper
 
 router = DefaultRouter()
 router.register('sold', views.ApiSold, basename='sold')
@@ -56,7 +56,7 @@ urlpatterns = [
 
     #     ############ dashboard #####################
     path('raw-material-dashboard/', RawMaterialDashboardViewSet.as_view({'get': 'list'})),
-    path('inventory-dashboard/', InventoryDashboardViewSet.as_view({'get': 'list'})),
+    path('shopkeeper-dashboard/', ApiShopkeeper.as_view({'get': 'list'})),
     path('workers-dashboard/', WorkersDashboardViewSet.as_view({'get': 'list'})),
     path('admin-dashboard/', ApiAdminDashboard.as_view({'get': 'list'})),
     path('factory-manager-dashboard/', ApiFactoryManagerDashboard.as_view({'get': 'list'})),

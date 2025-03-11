@@ -63,7 +63,7 @@ class ApiInventoryItem(ModelViewSet):
     def list(self, request, *args, **kwargs):
         filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
         filtered_items = filterset.qs
-
+        total_stock_count = filtered_items.count()
         total_stock_value = filtered_items.aggregate(
             total_stock_value=Coalesce(Sum(F('stock') * F('selling_price')), 0.0, output_field=DecimalField())
         )['total_stock_value'] or 0.0
@@ -103,6 +103,7 @@ class ApiInventoryItem(ModelViewSet):
             serialized_items = self.get_serializer(filtered_items, many=True).data
 
         response_data = {
+            "total_stock_count": total_stock_count,
             "total_stock_value": float(total_stock_value),
             "total_cost_value": float(total_cost_value),
             "total_profit": float(total_profit),

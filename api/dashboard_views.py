@@ -1,3 +1,6 @@
+from django.db import models
+from django.db.models import Sum, F, DecimalField
+from django.forms import DecimalField
 from rest_framework import viewsets
 from rest_framework.response import Response
 from django.utils import timezone
@@ -30,10 +33,12 @@ class RawMaterialDashboardViewSet(viewsets.ViewSet):
         removed_cost_week = Removed.objects.filter(date__gte=start_week).aggregate(total=Sum('price'))['total'] or 0
         removed_cost_month = Removed.objects.filter(date__gte=start_month).aggregate(total=Sum('price'))['total'] or 0
         removed_amount_year = \
-        Removed.objects.filter(date__gte=one_year_ago).aggregate(total=Sum(F('price') * F('quantity')))['total'] or 0
+            Removed.objects.filter(date__gte=one_year_ago).aggregate(total=Sum(F('price') * F('quantity')))[
+                'total'] or 0
         added_amount_year = \
-        AddRawMaterials.objects.filter(date__gte=one_year_ago).aggregate(total=Sum(F('item__price') * F('quantity')))[
-            'total'] or 0
+            AddRawMaterials.objects.filter(date__gte=one_year_ago).aggregate(
+                total=Sum(F('item__price') * F('quantity')))[
+                'total'] or 0
 
         monthly_added = []
         monthly_removed = []
@@ -80,7 +85,7 @@ class RawMaterialDashboardViewSet(viewsets.ViewSet):
         return Response(data)
 
 
-class InventoryDashboardViewSet(viewsets.ViewSet):
+class ApiShopkeeper(viewsets.ViewSet):
     def list(self, request):
         today = timezone.now().date()
         one_year_ago = today - timezone.timedelta(days=365)
@@ -88,44 +93,47 @@ class InventoryDashboardViewSet(viewsets.ViewSet):
         next_month = today.replace(day=28) + timezone.timedelta(days=4)
         current_month_end = next_month - timezone.timedelta(days=next_month.day)
 
-        # Current totals
-        total_shop_value = InventoryItem.objects.aggregate(
+        inventory = InventoryItem.objects.all()
+        sold = Sold.objects.all()
+        add_stock = AddStock.objects.all()
+
+        total_shop_value = inventory.aggregate(
             total=Sum(F('stock') * F('selling_price'))
         )['total'] or 0
 
-        total_cost_value = InventoryItem.objects.aggregate(
+        total_cost_value = inventory.aggregate(
             total=Sum(F('stock') * F('cost_price'))
         )['total'] or 0
 
-        total_profit_potential = InventoryItem.objects.aggregate(
+        total_profit_potential = inventory.aggregate(
             total=Sum((F('selling_price') - F('cost_price')) * F('stock'))
         )['total'] or 0
 
         # Yearly aggregates
-        yearly_profit = Sold.objects.filter(date__gte=one_year_ago).aggregate(
+        yearly_profit = sold.filter(date__gte=one_year_ago).aggregate(
             total=Sum((F('selling_price') - F('cost_price')) * F('quantity'))
         )['total'] or 0
 
-        yearly_added_value = AddStock.objects.filter(date__gte=one_year_ago).aggregate(
+        yearly_added_value = add_stock.filter(date__gte=one_year_ago).aggregate(
             total=Sum(F('item__cost_price') * F('quantity'))
         )['total'] or 0
 
         # Current month aggregates
-        total_sold_this_month = Sold.objects.filter(
+        total_sold_this_month = sold.filter(
             date__gte=current_month_start,
             date__lte=current_month_end
         ).aggregate(
             total=Sum(F('selling_price') * F('quantity'))
         )['total'] or 0
 
-        total_added_this_month = AddStock.objects.filter(
+        total_added_this_month = add_stock.filter(
             date__gte=current_month_start,
             date__lte=current_month_end
         ).aggregate(
             total=Sum(F('item__cost_price') * F('quantity'))
         )['total'] or 0
 
-        total_profit_this_month = Sold.objects.filter(
+        total_profit_this_month = sold.filter(
             date__gte=current_month_start,
             date__lte=current_month_end
         ).aggregate(
@@ -138,11 +146,11 @@ class InventoryDashboardViewSet(viewsets.ViewSet):
         amount_sold_monthly = []
 
         for i in range(12):
-            month_start = today.replace(day=1) - timezone.timedelta(days=30*i)
-            month_end = (month_start + timezone.timedelta(days=32)).replace(day=1) - timezone.timedelta(days=1)
+            month_start = (today.replace(day=1) - relativedelta(months=i))
+            month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
             # Monthly profit
-            month_profit = Sold.objects.filter(
+            month_profit = sold.filter(
                 date__gte=month_start,
                 date__lte=month_end
             ).aggregate(
@@ -150,7 +158,7 @@ class InventoryDashboardViewSet(viewsets.ViewSet):
             )['total'] or 0
 
             # Monthly added stock value
-            month_added = AddStock.objects.filter(
+            month_added = add_stock.filter(
                 date__gte=month_start,
                 date__lte=month_end
             ).aggregate(
@@ -158,7 +166,7 @@ class InventoryDashboardViewSet(viewsets.ViewSet):
             )['total'] or 0
 
             # Monthly sales value
-            month_sold = Sold.objects.filter(
+            month_sold = sold.filter(
                 date__gte=month_start,
                 date__lte=month_end
             ).aggregate(
@@ -184,11 +192,30 @@ class InventoryDashboardViewSet(viewsets.ViewSet):
         monthly_profit.reverse()
         monthly_added_value.reverse()
         amount_sold_monthly.reverse()
+        category_data = []
+        categories = set(inventory.values_list('category__name', flat=True))
+        for category_name in categories:
+            if category_name:
+                category_items = inventory.filter(category__name=category_name)
+                category_stock_value = category_items.aggregate(
+                    stock_value=Coalesce(Sum(F('stock') * F('selling_price')), 0.0, output_field=models.DecimalField(max_digits=10, decimal_places=2))) ['stock_value'] or 0.0
+                category_cost_value = category_items.aggregate(
+                    cost_value=Coalesce(Sum(F('stock') * F('cost_price')), 0.0, output_field=models.DecimalField(max_digits=10, decimal_places=2))
+                )['cost_value'] or 0.0
 
+                category_profit = category_stock_value - category_cost_value
+
+                category_data.append({
+                    "category": category_name,
+                    "total_stock_value": float(category_stock_value),
+                    "total_cost_value": float(category_cost_value),
+                    "total_profit": float(category_profit),
+                })
         data = {
             'total_shop_value': total_shop_value,
             'total_cost_value': total_cost_value,
             'total_profit_potential': total_profit_potential,
+            "shop_category_data": category_data,
             'yearly_profit': yearly_profit,
             'yearly_added_value': yearly_added_value,
             'total_sold_this_month': total_sold_this_month,
@@ -313,7 +340,8 @@ class ApiAdminDashboard(viewsets.ViewSet):
         active_assets = assets.filter(is_still_available=True).aggregate(total=Sum('value'))['total'] or 0
         deprecated_assets = assets.filter(is_still_available=False).aggregate(total=Sum('value'))['total'] or 0
 
-        categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by('-total')
+        categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by(
+            '-total')
 
         expensis_category_breakdown = []
         for cat in categories:
@@ -358,21 +386,27 @@ class ApiAdminDashboard(viewsets.ViewSet):
             })
         start_of_week = today - timezone.timedelta(days=today.weekday())
         # Top 5 Categories
-        top_categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by('-total')[:5].values('name', 'total')
+        top_categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by(
+            '-total')[:5].values('name', 'total')
         monthly_total_paid = paid.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        weekly_total_paid = paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        weekly_total_paid = paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))[
+                                'amount__sum'] or 0.0
 
         salary_workers_count = all_salary_workers.count()
         active_salary_workers_count = all_salary_workers.filter(is_still_active=True).count()
         total_salary_workers_monthly_pay = all_salary_workers.aggregate(total=Sum("salary"))["total"] or 0.0
-        total_paid = all_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+        total_paid = all_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))[
+                         "total"] or 0.0
 
         all_contractors_count = all_contractors.count()
         all_active_contractors_count = all_contractors.filter(is_still_active=True).count()
 
-        total_contractors_monthly_pay = all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+        total_contractors_monthly_pay = \
+        all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
 
-        total_contractors_weekly_pay = all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+        total_contractors_weekly_pay = \
+        all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))[
+            "total"] or 0.0
 
         data = {
             'financial_health': {
@@ -423,18 +457,28 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
 
         # Financial Health
         sales_count_this_month = sold.filter(date__month=today.month).count()
-        total_project_sales_this_month = sold.filter(date__month=today.month, logistics=None).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
-        total_non_project_sales_this_month = sold.filter(date__month=today.month, project=None).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
-        total_sold_this_month = sold.filter(date__month=today.month).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
-        total_sold_profit_this_month = sold.filter(date__month=today.month).aggregate(total=Sum((F('selling_price') * F('quantity')) - (F('cost_price') * F('quantity'))))['total'] or 0
+        total_project_sales_this_month = \
+        sold.filter(date__month=today.month, logistics=None).aggregate(total=Sum(F('selling_price') * F('quantity')))[
+            'total'] or 0
+        total_non_project_sales_this_month = \
+        sold.filter(date__month=today.month, project=None).aggregate(total=Sum(F('selling_price') * F('quantity')))[
+            'total'] or 0
+        total_sold_this_month = \
+        sold.filter(date__month=today.month).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
+        total_sold_profit_this_month = sold.filter(date__month=today.month).aggregate(
+            total=Sum((F('selling_price') * F('quantity')) - (F('cost_price') * F('quantity'))))['total'] or 0
         project_count_this_month = project.filter(start_date__month=today.month).count()
-        total_project_amount_this_month = project.filter(start_date__month=today.month).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge')))['total'] or 0
-        total_income_this_month = total_project_amount_this_month + sold.filter(date__month=today.month, project=None).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
+        total_project_amount_this_month = project.filter(start_date__month=today.month).aggregate(
+            total=Sum(F('selling_price') + F('logistics') + F('service_charge')))['total'] or 0
+        total_income_this_month = total_project_amount_this_month + \
+                                  sold.filter(date__month=today.month, project=None).aggregate(
+                                      total=Sum(F('selling_price') * F('quantity')))['total'] or 0
         total_expenses = expense.aggregate(total=Sum('amount'))['total'] or 0
         active_assets = assets.filter(is_still_available=True).aggregate(total=Sum('value'))['total'] or 0
         deprecated_assets = assets.filter(is_still_available=False).aggregate(total=Sum('value'))['total'] or 0
 
-        categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by('-total')
+        categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by(
+            '-total')
 
         expensis_category_breakdown = []
         for cat in categories:
@@ -479,21 +523,27 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
             })
         start_of_week = today - timezone.timedelta(days=today.weekday())
         # Top 5 Categories
-        top_categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by('-total')[:5].values('name', 'total')
+        top_categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by(
+            '-total')[:5].values('name', 'total')
         monthly_total_paid = paid.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        weekly_total_paid = paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        weekly_total_paid = paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))[
+                                'amount__sum'] or 0.0
 
         salary_workers_count = all_salary_workers.count()
         active_salary_workers_count = all_salary_workers.filter(is_still_active=True).count()
         total_salary_workers_monthly_pay = all_salary_workers.aggregate(total=Sum("salary"))["total"] or 0.0
-        total_paid = all_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+        total_paid = all_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))[
+                         "total"] or 0.0
 
         all_contractors_count = all_contractors.count()
         all_active_contractors_count = all_contractors.filter(is_still_active=True).count()
 
-        total_contractors_monthly_pay = all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+        total_contractors_monthly_pay = \
+        all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
 
-        total_contractors_weekly_pay = all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+        total_contractors_weekly_pay = \
+        all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))[
+            "total"] or 0.0
 
         data = {
             'financial_health': {
@@ -584,7 +634,7 @@ class CEODashboardViewSet(viewsets.ViewSet):
         # Profit Calculations
         net_profit = total_income - total_expenses
         gross_profit = (total_projects_income + total_shop_income) - (
-                    raw_material_costs + salary_costs + contractor_costs)
+                raw_material_costs + salary_costs + contractor_costs)
 
         # Project Statistics with proper cost calculations
         project_profitability = Project.objects.annotate(

@@ -74,8 +74,6 @@ class ApiInventoryItem(ModelViewSet):
 
         total_profit = total_stock_value - total_cost_value
 
-
-
         page = self.paginate_queryset(filtered_items)
         if page is not None:
             serialized_items = self.get_serializer(page, many=True).data
@@ -158,29 +156,39 @@ class ApiAddRawMaterials(ModelViewSet):
                         "total_for_the_month": float(total_for_the_month),
                     })
 
-            yearly_total = filtered_raw_materials.filter(date__year=year).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+            yearly_total = filtered_raw_materials.filter(date__year=year).aggregate(Sum('quantity'))[
+                               'quantity__sum'] or 0.0
 
             response_data = {
-                "monthly_total": filtered_raw_materials.filter(date__month=today.month).aggregate(Sum('quantity'))['quantity__sum'] or 0.0,
-                "weekly_total": filtered_raw_materials.filter(date__range=[start_of_week, today]).aggregate(Sum('quantity'))['quantity__sum'] or 0.0,
+                "monthly_total": filtered_raw_materials.filter(date__month=today.month).aggregate(Sum('quantity'))[
+                                     'quantity__sum'] or 0.0,
+                "weekly_total":
+                    filtered_raw_materials.filter(date__range=[start_of_week, today]).aggregate(Sum('quantity'))[
+                        'quantity__sum'] or 0.0,
                 "daily_data": daily_data,
                 "monthly_data": monthly_data,
                 "yearly_total": float(yearly_total),
             }
         else:
             if year and month:
-                monthly_total = filtered_raw_materials.filter(date__year=year, date__month=month).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+                monthly_total = \
+                filtered_raw_materials.filter(date__year=year, date__month=month).aggregate(Sum('quantity'))[
+                    'quantity__sum'] or 0.0
             else:
-                monthly_total = filtered_raw_materials.filter(date__month=today.month).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+                monthly_total = filtered_raw_materials.filter(date__month=today.month).aggregate(Sum('quantity'))[
+                                    'quantity__sum'] or 0.0
 
             response_data = {
                 "monthly_total": float(monthly_total),
-                "weekly_total": filtered_raw_materials.filter(date__range=[start_of_week, today]).aggregate(Sum('quantity'))['quantity__sum'] or 0.0,
+                "weekly_total":
+                    filtered_raw_materials.filter(date__range=[start_of_week, today]).aggregate(Sum('quantity'))[
+                        'quantity__sum'] or 0.0,
                 "daily_data": daily_data,
             }
 
             if year:
-                yearly_total = filtered_raw_materials.filter(date__year=year).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+                yearly_total = filtered_raw_materials.filter(date__year=year).aggregate(Sum('quantity'))[
+                                   'quantity__sum'] or 0.0
                 response_data["yearly_total"] = float(yearly_total)
 
         return Response(response_data)
@@ -192,6 +200,7 @@ class ApiAddStock(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = AddStockFilter
     search_fields = ["item__name"]
+
     # permission_classes = [IsCEO | IsStoreKeeper | IsManager]
 
     def perform_create(self, serializer):
@@ -217,15 +226,49 @@ class ApiAddStock(ModelViewSet):
             serializer.save(item=item, name=item.name, cost_price=item.cost_price)
 
     def list(self, request, *args, **kwargs):
+        today = timezone.now().date()
+        queryset = self.get_queryset()
         filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
         filtered_stock = filterset.qs.order_by('-date')
+
+        yearly_added_stock_count = queryset.filter(date__year=today.year).count()
+        yearly_added_total_cost_price = queryset.filter(date__year=today.year).aggregate(total=Sum(F('quantity')* F("cost_price")))['total'] or 0.0
+        monthly_added_stock_count = queryset.filter(date__month=today.month).count()
+        monthly_added_total_cost_price = queryset.filter(date__month=today.month).aggregate(total=Sum(F('quantity')* F("cost_price")))['total'] or 0.0
+
+        # filters
+        year = request.query_params.get('year', None)
+        month = request.query_params.get('month', None)
+        day = request.query_params.get('day', None)
+
+        if day is not None and year is None and month is None:
+            year = today.year
+            month = today.month
+
+        if year is None and month is None:
+            year = today.year
+            month = today.month
+
+        if year is not None and month is None and day is None:
+            filtered = filtered_stock.filter(date__year=year)
+
+        elif year is not None and day is not None:
+            if month is None:
+                month = today.month
+            filtered = filtered_stock.filter(date__year=year, date__month=month, date__day=day)
+
+        elif year is not None and month is not None and day is None:
+            filtered = filtered_stock.filter(date__year=year, date__month=month)
+
+        elif year is not None and month is not None and day is not None:
+            filtered = filtered_stock.filter(date__year=year, date__month=month, date__day=day)
 
         # Group by day
         daily_data = []
         current_date = None
         daily_entries = []
 
-        for entry in filtered_stock:
+        for entry in filtered:
             entry_date = entry.date
 
             if entry_date != current_date:
@@ -247,31 +290,62 @@ class ApiAddStock(ModelViewSet):
                 "daily_total": sum(e.quantity for e in daily_entries),
             })
 
-        # Totals
-        today = timezone.now().date()
-        start_of_week = today - timedelta(days=today.weekday())
-
-        year = request.query_params.get('year', None)
-        month = request.query_params.get('month', None)
-
-        if year and month:
-            monthly_total = filtered_stock.filter(date__year=year, date__month=month).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
-        else:
-            monthly_total = filtered_stock.filter(date__month=today.month).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
-
-        weekly_total = filtered_stock.filter(date__range=[start_of_week, today]).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
-
         response_data = {
-            "monthly_total": monthly_total,
-            "weekly_total": weekly_total,
+            "yearly_added_stock_count": yearly_added_stock_count,
+            "yearly_added_total_cost_price": yearly_added_total_cost_price,
+            "monthly_added_stock_count": monthly_added_stock_count,
+            "monthly_added_total_cost_price": monthly_added_total_cost_price,
             "daily_data": daily_data,
         }
 
         if year:
-            yearly_total = filtered_stock.filter(date__year=year).aggregate(Sum('quantity'))['quantity__sum'] or 0.0
+            yearly_total = queryset.filter(date__year=year).aggregate(total=Sum(F("quantity")*F("cost_price")))['total'] or 0.0
             response_data["yearly_total"] = yearly_total
 
         return Response(response_data)
+
+    def update(self, request, *args, **kwargs):
+        raise MethodNotAllowed("PUT")
+
+    def partial_update(self, request, *args, **kwargs):
+        quantity = request.data.get("quantity")
+
+        if not quantity:
+            return Response({"error": "quantity required"})
+
+        if quantity <= 0:
+            return Response({"error": "quantity  most be a positive number"})
+
+        added_stock = self.get_object()
+        with transaction.atomic():
+            if added_stock.item:
+                inventory_item = get_object_or_404(InventoryItem, id=added_stock.item.id)
+                change = abs(added_stock.quantity - quantity)
+                if added_stock.quantity > quantity:
+                    if inventory_item.stock < change:
+                        return Response({"data": "not enough stock remaining in inventory."})
+                    inventory_item.stock -= change
+                    added_stock.quantity -= change
+                else:
+                    inventory_item.stock += change
+                    added_stock.quantity += change
+                inventory_item.save()
+                added_stock.save()
+                return Response({"data": "quantity updated successfully"}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "inventory item has been deleted"})
+
+    def destroy(self, request, *args, **kwargs):
+        added_item = self.get_object()
+        if added_item.item is not None:
+            sold_item = get_object_or_404(Sold, id=added_item.item.id)
+            sold_item.quantity -= added_item.quantity
+            sold_item.save()
+            added_item.delete()
+            return Response({"message": "stock add record deleted and sold item updated."}, status=204)
+
+        added_item.delete()
+        return Response({"message": "stock add record deleted but sold item not updated because it no longer exists."}, status=204)
 
 
 class ApiInventoryCategory(ModelViewSet):
@@ -296,32 +370,52 @@ class ApiSold(ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         today = timezone.now().date()
-
+        queryset = self.get_queryset()
         filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
         filtered_solds = filterset.qs.order_by('-date')
 
-        this_month_sold_count = filtered_solds.filter(date__month=today.month).count()
-        this_month_sales = filtered_solds.filter(date__month=today.month).aggregate(total=Sum(F("selling_price")* F("quantity")))["total"]
-        this_month_profit = filtered_solds.filter(date__month=today.month).aggregate(total=Sum((F("selling_price")* F("quantity") - (F("cost_price") * F("quantity"))), output_field=DecimalField(max_digits=10, decimal_places=2)))["total"]
+        this_month_sold_count = queryset.filter(date__month=today.month).count()
+        this_month_sales = queryset.filter(date__month=today.month).aggregate(total=Sum(F("selling_price")* F("quantity")))["total"]
+        this_month_profit = queryset.filter(date__month=today.month).aggregate(total=Sum((F("selling_price")* F("quantity") - (F("cost_price") * F("quantity"))), output_field=DecimalField(max_digits=10, decimal_places=2)))["total"]
 
-        this_month_project_sales = filtered_solds.filter(date__month=today.month, logistics=None).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"]
-        this_month_non_project_sales = filtered_solds.filter(date__month=today.month, project=None).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"]
+        this_month_project_sales = queryset.filter(date__month=today.month, logistics=None).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"]
+        this_month_non_project_sales = queryset.filter(date__month=today.month, project=None).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"]
 
         # filters
         year = request.query_params.get('year', None)
         month = request.query_params.get('month', None)
         day = request.query_params.get('day', None)
 
-        if not month and not year and not day:
-            filtered = filtered_solds.filter(date__month=today.month)
-        if month and not year and not day:
-            filtered = filtered_solds.filter(date__month=today.month)
+        filtered = filtered_solds
+
+        if day is not None and year is None and month is None:
+            year = today.year
+            month = today.month
+
+        if year is None and month is None:
+            year = today.year
+            month = today.month
+
+        if year is not None and month is None and day is None:
+            filtered = filtered_solds.filter(date__year=year)
+
+        elif year is not None and day is not None:
+            if month is None:
+                month = today.month
+            filtered = filtered_solds.filter(date__year=year, date__month=month, date__day=day)
+
+        elif year is not None and month is not None and day is None:
+            filtered = filtered_solds.filter(date__year=year, date__month=month)
+
+        elif year is not None and month is not None and day is not None:
+            filtered = filtered_solds.filter(date__year=year, date__month=month, date__day=day)
 
         daily_data = []
         current_date = None
         daily_solds = []
         for sold in filtered:
             sold_date = sold.date.date() if isinstance(sold.date, datetime) else sold.date
+
             if current_date != sold_date:
                 if daily_solds:
                     daily_data.append({
@@ -339,8 +433,6 @@ class ApiSold(ModelViewSet):
                 "entries": self.get_serializer(daily_solds, many=True).data,
                 "daily_total": sum(s.total_price for s in daily_solds)
             })
-        total_price_expr = ExpressionWrapper(F('quantity') * F('selling_price'), output_field=DecimalField(max_digits=10, decimal_places=2))
-
         response_data = {
             "this_month_sales_count": this_month_sold_count,
             "this_month_sales": this_month_sales,
@@ -350,9 +442,8 @@ class ApiSold(ModelViewSet):
             "daily_data": daily_data,
         }
         if year:
-            yearly_total = self.get_queryset().filter(date__year=year).aggregate(total=Sum(total_price_expr))['total'] or 0.0
+            yearly_total = queryset.filter(date__year=year).aggregate(total=Sum(F("quantity")*F("selling_price")))['total'] or 0.0
             response_data["yearly_total"] = yearly_total
-            response_data.pop("monthly_total")
         return Response(response_data)
 
     def create(self, request, *args, **kwargs):
@@ -364,9 +455,11 @@ class ApiSold(ModelViewSet):
 
         if bool(customer) == bool(project):
             if not customer:
-                return Response({"error": "Either 'customer' or 'project' is required."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Either 'customer' or 'project' is required."},
+                                status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response({"error": "Only one of 'customer' or 'project' is allowed."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Only one of 'customer' or 'project' is allowed."},
+                                status=status.HTTP_400_BAD_REQUEST)
 
         if project and logistics:
             return Response(
@@ -394,10 +487,14 @@ class ApiSold(ModelViewSet):
         if project:
             project_instance = get_object_or_404(Project, id=project)
             customer = project_instance.customer
-            Sold.objects.create(item=inventory_item, quantity=quantity, customer=customer, cost_price=inventory_item.cost_price, selling_price=inventory_item.selling_price, project=project_instance, name=inventory_item.name)
+            Sold.objects.create(item=inventory_item, quantity=quantity, customer=customer,
+                                cost_price=inventory_item.cost_price, selling_price=inventory_item.selling_price,
+                                project=project_instance, name=inventory_item.name)
         else:
             customer_data = get_object_or_404(Customer, id=customer)
-            Sold.objects.create(item=inventory_item, quantity=quantity, customer=customer_data, cost_price=inventory_item.cost_price, selling_price=inventory_item.selling_price, logistics=logistics, name=inventory_item.name)
+            Sold.objects.create(item=inventory_item, quantity=quantity, customer=customer_data,
+                                cost_price=inventory_item.cost_price, selling_price=inventory_item.selling_price,
+                                logistics=logistics, name=inventory_item.name)
 
         inventory_item.stock -= quantity
         inventory_item.save()
@@ -414,8 +511,9 @@ class ApiSold(ModelViewSet):
             return Response({"message": "Sold item deleted and inventory updated."}, status=204)
 
         sold_item.delete()
-        return Response({"message": "Sold item deleted but inventory not updated because item has beed deleted. you can create an invcentory again and add it manually."}, status=204)
-
+        return Response({
+                            "message": "Sold item deleted but inventory not updated because item has beed deleted. you can create an invcentory again and add it manually."},
+                        status=204)
 
     def update(self, request, *args, **kwargs):
         raise MethodNotAllowed("PUT")
@@ -428,17 +526,20 @@ class ApiSold(ModelViewSet):
         logistics = request.data.get("logistics")
         sold_item = self.get_object()
 
-        if (customer and (not logistics)) and (logistics and (not customer)) and (customer and (not sold_item.logistics)) and (logistics and (not sold_item.customer)):
+        if (customer and (not logistics)) and (logistics and (not customer)) and (
+                customer and (not sold_item.logistics)) and (logistics and (not sold_item.customer)):
             return Response(
                 {"error": "both 'customer' and 'logistics' is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if (((project and logistics) or (project and sold_item.logistics) or (sold_item.project and logistics)) and (not customer) and project) and (project and (logistics or customer)):
+        if (((project and logistics) or (project and sold_item.logistics) or (sold_item.project and logistics)) and (
+        not customer) and project) and (project and (logistics or customer)):
             return Response(
                 {"error": "you cant set logistics for item sold in a project"}, status=status.HTTP_400_BAD_REQUEST)
 
         if customer and project:
             return Response(
-                {"error": "only one of either 'customer' or 'project' is required."}, status=status.HTTP_400_BAD_REQUEST)
+                {"error": "only one of either 'customer' or 'project' is required."},
+                status=status.HTTP_400_BAD_REQUEST)
         if project:
             project_db = get_object_or_404(Project, id=int(project))
             project = project_db
@@ -449,7 +550,9 @@ class ApiSold(ModelViewSet):
 
         if all(field is None for field in [item_id, quantity, project, customer, logistics]):
             return Response(
-                {"error": "At least one of 'item', 'quantity', 'cost_price', 'selling_price', 'customer', 'logistics' or 'project' is required."}, status=status.HTTP_400_BAD_REQUEST)
+                {
+                    "error": "At least one of 'item', 'quantity', 'cost_price', 'selling_price', 'customer', 'logistics' or 'project' is required."},
+                status=status.HTTP_400_BAD_REQUEST)
 
         if quantity is not None:
             try:
@@ -508,7 +611,8 @@ class ApiSold(ModelViewSet):
                 sold_item.save()
                 updated_fields.append("Sales")
 
-                return Response({"data": f"{', '.join(updated_fields)} updated successfully"}, status=status.HTTP_200_OK)
+                return Response({"data": f"{', '.join(updated_fields)} updated successfully"},
+                                status=status.HTTP_200_OK)
 
             if quantity is not None and quantity != sold_item.quantity:
                 inventory_item = get_object_or_404(InventoryItem, id=sold_item.item.id)
@@ -541,7 +645,8 @@ class ApiSold(ModelViewSet):
                 sold_item.save()
                 updated_fields.append("Quantity")
 
-                return Response({"data": f"{', '.join(updated_fields)} updated successfully"}, status=status.HTTP_200_OK)
+                return Response({"data": f"{', '.join(updated_fields)} updated successfully"},
+                                status=status.HTTP_200_OK)
             updated_fields = []
 
             if project and project != sold_item.project:
@@ -561,7 +666,8 @@ class ApiSold(ModelViewSet):
 
             if updated_fields:
                 sold_item.save()
-                return Response({"data": f"{', '.join(updated_fields)} updated successfully"}, status=status.HTTP_200_OK)
+                return Response({"data": f"{', '.join(updated_fields)} updated successfully"},
+                                status=status.HTTP_200_OK)
 
             return Response({"message": "No changes made."}, status=status.HTTP_200_OK)
 
@@ -599,12 +705,16 @@ class ApiCustomer(ModelViewSet):
         all_projects = customer.project_set.all()
         total_projects_count = all_projects.count()
         active_projects_count = all_projects.filter(is_delivered=False).count()
-        total_project_cost = all_projects.annotate(paid=ExpressionWrapper(F("selling_price") + F("logistics") + F("service_charge"),output_field=DecimalField())).aggregate(total=Sum("paid"))["total"] or 0.0
+        total_project_cost = all_projects.annotate(
+            paid=ExpressionWrapper(F("selling_price") + F("logistics") + F("service_charge"),
+                                   output_field=DecimalField())).aggregate(total=Sum("paid"))["total"] or 0.0
 
         all_shop_items = customer.sold_set.all()
         total_shop_items_count = all_shop_items.count()
 
-        total_shop_items_cost = all_shop_items.annotate(paid=ExpressionWrapper(F("logistics") + (F("selling_price") * F("quantity")),output_field=DecimalField())).aggregate(total=Sum("paid"))["total"] or 0.0
+        total_shop_items_cost = all_shop_items.annotate(
+            paid=ExpressionWrapper(F("logistics") + (F("selling_price") * F("quantity")),
+                                   output_field=DecimalField())).aggregate(total=Sum("paid"))["total"] or 0.0
 
         data = CustomerDetailSerializer(customer).data
 
@@ -642,17 +752,12 @@ class ApiExpense(ModelViewSet):
 
         # Always calculate totals for the current month
         today = timezone.now().date()
-        current_month_total = filtered_expenses.filter(date__month=today.month).aggregate(Sum('amount'))[
-                                  'amount__sum'] or 0.0
-        current_month_project_total = \
-        filtered_expenses.filter(project__isnull=False, date__month=today.month).aggregate(Sum('amount'))[
-            'amount__sum'] or 0.0
-        current_month_shop_total = \
-        filtered_expenses.filter(shop__isnull=False, date__month=today.month).aggregate(Sum('amount'))[
-            'amount__sum'] or 0.0
+        current_month_total = filtered_expenses.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        current_month_project_total = filtered_expenses.filter(project__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        current_month_shop_total = filtered_expenses.filter(shop__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
 
         if year and not month:
-            monthly_data = []
+            data = []
             for m in range(1, 13):
                 monthly_expenses = filtered_expenses.filter(date__year=year, date__month=m)
                 total_for_the_month = monthly_expenses.aggregate(Sum('amount'))['amount__sum'] or 0.0
@@ -663,7 +768,7 @@ class ApiExpense(ModelViewSet):
                     for expense in monthly_expenses:
                         entries.append(ExpenseSerializer(expense).data)
 
-                    monthly_data.append({
+                    data.append({
                         "month": f"{year}-{m:02d}",
                         "entries": entries,
                         "total_for_the_month": total_for_the_month,
@@ -675,10 +780,15 @@ class ApiExpense(ModelViewSet):
                 "monthly_total": current_month_total,
                 "monthly_project_expenses_total": current_month_project_total,
                 "monthly_shop_expenses_total": current_month_shop_total,
-                "monthly_data": monthly_data,
+                "daily_data": data,
                 "yearly_total": yearly_total,
             }
             return Response(response_data)
+
+        if year is None and month is None:
+            filterset = filterset.filter(date__year=today.year, date__month=today.month)
+        if year is None and month is not None:
+            filterset = filterset.filter(date__year=today.year, date__month=month)
 
         daily_data = []
         current_date = None
@@ -706,15 +816,10 @@ class ApiExpense(ModelViewSet):
                 "daily_total": sum(e.amount for e in daily_expenses),
             })
 
-        start_of_week = today - timedelta(days=today.weekday())
-        weekly_total = filtered_expenses.filter(date__date__range=[start_of_week, today]).aggregate(Sum('amount'))[
-                           'amount__sum'] or 0.0
-
         response_data = {
             "monthly_total": current_month_total,
             "monthly_project_expenses_total": current_month_project_total,
             "monthly_shop_expenses_total": current_month_shop_total,
-            "weekly_total": weekly_total,
             "daily_data": daily_data,
         }
 
@@ -884,6 +989,7 @@ class ApiProject(ModelViewSet):
 class ApiRawMaterial(ModelViewSet):
     serializer_class = RawMaterialSerializer
     queryset = RawMaterial.objects.all()
+
     # permission_classes = [IsCEO | IsStoreKeeper]
 
     def perform_create(self, serializer):
@@ -920,7 +1026,8 @@ class ApiRemoved(ModelViewSet):
         if quantity > material_data.quantity:
             return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
 
-        Removed.objects.create(material=material_data, quantity=quantity, product=product_data, price=material_data.price)
+        Removed.objects.create(material=material_data, quantity=quantity, product=product_data,
+                               price=material_data.price)
         material_data.quantity -= quantity
         material_data.save()
 
@@ -947,7 +1054,8 @@ class ApiRemoved(ModelViewSet):
 
         if not material and not quantity and not product:
             return Response(
-                {"error": "Either one of 'material', 'quantity', 'product' or more is required."}, status=status.HTTP_400_BAD_REQUEST)
+                {"error": "Either one of 'material', 'quantity', 'product' or more is required."},
+                status=status.HTTP_400_BAD_REQUEST)
 
         if quantity is not None:
             try:
@@ -997,7 +1105,8 @@ class ApiRemoved(ModelViewSet):
                 removed_item.quantity = quantity
                 removed_item.save()
 
-                return Response({"message": "removed raw material quantity edited successfully."}, status=status.HTTP_200_OK)
+                return Response({"message": "removed raw material quantity edited successfully."},
+                                status=status.HTTP_200_OK)
 
             return Response({"message": "No changes made."}, status=status.HTTP_200_OK)
 
@@ -1005,6 +1114,7 @@ class ApiRemoved(ModelViewSet):
 class ApiContractors(ModelViewSet):
     serializer_class = ContractorsSerializer
     queryset = Contractors.objects.all()
+
     # permission_classes = [IsCEO | IsArtisanReadOnly | IsProjectManager]
 
     def list(self, request, *args, **kwargs):
@@ -1015,9 +1125,12 @@ class ApiContractors(ModelViewSet):
         all_contractors_count = all_contractors.count()
         all_active_contractors_count = all_contractors.filter(is_still_active=True).count()
 
-        total_contractors_monthly_pay = all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+        total_contractors_monthly_pay = \
+        all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
 
-        total_contractors_weekly_pay = all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+        total_contractors_weekly_pay = \
+        all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))[
+            "total"] or 0.0
 
         page = self.paginate_queryset(all_contractors)
         if page is not None:
@@ -1046,6 +1159,7 @@ class ApiContractors(ModelViewSet):
 class ApiSalaryWorkers(ModelViewSet):
     serializer_class = SalaryWorkersSerializer
     queryset = SalaryWorkers.objects.all()
+
     # permission_classes = [IsCEO | IsArtisanReadOnly]
 
     def list(self, request, *args, **kwargs):
@@ -1056,7 +1170,8 @@ class ApiSalaryWorkers(ModelViewSet):
         salary_workers_count = all_salary_workers.count()
         active_salary_workers_count = all_salary_workers.filter(is_still_active=True).count()
         total_salary_workers_monthly_pay = all_salary_workers.aggregate(total=Sum("salary"))["total"] or 0.0
-        total_paid = all_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+        total_paid = all_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))[
+                         "total"] or 0.0
 
         page = self.paginate_queryset(all_salary_workers)
         if page is not None:
@@ -1199,91 +1314,76 @@ class ApiOtherProductionRecord(ModelViewSet):
 class ApiPaid(ModelViewSet):
     serializer_class = PaidSerializer
     queryset = Paid.objects.all().order_by('-date')
-    filter_class = PaidFilter
+    filterset_class = PaidFilter
 
     def list(self, request, *args, **kwargs):
-        filterset = self.filter_class(request.GET, queryset=self.get_queryset())
+        today = timezone.now().date()
+        queryset = self.get_queryset()
+        filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
         filtered_paid = filterset.qs.order_by('-date')
 
-        # Group paid records by day
-        daily_data = []
-        current_date = None
-        daily_payments = []
-
-        for payment in filtered_paid:
-            payment_date = payment.date
-
-            if payment_date != current_date:
-                if daily_payments:
-                    daily_data.append({
-                        "date": current_date,
-                        "entries": PaidSerializer(daily_payments, many=True).data,
-                        "daily_total": sum(p.amount for p in daily_payments),
-                    })
-                current_date = payment_date
-                daily_payments = [payment]
-            else:
-                daily_payments.append(payment)
-
-        if daily_payments:
-            daily_data.append({
-                "date": current_date,
-                "entries": PaidSerializer(daily_payments, many=True).data,
-                "daily_total": sum(p.amount for p in daily_payments),
-            })
-
-        # Weekly, monthly, and yearly totals
-        today = timezone.now().date()
-        start_of_week = today - timedelta(days=today.weekday())
-
+        monthly_total = filtered_paid.filter(date__month=today.month).aggregate(total=Sum('amount'))['total'] or 0.0
+        salary_paid_this_month = filtered_paid.filter(contract=None).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        contractors_paid_this_month = filtered_paid.filter(salary=None).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        # filters
         year = request.query_params.get('year', None)
         month = request.query_params.get('month', None)
+        day = request.query_params.get('day', None)
 
-        if year and not month:
-            monthly_data = []
-            for m in range(1, 13):
-                monthly_expenses = filtered_paid.filter(date__year=year, date__month=m)
-                total_for_the_month = monthly_expenses.aggregate(Sum('amount'))['amount__sum'] or 0.0
+        filtered = filtered_paid
 
-                if monthly_expenses.exists():
-                    entries = []
-                    for expense in monthly_expenses:
-                        entries.append(PaidSerializer(expense).data)
+        if day is not None and year is None and month is None:
+            year = today.year
+            month = today.month
 
-                    monthly_data.append({
-                        "month": f"{year}-{m:02d}",
-                        "entries": entries,
-                        "total_for_the_month": total_for_the_month,
+        if year is None and month is None:
+            year = today.year
+            month = today.month
+
+        if year is not None and month is None and day is None:
+            filtered = filtered_paid.filter(date__year=year)
+
+        elif year is not None and day is not None:
+            if month is None:
+                month = today.month
+            filtered = filtered_paid.filter(date__year=year, date__month=month, date__day=day)
+
+        elif year is not None and month is not None and day is None:
+            filtered = filtered_paid.filter(date__year=year, date__month=month)
+
+        elif year is not None and month is not None and day is not None:
+            filtered = filtered_paid.filter(date__year=year, date__month=month, date__day=day)
+
+        daily_data = []
+        current_date = None
+        daily_paid = []
+        for paid in filtered:
+            paid_date = paid.date.date() if isinstance(paid.date, datetime) else paid.date
+
+            if current_date != paid_date:
+                if daily_paid:
+                    daily_data.append({
+                        "date": current_date.strftime('%Y-%m-%d'),
+                        "entries": self.get_serializer(daily_paid, many=True).data,
+                        "daily_total": sum(s.amount for s in daily_paid)
                     })
-
-            yearly_total = filtered_paid.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
-
-            response_data = {
-                "monthly_total": filtered_paid.filter(date__month=today.month).aggregate(Sum('amount'))[
-                                     'amount__sum'] or 0.0,
-                "weekly_total": filtered_paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))[
-                                    'amount__sum'] or 0.0,
-                "daily_data": daily_data,
-                "monthly_data": monthly_data,
-                "yearly_total": yearly_total,
-            }
-        else:
-            if year and month:
-                monthly_total = filtered_paid.filter(date__year=year, date__month=month).aggregate(Sum('amount'))[
-                                    'amount__sum'] or 0.0
+                current_date = paid_date
+                daily_paid = [paid]
             else:
-                monthly_total = filtered_paid.filter(date__month=today.month).aggregate(Sum('amount'))[
-                                    'amount__sum'] or 0.0
-
-            response_data = {
-                "monthly_total": monthly_total,
-                "weekly_total": filtered_paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))[
-                                    'amount__sum'] or 0.0,
-                "daily_data": daily_data,
-            }
-
-            if year:
-                yearly_total = filtered_paid.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
-                response_data["yearly_total"] = yearly_total
-
+                daily_paid.append(paid)
+        if daily_paid:
+            daily_data.append({
+                "date": current_date.strftime('%Y-%m-%d'),
+                "entries": self.get_serializer(daily_paid, many=True).data,
+                "daily_total": sum(s.amount for s in daily_paid)
+            })
+        response_data = {
+            "monthly_total": monthly_total,
+            "salary_paid_this_month": salary_paid_this_month,
+            "contractors_paid_this_month": contractors_paid_this_month,
+            "daily_data": daily_data,
+        }
+        if year:
+            yearly_total = queryset.filter(date__year=year).aggregate(total=Sum("amount"))['total'] or 0.0
+            response_data["yearly_total"] = yearly_total
         return Response(response_data)

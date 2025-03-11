@@ -295,7 +295,7 @@ class ApiSold(ModelViewSet):
     search_fields = ['item__name', 'customer__name']
 
     def list(self, request, *args, **kwargs):
-        today = datetime.today().date()
+        today = timezone.now().date()
 
         filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
         filtered_solds = filterset.qs.order_by('-date')
@@ -307,10 +307,20 @@ class ApiSold(ModelViewSet):
         this_month_project_sales = filtered_solds.filter(date__month=today.month, logistics=None).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"]
         this_month_non_project_sales = filtered_solds.filter(date__month=today.month, project=None).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"]
 
+        # filters
+        year = request.query_params.get('year', None)
+        month = request.query_params.get('month', None)
+        day = request.query_params.get('day', None)
+
+        if not month and not year and not day:
+            filtered = filtered_solds.filter(date__month=today.month)
+        if month and not year and not day:
+            filtered = filtered_solds.filter(date__month=today.month)
+
         daily_data = []
         current_date = None
         daily_solds = []
-        for sold in filtered_solds:
+        for sold in filtered:
             sold_date = sold.date.date() if isinstance(sold.date, datetime) else sold.date
             if current_date != sold_date:
                 if daily_solds:
@@ -330,7 +340,7 @@ class ApiSold(ModelViewSet):
                 "daily_total": sum(s.total_price for s in daily_solds)
             })
         total_price_expr = ExpressionWrapper(F('quantity') * F('selling_price'), output_field=DecimalField(max_digits=10, decimal_places=2))
-        monthly_total = filtered_solds.aggregate(total=Sum(total_price_expr))['total'] or 0.0
+
         response_data = {
             "this_month_sales_count": this_month_sold_count,
             "this_month_sales": this_month_sales,
@@ -338,12 +348,11 @@ class ApiSold(ModelViewSet):
             "this_month_project_sales": this_month_project_sales,
             "this_month_non_project_sales": this_month_non_project_sales,
             "daily_data": daily_data,
-            "monthly_total": monthly_total,
         }
-        year = request.query_params.get('year', None)
         if year:
             yearly_total = self.get_queryset().filter(date__year=year).aggregate(total=Sum(total_price_expr))['total'] or 0.0
             response_data["yearly_total"] = yearly_total
+            response_data.pop("monthly_total")
         return Response(response_data)
 
     def create(self, request, *args, **kwargs):
@@ -397,9 +406,10 @@ class ApiSold(ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         sold_item = self.get_object()
-        inventory_item = get_object_or_404(InventoryItem, pk=sold_item.item.id)
-        inventory_item.stock += sold_item.quantity
-        inventory_item.save()
+        if sold_item.item is not None:
+            inventory_item = get_object_or_404(InventoryItem, pk=sold_item.item.id)
+            inventory_item.stock += sold_item.quantity
+            inventory_item.save()
         sold_item.delete()
 
         return Response({"message": "Sold item deleted and inventory updated."}, status=204)

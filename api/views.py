@@ -411,10 +411,11 @@ class ApiSold(ModelViewSet):
             inventory_item.stock += sold_item.quantity
             inventory_item.save()
             sold_item.delete()
-            return Response({"message": "Sold item deleted but inventory not updated because item has beed deleted. you can create an invcentory again and add it manually."}, status=204)
-        sold_item.delete()
+            return Response({"message": "Sold item deleted and inventory updated."}, status=204)
 
-        return Response({"message": "Sold item deleted and inventory updated."}, status=204)
+        sold_item.delete()
+        return Response({"message": "Sold item deleted but inventory not updated because item has beed deleted. you can create an invcentory again and add it manually."}, status=204)
+
 
     def update(self, request, *args, **kwargs):
         raise MethodNotAllowed("PUT")

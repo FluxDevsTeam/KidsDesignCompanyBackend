@@ -18,6 +18,7 @@ class RawMaterial(models.Model):
     category = models.ForeignKey(StoreCategory, on_delete=models.PROTECT)
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(upload_to="raw_materials/", blank=True, null=True)
+    archived = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
@@ -42,7 +43,9 @@ class Removed(models.Model):
 
 class AddRawMaterials(models.Model):
     item = models.ForeignKey(RawMaterial, on_delete=models.PROTECT)
+    name = models.CharField(max_length=100)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

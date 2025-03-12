@@ -6,7 +6,7 @@ from project.models import Project
 from shop.models import InventoryItem, AddStock, Sold
 import datetime
 
-from store.models import AddRawMaterials
+from store.models import AddRawMaterials, RawMaterial
 from workers.models import Paid
 
 
@@ -129,6 +129,28 @@ class InventoryItemFilter(django_filters.FilterSet):
     def filter_low_stock(self, queryset, name, value):
         if value:
             return queryset.filter(stock__lt=10, archived=False)
+        return queryset
+
+
+class RawMaterialFilter(django_filters.FilterSet):
+    archived = django_filters.BooleanFilter(field_name='archived')
+    empty_stock = django_filters.BooleanFilter(method='filter_empty_stock', label='Empty Stock')
+    low_stock = django_filters.BooleanFilter(method='filter_low_stock', label='Low Stock (<10)')
+    category = django_filters.NumberFilter(field_name='category', lookup_expr='exact')
+    category_name = django_filters.CharFilter(field_name='category__name', lookup_expr='icontains')
+
+    class Meta:
+        model = RawMaterial
+        fields = ['archived', 'category', 'category_name']
+
+    def filter_empty_stock(self, queryset, name, value):
+        if value:
+            return queryset.filter(quantity=0, archived=False)
+        return queryset
+
+    def filter_low_stock(self, queryset, name, value):
+        if value:
+            return queryset.filter(quantity__lt=10, archived=False)
         return queryset
 
 

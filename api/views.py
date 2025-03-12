@@ -26,7 +26,7 @@ from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryW
 from rest_framework import viewsets, status, permissions, mixins
 from django.contrib.auth import get_user_model
 from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter, ProjectFilter, \
-    AddRawMaterialsFilter, PaidFilter, RawMaterialFilter
+    AddRawMaterialsFilter, PaidFilter, RawMaterialFilter, RemovedFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from datetime import datetime, timedelta
 from django.db.models import F, ExpressionWrapper, DecimalField, Sum
@@ -118,23 +118,25 @@ class ApiAddRawMaterials(ModelViewSet):
             item.quantity += quantity
             item.save()
 
-            serializer.save(item=item, name=item.name, cost_price=item.cost_price)
+            serializer.save(item=item, name=item.name, cost_price=item.price)
 
     def list(self, request, *args, **kwargs):
         today = timezone.now().date()
         queryset = self.get_queryset()
         filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
-        filtered_stock = filterset.qs.order_by('-date')
+        filtered_raw_material = filterset.qs.order_by('-date')
 
-        yearly_added_stock_count = queryset.filter(date__year=today.year).count()
-        yearly_added_total_cost_price = queryset.filter(date__year=today.year).aggregate(total=Sum(F('quantity')* F("cost_price")))['total'] or 0.0
-        monthly_added_stock_count = queryset.filter(date__month=today.month).count()
-        monthly_added_total_cost_price = queryset.filter(date__month=today.month).aggregate(total=Sum(F('quantity')* F("cost_price")))['total'] or 0.0
+        yearly_added_material_count = queryset.filter(date__year=today.year).count()
+        yearly_added_total_cost = queryset.filter(date__year=today.year).aggregate(total=Sum(F('quantity')* F("cost_price")))['total'] or 0.0
+        monthly_added_material_count = queryset.filter(date__month=today.month).count()
+        monthly_added_total_cost = queryset.filter(date__month=today.month).aggregate(total=Sum(F('quantity')* F("cost_price")))['total'] or 0.0
 
         # filters
         year = request.query_params.get('year', None)
         month = request.query_params.get('month', None)
         day = request.query_params.get('day', None)
+
+        filtered = filtered_raw_material
 
         if day is not None and year is None and month is None:
             year = today.year
@@ -145,18 +147,18 @@ class ApiAddRawMaterials(ModelViewSet):
             month = today.month
 
         if year is not None and month is None and day is None:
-            filtered = filtered_stock.filter(date__year=year)
+            filtered = filtered_raw_material.filter(date__year=year)
 
         elif year is not None and day is not None:
             if month is None:
                 month = today.month
-            filtered = filtered_stock.filter(date__year=year, date__month=month, date__day=day)
+            filtered = filtered_raw_material.filter(date__year=year, date__month=month, date__day=day)
 
         elif year is not None and month is not None and day is None:
-            filtered = filtered_stock.filter(date__year=year, date__month=month)
+            filtered = filtered_raw_material.filter(date__year=year, date__month=month)
 
         elif year is not None and month is not None and day is not None:
-            filtered = filtered_stock.filter(date__year=year, date__month=month, date__day=day)
+            filtered = filtered_raw_material.filter(date__year=year, date__month=month, date__day=day)
 
         # Group by day
         daily_data = []
@@ -170,8 +172,8 @@ class ApiAddRawMaterials(ModelViewSet):
                 if daily_entries:
                     daily_data.append({
                         "date": current_date,
-                        "entries": AddSockSerializer(daily_entries, many=True).data,
-                        "daily_total": sum(e.quantity for e in daily_entries),
+                        "entries": AddRawMaterialsSerializer(daily_entries, many=True).data,
+                        "daily_added_cost_total": sum(e.quantity * e.cost_price for e in daily_entries),
                     })
                 current_date = entry_date
                 daily_entries = [entry]
@@ -181,15 +183,15 @@ class ApiAddRawMaterials(ModelViewSet):
         if daily_entries:
             daily_data.append({
                 "date": current_date,
-                "entries": AddSockSerializer(daily_entries, many=True).data,
-                "daily_total": sum(e.quantity for e in daily_entries),
+                "entries": AddRawMaterialsSerializer(daily_entries, many=True).data,
+                "daily_added_cost_total": sum(e.quantity * e.cost_price for e in daily_entries),
             })
 
         response_data = {
-            "yearly_added_stock_count": yearly_added_stock_count,
-            "yearly_added_total_cost_price": yearly_added_total_cost_price,
-            "monthly_added_stock_count": monthly_added_stock_count,
-            "monthly_added_total_cost_price": monthly_added_total_cost_price,
+            "yearly_added_material_count": yearly_added_material_count,
+            "yearly_added_total_cost": yearly_added_total_cost,
+            "monthly_added_material_count": monthly_added_material_count,
+            "monthly_added_total_cost": monthly_added_total_cost,
             "daily_data": daily_data,
         }
 
@@ -211,36 +213,36 @@ class ApiAddRawMaterials(ModelViewSet):
         if quantity <= 0:
             return Response({"error": "quantity  most be a positive number"})
 
-        added_stock = self.get_object()
+        added_material = self.get_object()
         with transaction.atomic():
-            if added_stock.item:
-                inventory_item = get_object_or_404(InventoryItem, id=added_stock.item.id)
-                change = abs(added_stock.quantity - quantity)
-                if added_stock.quantity > quantity:
-                    if inventory_item.stock < change:
+            if added_material.item:
+                raw_material = get_object_or_404(RawMaterial, id=added_material.item.id)
+                change = abs(added_material.quantity - quantity)
+                if added_material.quantity > quantity:
+                    if raw_material.stock < change:
                         return Response({"data": "not enough stock remaining in inventory."})
-                    inventory_item.stock -= change
-                    added_stock.quantity -= change
+                    raw_material.quantity -= change
+                    added_material.quantity -= change
                 else:
-                    inventory_item.stock += change
-                    added_stock.quantity += change
-                inventory_item.save()
-                added_stock.save()
+                    raw_material.quantity += change
+                    added_material.quantity += change
+                raw_material.save()
+                added_material.save()
                 return Response({"data": "quantity updated successfully"}, status=status.HTTP_200_OK)
             else:
-                return Response({"error": "inventory item has been deleted"})
+                return Response({"error": "raw material has been deleted. cant make any edits now"})
 
     def destroy(self, request, *args, **kwargs):
         added_item = self.get_object()
         if added_item.item is not None:
-            sold_item = get_object_or_404(Sold, id=added_item.item.id)
-            sold_item.quantity -= added_item.quantity
-            sold_item.save()
+            raw_material = get_object_or_404(RawMaterial, id=added_item.item.id)
+            raw_material.quantity -= added_item.quantity
+            raw_material.save()
             added_item.delete()
-            return Response({"message": "stock add record deleted and sold item updated."}, status=204)
+            return Response({"message": "waw material add record deleted and raw material updated."}, status=204)
 
         added_item.delete()
-        return Response({"message": "stock add record deleted but sold item not updated because it no longer exists."}, status=204)
+        return Response({"message": "add raw material record deleted but raw material not updated because it no longer exists."}, status=204)
 
 
 class ApiAddStock(ModelViewSet):
@@ -290,6 +292,8 @@ class ApiAddStock(ModelViewSet):
         month = request.query_params.get('month', None)
         day = request.query_params.get('day', None)
 
+        filtered = filtered_stock
+
         if day is not None and year is None and month is None:
             year = today.year
             month = today.month
@@ -325,7 +329,7 @@ class ApiAddStock(ModelViewSet):
                     daily_data.append({
                         "date": current_date,
                         "entries": AddSockSerializer(daily_entries, many=True).data,
-                        "daily_total": sum(e.quantity for e in daily_entries),
+                        "daily_added_cost_total": sum(e.quantity * e.cost_price for e in daily_entries),
                     })
                 current_date = entry_date
                 daily_entries = [entry]
@@ -344,6 +348,7 @@ class ApiAddStock(ModelViewSet):
             "yearly_added_total_cost_price": yearly_added_total_cost_price,
             "monthly_added_stock_count": monthly_added_stock_count,
             "monthly_added_total_cost_price": monthly_added_total_cost_price,
+            "daily_added_cost_total": sum(e.quantity * e.cost_price for e in daily_entries),
             "daily_data": daily_data,
         }
 
@@ -387,14 +392,14 @@ class ApiAddStock(ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         added_item = self.get_object()
         if added_item.item is not None:
-            sold_item = get_object_or_404(Sold, id=added_item.item.id)
-            sold_item.quantity -= added_item.quantity
-            sold_item.save()
+            inventory_item = get_object_or_404(InventoryItem, id=added_item.item.id)
+            inventory_item.quantity -= added_item.quantity
+            inventory_item.save()
             added_item.delete()
-            return Response({"message": "stock add record deleted and sold item updated."}, status=204)
+            return Response({"message": "stock add record deleted and inventorygf item updated."}, status=204)
 
         added_item.delete()
-        return Response({"message": "stock add record deleted but sold item not updated because it no longer exists."}, status=204)
+        return Response({"message": "stock add record deleted but inventory item not updated because it no longer exists."}, status=204)
 
 
 class ApiInventoryCategory(ModelViewSet):
@@ -560,9 +565,7 @@ class ApiSold(ModelViewSet):
             return Response({"message": "Sold item deleted and inventory updated."}, status=204)
 
         sold_item.delete()
-        return Response({
-                            "message": "Sold item deleted but inventory not updated because item has beed deleted. you can create an invcentory again and add it manually."},
-                        status=204)
+        return Response({"message": "Sold item deleted but inventory not updated because item has beed deleted. you can create an invcentory again and add it manually."},status=204)
 
     def update(self, request, *args, **kwargs):
         raise MethodNotAllowed("PUT")
@@ -1080,7 +1083,10 @@ class ApiRawMaterial(ModelViewSet):
 class ApiRemoved(ModelViewSet):
     serializer_class = RemovedSerializer
     queryset = Removed.objects.all()
-
+    # permission_classes = [IsCEO | IsStoreKeeper]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = RemovedFilter
+    search_fields = ['material__name', 'product__name', 'material__description']
     # permission_classes = [IsCEO | IsStoreKeeper]
 
     def create(self, request, *args, **kwargs):

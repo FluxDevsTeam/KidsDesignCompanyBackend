@@ -26,7 +26,7 @@ from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryW
 from rest_framework import viewsets, status, permissions, mixins
 from django.contrib.auth import get_user_model
 from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter, ProjectFilter, \
-    AddRawMaterialsFilter, PaidFilter
+    AddRawMaterialsFilter, PaidFilter, RawMaterialFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from datetime import datetime, timedelta
 from django.db.models import F, ExpressionWrapper, DecimalField, Sum
@@ -44,6 +44,8 @@ class ApiInventoryItem(ModelViewSet):
     search_fields = ['name', 'description']
     pagination_class = PageNumberPagination
 
+    # permission_classes = [IsCEO | IsStoreKeeper]
+
     def get_queryset(self):
         qs = super().get_queryset()
         if 'archived' not in self.request.query_params:
@@ -53,12 +55,7 @@ class ApiInventoryItem(ModelViewSet):
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-            AddStock.objects.create(
-                item=instance,
-                name=instance.name,
-                cost_price=instance.cost_price,
-                quantity=instance.stock
-            )
+            AddStock.objects.create(item=instance, name=instance.name, cost_price=instance.cost_price, quantity=instance.stock)
 
     def list(self, request, *args, **kwargs):
         filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
@@ -101,24 +98,80 @@ class ApiAddRawMaterials(ModelViewSet):
     filterset_class = AddRawMaterialsFilter
     search_fields = ['item__name']
 
+    def perform_create(self, serializer):
+        item_id = self.request.data.get("item")
+        quantity = self.request.data.get("quantity")
+
+        if not item_id:
+            raise ValueError("Please input a valid item.")
+
+        try:
+            quantity = int(quantity)
+            if quantity <= 0:
+                raise ValueError("Quantity must be greater than zero.")
+        except (ValueError, TypeError):
+            raise ValueError("Invalid quantity.")
+
+        item = get_object_or_404(RawMaterial, id=item_id)
+
+        with transaction.atomic():
+            item.quantity += quantity
+            item.save()
+
+            serializer.save(item=item, name=item.name, cost_price=item.cost_price)
+
     def list(self, request, *args, **kwargs):
+        today = timezone.now().date()
+        queryset = self.get_queryset()
         filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
-        filtered_raw_materials = filterset.qs.order_by('-date')
+        filtered_stock = filterset.qs.order_by('-date')
+
+        yearly_added_stock_count = queryset.filter(date__year=today.year).count()
+        yearly_added_total_cost_price = queryset.filter(date__year=today.year).aggregate(total=Sum(F('quantity')* F("cost_price")))['total'] or 0.0
+        monthly_added_stock_count = queryset.filter(date__month=today.month).count()
+        monthly_added_total_cost_price = queryset.filter(date__month=today.month).aggregate(total=Sum(F('quantity')* F("cost_price")))['total'] or 0.0
+
+        # filters
+        year = request.query_params.get('year', None)
+        month = request.query_params.get('month', None)
+        day = request.query_params.get('day', None)
+
+        if day is not None and year is None and month is None:
+            year = today.year
+            month = today.month
+
+        if year is None and month is None:
+            year = today.year
+            month = today.month
+
+        if year is not None and month is None and day is None:
+            filtered = filtered_stock.filter(date__year=year)
+
+        elif year is not None and day is not None:
+            if month is None:
+                month = today.month
+            filtered = filtered_stock.filter(date__year=year, date__month=month, date__day=day)
+
+        elif year is not None and month is not None and day is None:
+            filtered = filtered_stock.filter(date__year=year, date__month=month)
+
+        elif year is not None and month is not None and day is not None:
+            filtered = filtered_stock.filter(date__year=year, date__month=month, date__day=day)
 
         # Group by day
         daily_data = []
         current_date = None
         daily_entries = []
 
-        for entry in filtered_raw_materials:
-            entry_date = entry.date.date()
+        for entry in filtered:
+            entry_date = entry.date
 
             if entry_date != current_date:
                 if daily_entries:
                     daily_data.append({
-                        "date": current_date.strftime('%Y-%m-%d'),
-                        "entries": AddRawMaterialsSerializer(daily_entries, many=True).data,
-                        "daily_total": sum(float(e.quantity) for e in daily_entries),
+                        "date": current_date,
+                        "entries": AddSockSerializer(daily_entries, many=True).data,
+                        "daily_total": sum(e.quantity for e in daily_entries),
                     })
                 current_date = entry_date
                 daily_entries = [entry]
@@ -127,71 +180,67 @@ class ApiAddRawMaterials(ModelViewSet):
 
         if daily_entries:
             daily_data.append({
-                "date": current_date.strftime('%Y-%m-%d'),
-                "entries": AddRawMaterialsSerializer(daily_entries, many=True).data,
-                "daily_total": sum(float(e.quantity) for e in daily_entries),
+                "date": current_date,
+                "entries": AddSockSerializer(daily_entries, many=True).data,
+                "daily_total": sum(e.quantity for e in daily_entries),
             })
 
-        # Totals
-        today = timezone.now().date()
-        start_of_week = today - timedelta(days=today.weekday())
+        response_data = {
+            "yearly_added_stock_count": yearly_added_stock_count,
+            "yearly_added_total_cost_price": yearly_added_total_cost_price,
+            "monthly_added_stock_count": monthly_added_stock_count,
+            "monthly_added_total_cost_price": monthly_added_total_cost_price,
+            "daily_data": daily_data,
+        }
 
-        year = request.query_params.get('year', None)
-        month = request.query_params.get('month', None)
-
-        if year and not month:
-            monthly_data = []
-            for m in range(1, 13):
-                monthly_entries = filtered_raw_materials.filter(date__year=year, date__month=m)
-                total_for_the_month = monthly_entries.aggregate(Sum('quantity'))['quantity__sum'] or 0.0
-
-                if monthly_entries.exists():
-                    entries = []
-                    for entry in monthly_entries:
-                        entries.append(AddRawMaterialsSerializer(entry).data)
-
-                    monthly_data.append({
-                        "month": f"{year}-{m:02d}",
-                        "entries": entries,
-                        "total_for_the_month": float(total_for_the_month),
-                    })
-
-            yearly_total = filtered_raw_materials.filter(date__year=year).aggregate(Sum('quantity'))[
-                               'quantity__sum'] or 0.0
-
-            response_data = {
-                "monthly_total": filtered_raw_materials.filter(date__month=today.month).aggregate(Sum('quantity'))[
-                                     'quantity__sum'] or 0.0,
-                "weekly_total":
-                    filtered_raw_materials.filter(date__range=[start_of_week, today]).aggregate(Sum('quantity'))[
-                        'quantity__sum'] or 0.0,
-                "daily_data": daily_data,
-                "monthly_data": monthly_data,
-                "yearly_total": float(yearly_total),
-            }
-        else:
-            if year and month:
-                monthly_total = \
-                filtered_raw_materials.filter(date__year=year, date__month=month).aggregate(Sum('quantity'))[
-                    'quantity__sum'] or 0.0
-            else:
-                monthly_total = filtered_raw_materials.filter(date__month=today.month).aggregate(Sum('quantity'))[
-                                    'quantity__sum'] or 0.0
-
-            response_data = {
-                "monthly_total": float(monthly_total),
-                "weekly_total":
-                    filtered_raw_materials.filter(date__range=[start_of_week, today]).aggregate(Sum('quantity'))[
-                        'quantity__sum'] or 0.0,
-                "daily_data": daily_data,
-            }
-
-            if year:
-                yearly_total = filtered_raw_materials.filter(date__year=year).aggregate(Sum('quantity'))[
-                                   'quantity__sum'] or 0.0
-                response_data["yearly_total"] = float(yearly_total)
+        if year:
+            yearly_total = queryset.filter(date__year=year).aggregate(total=Sum(F("quantity")*F("cost_price")))['total'] or 0.0
+            response_data["yearly_total"] = yearly_total
 
         return Response(response_data)
+
+    def update(self, request, *args, **kwargs):
+        raise MethodNotAllowed("PUT")
+
+    def partial_update(self, request, *args, **kwargs):
+        quantity = request.data.get("quantity")
+
+        if not quantity:
+            return Response({"error": "quantity required"})
+
+        if quantity <= 0:
+            return Response({"error": "quantity  most be a positive number"})
+
+        added_stock = self.get_object()
+        with transaction.atomic():
+            if added_stock.item:
+                inventory_item = get_object_or_404(InventoryItem, id=added_stock.item.id)
+                change = abs(added_stock.quantity - quantity)
+                if added_stock.quantity > quantity:
+                    if inventory_item.stock < change:
+                        return Response({"data": "not enough stock remaining in inventory."})
+                    inventory_item.stock -= change
+                    added_stock.quantity -= change
+                else:
+                    inventory_item.stock += change
+                    added_stock.quantity += change
+                inventory_item.save()
+                added_stock.save()
+                return Response({"data": "quantity updated successfully"}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "inventory item has been deleted"})
+
+    def destroy(self, request, *args, **kwargs):
+        added_item = self.get_object()
+        if added_item.item is not None:
+            sold_item = get_object_or_404(Sold, id=added_item.item.id)
+            sold_item.quantity -= added_item.quantity
+            sold_item.save()
+            added_item.delete()
+            return Response({"message": "stock add record deleted and sold item updated."}, status=204)
+
+        added_item.delete()
+        return Response({"message": "stock add record deleted but sold item not updated because it no longer exists."}, status=204)
 
 
 class ApiAddStock(ModelViewSet):
@@ -989,13 +1038,43 @@ class ApiProject(ModelViewSet):
 class ApiRawMaterial(ModelViewSet):
     serializer_class = RawMaterialSerializer
     queryset = RawMaterial.objects.all()
-
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = RawMaterialFilter
+    search_fields = ['name', 'description']
     # permission_classes = [IsCEO | IsStoreKeeper]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if 'archived' not in self.request.query_params:
+            qs = qs.filter(archived=False)
+        return qs
 
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-            AddRawMaterials.objects.create(item=instance, quantity=instance.quantity)
+            AddRawMaterials.objects.create(item=instance, quantity=instance.quantity, cost_price=instance.price, name=instance.name)
+
+    def list(self, request, *args, **kwargs):
+        filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
+        filtered_items = filterset.qs
+        total_store_count = filtered_items.count()
+        total_store_value = filtered_items.aggregate(total_value=Coalesce(Sum(F('quantity') * F('price')), 0.0, output_field=DecimalField()))['total_value'] or 0.0
+
+        page = self.paginate_queryset(filtered_items)
+        if page is not None:
+            serialized_items = self.get_serializer(page, many=True).data
+        else:
+            serialized_items = self.get_serializer(filtered_items, many=True).data
+
+        response_data = {
+            "total_store_count": total_store_count,
+            "total_stock_value": float(total_store_value),
+            "items": serialized_items,
+        }
+
+        if page is not None:
+            return self.get_paginated_response(response_data)
+        return Response(response_data)
 
 
 class ApiRemoved(ModelViewSet):

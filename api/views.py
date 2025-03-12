@@ -1596,4 +1596,11 @@ class StoreQuotation(ModelViewSet):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
+        daily_data = []
+        for quotation in queryset:
+            daily_data.append( self.get_serializer(quotation).data)
 
+        response_data = {
+            "quotation": daily_data,
+        }
+        return Response(response_data)

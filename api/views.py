@@ -55,7 +55,8 @@ class ApiInventoryItem(ModelViewSet):
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-            AddStock.objects.create(item=instance, name=instance.name, cost_price=instance.cost_price, quantity=instance.stock)
+            AddStock.objects.create(item=instance, name=instance.name, cost_price=instance.cost_price,
+                                    quantity=instance.stock)
 
     def list(self, request, *args, **kwargs):
         filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
@@ -127,9 +128,11 @@ class ApiAddRawMaterials(ModelViewSet):
         filtered_raw_material = filterset.qs.order_by('-date')
 
         yearly_added_material_count = queryset.filter(date__year=today.year).count()
-        yearly_added_total_cost = queryset.filter(date__year=today.year).aggregate(total=Sum(F('quantity')* F("cost_price")))['total'] or 0.0
+        yearly_added_total_cost = \
+        queryset.filter(date__year=today.year).aggregate(total=Sum(F('quantity') * F("cost_price")))['total'] or 0.0
         monthly_added_material_count = queryset.filter(date__month=today.month).count()
-        monthly_added_total_cost = queryset.filter(date__month=today.month).aggregate(total=Sum(F('quantity')* F("cost_price")))['total'] or 0.0
+        monthly_added_total_cost = \
+        queryset.filter(date__month=today.month).aggregate(total=Sum(F('quantity') * F("cost_price")))['total'] or 0.0
 
         # filters
         year = request.query_params.get('year', None)
@@ -196,7 +199,8 @@ class ApiAddRawMaterials(ModelViewSet):
         }
 
         if year:
-            yearly_total = queryset.filter(date__year=year).aggregate(total=Sum(F("quantity")*F("cost_price")))['total'] or 0.0
+            yearly_total = queryset.filter(date__year=year).aggregate(total=Sum(F("quantity") * F("cost_price")))[
+                               'total'] or 0.0
             response_data["yearly_total"] = yearly_total
 
         return Response(response_data)
@@ -242,7 +246,9 @@ class ApiAddRawMaterials(ModelViewSet):
             return Response({"message": "waw material add record deleted and raw material updated."}, status=204)
 
         added_item.delete()
-        return Response({"message": "add raw material record deleted but raw material not updated because it no longer exists."}, status=204)
+        return Response(
+            {"message": "add raw material record deleted but raw material not updated because it no longer exists."},
+            status=204)
 
 
 class ApiAddStock(ModelViewSet):
@@ -283,9 +289,11 @@ class ApiAddStock(ModelViewSet):
         filtered_stock = filterset.qs.order_by('-date')
 
         yearly_added_stock_count = queryset.filter(date__year=today.year).count()
-        yearly_added_total_cost_price = queryset.filter(date__year=today.year).aggregate(total=Sum(F('quantity')* F("cost_price")))['total'] or 0.0
+        yearly_added_total_cost_price = \
+        queryset.filter(date__year=today.year).aggregate(total=Sum(F('quantity') * F("cost_price")))['total'] or 0.0
         monthly_added_stock_count = queryset.filter(date__month=today.month).count()
-        monthly_added_total_cost_price = queryset.filter(date__month=today.month).aggregate(total=Sum(F('quantity')* F("cost_price")))['total'] or 0.0
+        monthly_added_total_cost_price = \
+        queryset.filter(date__month=today.month).aggregate(total=Sum(F('quantity') * F("cost_price")))['total'] or 0.0
 
         # filters
         year = request.query_params.get('year', None)
@@ -353,7 +361,8 @@ class ApiAddStock(ModelViewSet):
         }
 
         if year:
-            yearly_total = queryset.filter(date__year=year).aggregate(total=Sum(F("quantity")*F("cost_price")))['total'] or 0.0
+            yearly_total = queryset.filter(date__year=year).aggregate(total=Sum(F("quantity") * F("cost_price")))[
+                               'total'] or 0.0
             response_data["yearly_total"] = yearly_total
 
         return Response(response_data)
@@ -399,7 +408,9 @@ class ApiAddStock(ModelViewSet):
             return Response({"message": "stock add record deleted and inventorygf item updated."}, status=204)
 
         added_item.delete()
-        return Response({"message": "stock add record deleted but inventory item not updated because it no longer exists."}, status=204)
+        return Response(
+            {"message": "stock add record deleted but inventory item not updated because it no longer exists."},
+            status=204)
 
 
 class ApiInventoryCategory(ModelViewSet):
@@ -429,11 +440,17 @@ class ApiSold(ModelViewSet):
         filtered_solds = filterset.qs.order_by('-date')
 
         this_month_sold_count = queryset.filter(date__month=today.month).count()
-        this_month_sales = queryset.filter(date__month=today.month).aggregate(total=Sum(F("selling_price")* F("quantity")))["total"]
-        this_month_profit = queryset.filter(date__month=today.month).aggregate(total=Sum((F("selling_price")* F("quantity") - (F("cost_price") * F("quantity"))), output_field=DecimalField(max_digits=10, decimal_places=2)))["total"]
+        this_month_sales = \
+        queryset.filter(date__month=today.month).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"]
+        this_month_profit = queryset.filter(date__month=today.month).aggregate(
+            total=Sum((F("selling_price") * F("quantity") - (F("cost_price") * F("quantity"))),
+                      output_field=DecimalField(max_digits=10, decimal_places=2)))["total"]
 
-        this_month_project_sales = queryset.filter(date__month=today.month, logistics=None).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"]
-        this_month_non_project_sales = queryset.filter(date__month=today.month, project=None).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"]
+        this_month_project_sales = queryset.filter(date__month=today.month, logistics=None).aggregate(
+            total=Sum(F("selling_price") * F("quantity")))["total"]
+        this_month_non_project_sales = \
+        queryset.filter(date__month=today.month, project=None).aggregate(total=Sum(F("selling_price") * F("quantity")))[
+            "total"]
 
         # filters
         year = request.query_params.get('year', None)
@@ -496,7 +513,8 @@ class ApiSold(ModelViewSet):
             "daily_data": daily_data,
         }
         if year:
-            yearly_total = queryset.filter(date__year=year).aggregate(total=Sum(F("quantity")*F("selling_price")))['total'] or 0.0
+            yearly_total = queryset.filter(date__year=year).aggregate(total=Sum(F("quantity") * F("selling_price")))[
+                               'total'] or 0.0
             response_data["yearly_total"] = yearly_total
         return Response(response_data)
 
@@ -565,7 +583,9 @@ class ApiSold(ModelViewSet):
             return Response({"message": "Sold item deleted and inventory updated."}, status=204)
 
         sold_item.delete()
-        return Response({"message": "Sold item deleted but inventory not updated because item has beed deleted. you can create an invcentory again and add it manually."},status=204)
+        return Response({
+                            "message": "Sold item deleted but inventory not updated because item has beed deleted. you can create an invcentory again and add it manually."},
+                        status=204)
 
     def update(self, request, *args, **kwargs):
         raise MethodNotAllowed("PUT")
@@ -802,11 +822,18 @@ class ApiExpense(ModelViewSet):
         year = request.query_params.get('year', None)
         month = request.query_params.get('month', None)
 
+        filtered = filtered_expenses
+
         # Always calculate totals for the current month
         today = timezone.now().date()
-        current_month_total = filtered_expenses.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        current_month_project_total = filtered_expenses.filter(project__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        current_month_shop_total = filtered_expenses.filter(shop__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        current_month_total = filtered_expenses.filter(date__month=today.month).aggregate(Sum('amount'))[
+                                  'amount__sum'] or 0.0
+        current_month_project_total = \
+        filtered_expenses.filter(project__isnull=False, date__month=today.month).aggregate(Sum('amount'))[
+            'amount__sum'] or 0.0
+        current_month_shop_total = \
+        filtered_expenses.filter(shop__isnull=False, date__month=today.month).aggregate(Sum('amount'))[
+            'amount__sum'] or 0.0
 
         if year and not month:
             data = []
@@ -838,15 +865,15 @@ class ApiExpense(ModelViewSet):
             return Response(response_data)
 
         if year is None and month is None:
-            filterset = filterset.filter(date__year=today.year, date__month=today.month)
+            filtered = filtered_expenses.filter(date__year=today.year, date__month=today.month)
         if year is None and month is not None:
-            filterset = filterset.filter(date__year=today.year, date__month=month)
+            filtered = filtered_expenses.filter(date__year=today.year, date__month=month)
 
         daily_data = []
         current_date = None
         daily_expenses = []
 
-        for expense in filtered_expenses:
+        for expense in filtered:
             expense_date = expense.date.date()
 
             if expense_date != current_date:
@@ -1044,6 +1071,7 @@ class ApiRawMaterial(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = RawMaterialFilter
     search_fields = ['name', 'description']
+
     # permission_classes = [IsCEO | IsStoreKeeper]
 
     def get_queryset(self):
@@ -1055,13 +1083,16 @@ class ApiRawMaterial(ModelViewSet):
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-            AddRawMaterials.objects.create(item=instance, quantity=instance.quantity, cost_price=instance.price, name=instance.name)
+            AddRawMaterials.objects.create(item=instance, quantity=instance.quantity, cost_price=instance.price,
+                                           name=instance.name)
 
     def list(self, request, *args, **kwargs):
         filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
         filtered_items = filterset.qs
         total_store_count = filtered_items.count()
-        total_store_value = filtered_items.aggregate(total_value=Coalesce(Sum(F('quantity') * F('price')), 0.0, output_field=DecimalField()))['total_value'] or 0.0
+        total_store_value = filtered_items.aggregate(
+            total_value=Coalesce(Sum(F('quantity') * F('price')), 0.0, output_field=DecimalField()))[
+                                'total_value'] or 0.0
 
         page = self.paginate_queryset(filtered_items)
         if page is not None:
@@ -1087,7 +1118,81 @@ class ApiRemoved(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = RemovedFilter
     search_fields = ['material__name', 'product__name', 'material__description']
+
     # permission_classes = [IsCEO | IsStoreKeeper]
+
+    def list(self, request, *args, **kwargs):
+        today = timezone.now().date()
+        queryset = self.get_queryset()
+        filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
+        filtered_removed = filterset.qs.order_by('-date')
+
+        this_month_removed_count = queryset.filter(date__month=today.month).count()
+        this_month_removed = queryset.filter(date__month=today.month).aggregate(total=Sum(F("price") * F("quantity")))[
+            "total"]
+
+        # filters
+        year = request.query_params.get('year', None)
+        month = request.query_params.get('month', None)
+        day = request.query_params.get('day', None)
+
+        filtered = filtered_removed
+
+        if day is not None and year is None and month is None:
+            year = today.year
+            month = today.month
+
+        if year is None and month is None:
+            year = today.year
+            month = today.month
+
+        if year is not None and month is None and day is None:
+            filtered = filtered_removed.filter(date__year=year)
+
+        elif year is not None and day is not None:
+            if month is None:
+                month = today.month
+            filtered = filtered_removed.filter(date__year=year, date__month=month, date__day=day)
+
+        elif year is not None and month is not None and day is None:
+            filtered = filtered_removed.filter(date__year=year, date__month=month)
+
+        elif year is not None and month is not None and day is not None:
+            filtered = filtered_removed.filter(date__year=year, date__month=month, date__day=day)
+
+        daily_data = []
+        current_date = None
+        daily_removed = []
+        for removed in filtered:
+            removed_date = removed.date.date() if isinstance(removed.date, datetime) else removed.date
+
+            if current_date != removed_date:
+                if daily_removed:
+                    daily_data.append({
+                        "date": current_date.strftime('%Y-%m-%d'),
+                        "entries": self.get_serializer(daily_removed, many=True).data,
+                        "daily_total": sum(s.price * s.quantity for s in daily_removed)
+                    })
+                current_date = removed_date
+                daily_removed = [removed]
+            else:
+                daily_removed.append(removed)
+        if daily_removed:
+            daily_data.append({
+                "date": current_date.strftime('%Y-%m-%d'),
+                "entries": self.get_serializer(daily_removed, many=True).data,
+                "daily_total": sum(s.price * s.quantity for s in daily_removed)
+            })
+        response_data = {
+            "this_month_removed_count": this_month_removed_count,
+            "this_month_removed": this_month_removed,
+            "daily_data": daily_data,
+        }
+        if year:
+            yearly_total = queryset.filter(date__year=year).aggregate(total=Sum(F("quantity") * F("price")))[
+                               'total'] or 0.0
+            response_data["yearly_total"] = yearly_total
+        return Response(response_data)
 
     def create(self, request, *args, **kwargs):
         material = request.data.get("material")
@@ -1096,7 +1201,7 @@ class ApiRemoved(ModelViewSet):
 
         if not material or not quantity or not product:
             return Response(
-                {"error": "'material' and 'product' are all required."}, status=status.HTTP_400_BAD_REQUEST)
+                {"error": "'material', 'quantity' and 'product' are all required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             quantity = int(quantity)
@@ -1121,12 +1226,18 @@ class ApiRemoved(ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         removed_item = self.get_object()
-        material_data = get_object_or_404(RawMaterial, id=removed_item.material)
-        material_data.quantity += removed_item.quantity
-        material_data.save()
-        removed_item.delete()
+        if removed_item.material is not None:
+            material_data = get_object_or_404(RawMaterial, id=removed_item.material.id)
+            material_data.quantity += removed_item.quantity
+            material_data.save()
+            removed_item.delete()
+            return Response({"message": "Removed Material deleted successfully and raw material updated successfully."},
+                            status=204)
 
-        return Response({"message": "Removed Material deleted successfully."}, status=204)
+        removed_item.delete()
+        return Response({
+                            "message": "Removed Material deleted but raw material not updated because it has been deleted already. try creating a new one manually."},
+                        status=204)
 
     def update(self, request, *args, **kwargs):
         raise MethodNotAllowed("PUT")
@@ -1211,11 +1322,11 @@ class ApiContractors(ModelViewSet):
         all_active_contractors_count = all_contractors.filter(is_still_active=True).count()
 
         total_contractors_monthly_pay = \
-        all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+            all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
 
         total_contractors_weekly_pay = \
-        all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))[
-            "total"] or 0.0
+            all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))[
+                "total"] or 0.0
 
         page = self.paginate_queryset(all_contractors)
         if page is not None:
@@ -1472,3 +1583,17 @@ class ApiPaid(ModelViewSet):
             yearly_total = queryset.filter(date__year=year).aggregate(total=Sum("amount"))['total'] or 0.0
             response_data["yearly_total"] = yearly_total
         return Response(response_data)
+
+
+class StoreQuotation(ModelViewSet):
+    serializer_class = QuotationSerializer
+    queryset = Quotation.objects.filter(product__progress__lt=100).order_by('-product__project__start_date')
+
+    # permission_classes = [IsCEO | IsStoreKeeper]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    search_fields = ['product__project__name', 'product__name', 'product__production_note']
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+

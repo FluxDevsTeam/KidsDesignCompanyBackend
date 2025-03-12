@@ -245,7 +245,7 @@ class RawMaterialSerializer(ModelSerializer):
 
     class Meta:
         model = RawMaterial
-        fields = ["id", "name", "unit", "quantity", "price", "category", "store_category", "description", "image", ]
+        fields = ["id", "name", "unit", "quantity", "price", "category", "store_category", "archived", "description", "image", ]
         read_only_fields = ["id"]
 
 

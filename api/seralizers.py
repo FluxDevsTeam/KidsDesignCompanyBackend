@@ -525,5 +525,5 @@ class AddRawMaterialsSerializer(ModelSerializer):
 
     class Meta:
         model = AddRawMaterials
-        fields = ["item", "material", "quantity", "date"]
+        fields = ["item", "material", "quantity", "cost_price", "date"]
         extra_kwargs = {'item': {'write_only': True}}

@@ -1588,19 +1588,15 @@ class ApiPaid(ModelViewSet):
 class StoreQuotation(ModelViewSet):
     serializer_class = QuotationSerializer
     queryset = Quotation.objects.filter(product__progress__lt=100).order_by('-product__project__start_date')
-
-    # permission_classes = [IsCEO | IsStoreKeeper]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     search_fields = ['product__project__name', 'product__name', 'product__production_note']
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-
-        daily_data = []
-        for quotation in queryset:
-            daily_data.append( self.get_serializer(quotation).data)
-
+        queryset = self.filter_queryset(self.get_queryset())
+        total_quotation_count = queryset.count()
+        serializer = self.get_serializer(queryset, many=True)
         response_data = {
-            "quotation": daily_data,
+            "total_quotation_count": total_quotation_count,
+            "quotation": serializer.data
         }
         return Response(response_data)

@@ -162,36 +162,46 @@ class SalaryWorkersSerializer(ModelSerializer):
 
 #  ##############################################
 class QuotationSerializer(serializers.ModelSerializer):
+    product_name = serializers.SerializerMethodField()
+    project_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Quotation
+        fields = "__all__"
+        read_only_fields = ['id', 'product']
+
+    def get_product_name(self, obj):
+        return obj.product.name  # Fetch the product name
+
+    def get_project_name(self, obj):
+        return obj.product.project.name if obj.product.project else None  # Fetch the project name
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
+
+        # Process contractor list
         contractor_ids = data.get("contractor", [])
         contractor_list = []
-        salary_worker_ids = data.get("salary_worker", [])
-        salary_worker_list = []
-
         for contractor_id in contractor_ids:
             contractor_obj = get_object_or_404(Contractors, id=contractor_id)
             contractor_list.append({
                 "id": contractor_obj.id,
                 "name": f"{contractor_obj.first_name} {contractor_obj.last_name}"
             })
-
         data["contractor"] = contractor_list
 
+        # Process salary worker list
+        salary_worker_ids = data.get("salary_worker", [])
+        salary_worker_list = []
         for salary_worker_id in salary_worker_ids:
             salary_worker_obj = get_object_or_404(SalaryWorkers, id=salary_worker_id)
             salary_worker_list.append({
                 "id": salary_worker_obj.id,
                 "name": f"{salary_worker_obj.first_name} {salary_worker_obj.last_name}"
             })
-
         data["salary_worker"] = salary_worker_list
-        return data
 
-    class Meta:
-        model = Quotation
-        fields = "__all__"
-        read_only_fields = ['id', 'product']
+        return data
 
 
 class ProductContractorSerializer(serializers.ModelSerializer):

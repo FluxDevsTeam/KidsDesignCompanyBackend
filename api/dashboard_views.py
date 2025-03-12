@@ -19,26 +19,24 @@ from project.models import Project, OtherProduction
 from .seralizers import SimpleCustomerSerializer
 
 
-class RawMaterialDashboardViewSet(viewsets.ViewSet):
+class ApiStorekeeper(viewsets.ViewSet):
 
     def list(self, request):
         today = timezone.now().date()
-        start_week = today - timezone.timedelta(days=today.weekday())
         start_month = today.replace(day=1)
         one_year_ago = today - timezone.timedelta(days=365)
 
-        total_raw_materials = RawMaterial.objects.aggregate(total=Sum('quantity'))['total'] or 0
-        total_value = RawMaterial.objects.aggregate(total=Sum(F('price') * F('quantity')))['total'] or 0
-        removed_cost_today = Removed.objects.filter(date=today).aggregate(total=Sum('price'))['total'] or 0
-        removed_cost_week = Removed.objects.filter(date__gte=start_week).aggregate(total=Sum('price'))['total'] or 0
-        removed_cost_month = Removed.objects.filter(date__gte=start_month).aggregate(total=Sum('price'))['total'] or 0
-        removed_amount_year = \
-            Removed.objects.filter(date__gte=one_year_ago).aggregate(total=Sum(F('price') * F('quantity')))[
-                'total'] or 0
-        added_amount_year = \
-            AddRawMaterials.objects.filter(date__gte=one_year_ago).aggregate(
-                total=Sum(F('item__price') * F('quantity')))[
-                'total'] or 0
+        # modoels
+        raw_materials = RawMaterial.objects.all()
+        removed = Removed.objects.all()
+        add_raw_material = AddRawMaterials.objects.all()
+
+        total_raw_materials = raw_materials.aggregate(total=Sum('quantity'))['total'] or 0
+        total_value = raw_materials.aggregate(total=Sum(F('price') * F('quantity')))['total'] or 0
+        removed_cost_month = removed.filter(date__month=today.month).aggregate(total=Sum('price'))['total'] or 0
+        removed_amount_year = removed.filter(date__year=today.year).aggregate(total=Sum(F('price') * F('quantity')))['total'] or 0
+        added_amount_year = add_raw_material.filter(date__year=today.year).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
+        added_amount_this_month = add_raw_material.filter(date__month=today.month).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
 
         monthly_added = []
         monthly_removed = []
@@ -47,12 +45,12 @@ class RawMaterialDashboardViewSet(viewsets.ViewSet):
             month_start = today.replace(day=1) - timezone.timedelta(days=30 * i)
             month_end = (month_start + timezone.timedelta(days=32)).replace(day=1) - timezone.timedelta(days=1)
 
-            added_total = AddRawMaterials.objects.filter(
+            added_total = add_raw_material.filter(
                 date__date__gte=month_start,
                 date__date__lte=month_end
             ).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
 
-            removed_total = Removed.objects.filter(
+            removed_total = removed.filter(
                 date__gte=month_start,
                 date__lte=month_end
             ).aggregate(total=Sum(F('price') * F('quantity')))['total'] or 0
@@ -69,17 +67,30 @@ class RawMaterialDashboardViewSet(viewsets.ViewSet):
 
         monthly_added.reverse()
         monthly_removed.reverse()
+        category_data = []
+        categories = set(raw_materials.values_list('category__name', flat=True))
+        for category_name in categories:
+            if category_name:
+                category_items = raw_materials.filter(category__name=category_name)
+                category_materials_value = category_items.aggregate(
+                    stock_value=Coalesce(Sum(F('quantity') * F('price')), 0.0, output_field=models.DecimalField(max_digits=10, decimal_places=2))) ['stock_value'] or 0.0
+
+                category_data.append({
+                    "category": category_name,
+                    "materials_count": category_items.count(),
+                    "total_materials_value": float(category_materials_value),
+                })
 
         data = {
             'total_raw_materials': total_raw_materials,
             'total_value': total_value,
-            'removed_cost_today': removed_cost_today,
-            'removed_cost_week': removed_cost_week,
             'removed_cost_month': removed_cost_month,
             'removed_amount_year': removed_amount_year,
-            'added_amount_year': added_amount_year,
+            'added_amount_this_year': added_amount_year,
+            'added_amount_this_month': added_amount_this_month,
+            "shop_category_data": category_data,
             'added_amount_monthly': monthly_added,
-            'removed_amount_monthly': monthly_removed
+            'removed_amount_monthly': monthly_removed,
         }
 
         return Response(data)
@@ -227,104 +238,6 @@ class ApiShopkeeper(viewsets.ViewSet):
         }
 
         return Response(data)
-
-
-class WorkersDashboardViewSet(viewsets.ViewSet):
-    def list(self, request):
-        today = timezone.now().date()
-        one_year_ago = today - timedelta(days=365)
-        current_month_start = today.replace(day=1)
-        next_month = today.replace(day=28) + timedelta(days=4)
-        current_month_end = next_month - timedelta(days=next_month.day)
-
-        # Contractors data
-        contractors = []
-        all_contractor_payments = []
-
-        for contractor in Contractors.objects.all():
-            contracts = ProductContractor.objects.filter(contractor=contractor)
-            total_pay = contracts.aggregate(t=Sum('cost'))['t'] or 0
-
-            last_month_pay = contracts.filter(
-                product__project__start_date__gte=current_month_start - timedelta(days=30),
-                product__project__start_date__lte=current_month_end - timedelta(days=30)
-            ).aggregate(t=Sum('cost'))['t'] or 0
-
-            last_year_pay = contracts.filter(
-                product__project__start_date__gte=one_year_ago
-            ).aggregate(t=Sum('cost'))['t'] or 0
-
-            monthly_payments = []
-            for i in range(12):
-                month_start = today.replace(day=1) - timedelta(days=30 * i)
-                month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
-                monthly_total = contracts.filter(
-                    product__project__start_date__gte=month_start,
-                    product__project__start_date__lte=month_end
-                ).aggregate(t=Sum('cost'))['t'] or 0
-                monthly_payments.append({'month': month_start.strftime("%b %Y"), 'amount': float(monthly_total)})
-
-            projects = Project.objects.filter(
-                product__productcontractor__contractor=contractor
-            ).distinct().values('id', 'name', 'status', 'start_date')
-
-            contractors.append({
-                'id': contractor.id,
-                'full_name': f"{contractor.first_name} {contractor.last_name}",
-                'total_pay': total_pay,
-                'last_month_pay': last_month_pay,
-                'last_year_pay': last_year_pay,
-                'monthly_payments': list(reversed(monthly_payments)),
-                'projects': list(projects)
-            })
-
-        # Salary workers data
-        salary_workers = []
-        for worker in SalaryWorkers.objects.all():
-            projects = Project.objects.filter(
-                product__productsalaryworker__salary_worker=worker
-            ).distinct().values('id', 'name', 'status', 'start_date')
-
-            salary_workers.append({
-                'id': worker.id,
-                'full_name': f"{worker.first_name} {worker.last_name}",
-                'pay': float(worker.salary),
-                'projects': list(projects)
-            })
-
-        # Salary costs (total of all salaries)
-        salary_costs = sum(worker.salary for worker in SalaryWorkers.objects.all())
-
-        # Contractors monthly payments
-        contractors_monthly = []
-        for i in range(12):
-            month_start = today.replace(day=1) - timedelta(days=30 * i)
-            month_total = ProductContractor.objects.filter(
-                product__project__start_date__gte=month_start,
-                product__project__start_date__lte=(month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
-            ).aggregate(t=Sum('cost'))['t'] or 0
-            contractors_monthly.append({
-                'month': month_start.strftime("%b %Y"),
-                'amount': float(month_total)
-            })
-
-        # Current month contractor payments
-        current_month_contractor_payments = ProductContractor.objects.filter(
-            product__project__start_date__gte=current_month_start,
-            product__project__start_date__lte=current_month_end
-        ).aggregate(t=Sum('cost'))['t'] or 0
-
-        # Total monthly cost
-        total_monthly_cost = salary_costs + current_month_contractor_payments
-
-        return Response({
-            'contractors': contractors,
-            'salary_workers': salary_workers,
-            'contractors_monthly': list(reversed(contractors_monthly)),
-            'salary_costs': float(salary_costs),
-            'current_month_contractor_payments': float(current_month_contractor_payments),
-            'total_monthly_cost': float(total_monthly_cost)
-        })
 
 
 class ApiAdminDashboard(viewsets.ViewSet):

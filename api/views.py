@@ -5,7 +5,7 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from django.utils import timezone
-
+from decimal import Decimal
 from .pagination import AssetsPagination
 from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly, \
     IsArtisanReadOnly, IsStoreKeeperReadonly, IsManager
@@ -211,6 +211,11 @@ class ApiAddRawMaterials(ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         quantity = request.data.get("quantity")
 
+        try:
+            quantity = Decimal(quantity)
+        except ValueError:
+            return Response({"error": "Invalid quantity format"}, status=status.HTTP_400_BAD_REQUEST)
+
         if not quantity:
             return Response({"error": "quantity required"})
 
@@ -376,7 +381,12 @@ class ApiAddStock(ModelViewSet):
         if not quantity:
             return Response({"error": "quantity required"})
 
-        if quantity <= 0:
+        try:
+            quantity = Decimal(quantity)  # Convert to Decimal
+        except ValueError:
+            return Response({"error": "Invalid quantity format"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if int(quantity) <= 0:
             return Response({"error": "quantity  most be a positive number"})
 
         added_stock = self.get_object()

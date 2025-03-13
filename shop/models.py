@@ -85,4 +85,4 @@ class AddStock(models.Model):
     date = models.DateField(default=now)
 
     def __str__(self):
-        return f"added {self.quantity} {self.item.name}"
+        return f"added {self.quantity} {self.name}"

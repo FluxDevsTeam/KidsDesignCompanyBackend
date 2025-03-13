@@ -1,4 +1,5 @@
 from django.core.serializers.json import DjangoJSONEncoder
+from django.db.models.functions import Coalesce
 from rest_framework.fields import SerializerMethodField
 from rest_framework.serializers import ModelSerializer, ListSerializer
 from rest_framework import serializers
@@ -218,12 +219,24 @@ class ProductSalaryWorkerSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'product']
 
 
-class ProductSerializer(ModelSerializer):
+class ProductSerializer(serializers.ModelSerializer):
     contractors = ProductContractorSerializer(source="productcontractor_set", many=True, read_only=True)
     salary_workers = ProductSalaryWorkerSerializer(source="productsalaryworker_set", many=True, read_only=True)
-    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.filter(archived=False, is_delivered=False),
-                                                 required=False, allow_null=True, write_only=True)
+    project = serializers.PrimaryKeyRelatedField(
+        queryset=Project.objects.filter(archived=False, is_delivered=False),
+        required=False,
+        allow_null=True,
+        write_only=True
+    )
     linked_project = SimpleProjectSerializer(source="project", read_only=True)
+
+    total_raw_material_cost = serializers.SerializerMethodField()
+    total_artisan_cost = serializers.SerializerMethodField()
+    total_production_cost = serializers.SerializerMethodField()
+    grand_total = serializers.SerializerMethodField()
+    grand_total_per_item = serializers.SerializerMethodField()
+    profit = serializers.SerializerMethodField()
+    profit_per_item = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -236,11 +249,40 @@ class ProductSerializer(ModelSerializer):
         ]
         read_only_fields = ['overhead_cost_base_at_creation']
 
+    def get_total_raw_material_cost(self, obj):
+        raw_materials = obj.removed_set.filter(product=obj).annotate(total_cost=ExpressionWrapper(F("quantity") * F("material__price"), output_field=DecimalField(max_digits=10, decimal_places=2))).aggregate(total=Coalesce(Sum("total_cost"), Decimal(0)))
+        return raw_materials['total']
 
-class RawMaterialUsedSerializer(ModelSerializer):
-    class Meta:
-        model = Removed
-        fields = '__all__'
+    def get_total_artisan_cost(self, obj):
+        contractor_cost = obj.productcontractor_set.aggregate(total=Sum("cost"))["total"] or 0
+        return round(contractor_cost)
+
+    def get_total_production_cost(self, obj):
+        return round(self.get_total_artisan_cost(obj) + self.get_total_raw_material_cost(obj))
+
+    def get_grand_total(self, obj):
+        calculated_overhead = obj.overhead_cost * obj.overhead_cost_base_at_creation
+        return round(calculated_overhead + self.get_total_production_cost(obj))
+
+    def get_grand_total_per_item(self, obj):
+        if obj.quantity == 0:
+            return 0
+        calculated_overhead = obj.overhead_cost * obj.overhead_cost_base_at_creation
+        return round((calculated_overhead + self.get_total_production_cost(obj)) / obj.quantity)
+
+    def get_profit(self, obj):
+        return round((obj.selling_price * obj.quantity) - self.get_grand_total(obj))
+
+    def get_profit_per_item(self, obj):
+        if obj.quantity == 0:
+            return 0
+        return round(self.get_profit(obj) / obj.quantity)
+
+
+class RawMaterialUsedSerializer(serializers.Serializer):
+    material = serializers.IntegerField()
+    material__name = serializers.CharField()
+    total_quantity = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
 class StoreCategorySerializer(ModelSerializer):
@@ -290,7 +332,7 @@ class SimpleExpenseSerializer(serializers.ModelSerializer):
 class SimpleProductSerializer(ModelSerializer):
     class Meta:
         model = Product
-        fields = ['id', 'name', 'selling_price', 'grand_total', 'profit']
+        fields = ['id', 'name', 'selling_price', 'progress']
 
 
 class SimpleSoldSerializer(serializers.ModelSerializer):
@@ -330,24 +372,28 @@ class ProjectSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'start_date']
         extra_kwargs = {'customer': {'write_only': True}}
 
-        # """   format    """
-        # {
-        #     "Task A": {"completed": false},
-        #     "Task B": {"completed": true}
-        # }
-
     def get_products(self, obj):
-        products = SimpleProductSerializer(obj.product_set.all(), many=True).data
+        products_data = SimpleProductSerializer(obj.product_set.all(), many=True).data
+        total_raw_material_cost = self.get_total_raw_material_cost(obj)
+        total_artisan_cost = self.get_total_artisan_cost(obj)
+        total_production_cost = round(total_artisan_cost + total_raw_material_cost)
+        total_overhead_cost = self.get_total_overhead_cost(obj)
+        total_grand_total = round(total_production_cost + total_overhead_cost)
+        total_selling_price = obj.product_set.aggregate(
+            total=Coalesce(Sum(F("selling_price") * F("quantity")), Decimal(0))
+        )["total"]
+        total_profit = round(total_selling_price - total_grand_total)
+
         return {
             "progress": getattr(obj, "computed_progress", 0),
-            "total_project_selling_price": self.get_total_project_selling_price(obj),
-            "total_production_cost": self.get_total_production_cost(obj),
-            "total_artisan_cost": self.get_total_artisan_cost(obj),
-            "total_overhead_cost": self.get_total_overhead_cost(obj),
-            "total_raw_material_cost": self.get_total_raw_material_cost(obj),
-            "total_grand_total": self.get_total_grand_total(obj),
-            "total_profit": self.get_total_profit(obj),
-            "products": products
+            "total_project_selling_price": round(total_selling_price),
+            "total_production_cost": total_production_cost,
+            "total_artisan_cost": total_artisan_cost,
+            "total_overhead_cost": total_overhead_cost,
+            "total_raw_material_cost": total_raw_material_cost,
+            "total_grand_total": total_grand_total,
+            "total_profit": total_profit,
+            "products": products_data
         }
 
     def get_sold_items(self, obj):
@@ -373,78 +419,86 @@ class ProjectSerializer(serializers.ModelSerializer):
             "other_productions": other_productions
         }
 
-    def get_total_other_productions_cost(self, obj):
-        return round(sum(getattr(op, "cost", 0) for op in obj.otherproduction_set.all()))
-
-    def get_total_other_productions_budget(self, obj):
-        return round(sum(getattr(op, "budget", 0) for op in obj.otherproduction_set.all()))
-
-    def get_total_grand_total(self, obj):
-        return round(sum(getattr(product, "grand_total", 0) for product in obj.product_set.all()))
-
-    def get_total_project_selling_price(self, obj):
-        return round(sum(getattr(product, "selling_price", 0) for product in obj.product_set.all()))
-
-    def get_total_production_cost(self, obj):
-        return round(sum(getattr(product, "total_production_cost", 0) for product in obj.product_set.all()))
+    def get_total_raw_material_cost(self, obj):
+        from store.models import Removed
+        raw_materials = Removed.objects.filter(product__in=obj.product_set.all()).annotate(total_cost=ExpressionWrapper(F("quantity") * F("material__price"), output_field=DecimalField(max_digits=10, decimal_places=2))).aggregate(total=Coalesce(Sum("total_cost"), Decimal(0)))
+        return round(raw_materials['total'])
 
     def get_total_artisan_cost(self, obj):
-        return round(sum(getattr(product, "total_artisan_cost", 0) for product in obj.product_set.all()))
+        contractor_cost = ProductContractor.objects.filter(product__in=obj.product_set.all()).aggregate(total=Coalesce(Sum("cost"), Decimal(0)))["total"]
+        return round(contractor_cost)
 
     def get_total_overhead_cost(self, obj):
-        return round(sum(
-            getattr(product, "overhead_cost", 0) * getattr(product, "overhead_cost_base_at_creation", 0)
-            for product in obj.product_set.all()
-        ))
+        overhead_cost = obj.product_set.aggregate(total=Coalesce(Sum(F("overhead_cost") * F("overhead_cost_base_at_creation")), Decimal(0)))["total"]
+        return round(overhead_cost)
 
-    def get_total_raw_material_cost(self, obj):
-        return round(sum(getattr(product, "total_raw_material_cost", 0) for product in obj.product_set.all()))
-
-    def get_total_profit(self, obj):
-        product_profit = sum(getattr(product, "profit", 0) for product in obj.product_set.all())
-        sold_profit = sum(
-            getattr(sold, "quantity", 0) * (
-                getattr(getattr(sold, "item", None), "selling_price", 0) -
-                getattr(getattr(sold, "item", None), "cost_price", 0)
-            )
-            for sold in obj.sold_set.all()
-        )
-        return round(product_profit + sold_profit)
-
-    def get_total_expenses(self, obj):
-        return round(sum(getattr(expense, "amount", 0) for expense in obj.expense_set.all()))
-
-    def get_total_cost_price_sold_items(self, obj):
-        return round(sum(
-            getattr(sold, "quantity", 0) * getattr(getattr(sold, "item", None), "cost_price", 0)
-            for sold in obj.sold_set.all()
-        ))
-
-    def get_total_selling_price_sold_items(self, obj):
-        return round(sum(
-            getattr(sold, "quantity", 0) * getattr(getattr(sold, "item", None), "selling_price", 0)
-            for sold in obj.sold_set.all()
-        ))
+    def get_total_project_selling_price(self, obj):
+        total_selling = obj.product_set.aggregate(total=Coalesce(Sum(F("selling_price") * F("quantity")), Decimal(0)))["total"]
+        return round(total_selling)
 
     def get_total_project_cost(self, obj):
-        return self.get_total_grand_total(obj) + self.get_total_cost_price_sold_items(obj)
+        total_raw_material_cost = self.get_total_raw_material_cost(obj)
+        total_artisan_cost = self.get_total_artisan_cost(obj)
+        total_production_cost = round(total_artisan_cost + total_raw_material_cost)
+        total_overhead_cost = self.get_total_overhead_cost(obj)
+        total_grand_total = round(total_production_cost + total_overhead_cost)
+        return round(total_grand_total + self.get_total_cost_price_sold_items(obj))
 
     def get_total_paid(self, obj):
         return round(
-            getattr(obj, "selling_price", 0) +
-            getattr(obj, "logistics", 0) +
-            getattr(obj, "service_charge", 0)
+            (obj.selling_price or Decimal(0)) +
+            (obj.logistics or Decimal(0)) +
+            (obj.service_charge or Decimal(0))
         )
 
     def get_total_money_spent(self, obj):
-        return (
+        total_raw_material_cost = self.get_total_raw_material_cost(obj)
+        total_artisan_cost = self.get_total_artisan_cost(obj)
+        total_production_cost = round(total_artisan_cost + total_raw_material_cost)
+        total_overhead_cost = self.get_total_overhead_cost(obj)
+        total_grand_total = round(total_production_cost + total_overhead_cost)
+        return round(
             self.get_total_expenses(obj) +
-            self.get_total_project_cost(obj) +
+            total_grand_total +
+            self.get_total_cost_price_sold_items(obj) +
             self.get_total_other_productions_cost(obj)
         )
 
+    def get_total_other_productions_cost(self, obj):
+        total_cost = obj.otherproduction_set.aggregate(total=Coalesce(Sum("cost"), Decimal(0)))["total"]
+        return round(total_cost)
+
+    def get_total_profit(self, obj):
+        total_selling_price = self.get_total_project_selling_price(obj)
+        total_raw_material_cost = self.get_total_raw_material_cost(obj)
+        total_artisan_cost = self.get_total_artisan_cost(obj)
+        total_production_cost = round(total_artisan_cost + total_raw_material_cost)
+        total_overhead_cost = self.get_total_overhead_cost(obj)
+        total_grand_total = round(total_production_cost + total_overhead_cost)
+        product_profit = round(total_selling_price - total_grand_total)
+        sold_profit = self.get_total_selling_price_sold_items(obj) - self.get_total_cost_price_sold_items(obj)
+        return round(product_profit + sold_profit)
+
     def get_final_profit(self, obj):
         return self.get_total_paid(obj) - self.get_total_money_spent(obj)
+
+    def get_total_other_productions_budget(self, obj):
+        total_budget = obj.otherproduction_set.aggregate(total=Coalesce(Sum("budget"), Decimal(0)))["total"]
+        return round(total_budget)
+
+    def get_total_expenses(self, obj):
+        total_expenses = obj.expense_set.aggregate(total=Coalesce(Sum("amount"), Decimal(0)))["total"]
+        return round(total_expenses)
+
+    def get_total_cost_price_sold_items(self, obj):
+        total_cost = obj.sold_set.aggregate(total=Coalesce(Sum(F("quantity") * F("item__cost_price")), Decimal(0)))["total"]
+        return round(total_cost)
+
+    def get_total_selling_price_sold_items(self, obj):
+        total_selling = obj.sold_set.aggregate(total=Coalesce(Sum(F("quantity") * F("item__selling_price")), Decimal(0)))["total"]
+        return round(total_selling)
+
+
 
 
 #  #########################################

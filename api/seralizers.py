@@ -45,7 +45,7 @@ class SimpleInventoryItemSerializer(ModelSerializer):
 
     class Meta:
         model = InventoryItem
-        fields = ['id', 'name', 'dimensions', 'inventory_category']
+        fields = ['id', 'name', 'dimensions', 'inventory_category', 'image']
         read_only_fields = ['id']
 
 

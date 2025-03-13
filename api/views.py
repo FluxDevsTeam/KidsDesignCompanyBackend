@@ -405,7 +405,7 @@ class ApiAddStock(ModelViewSet):
             inventory_item.stock -= added_item.quantity
             inventory_item.save()
             added_item.delete()
-            return Response({"message": "stock add record deleted and inventorygf item updated."}, status=204)
+            return Response({"message": "stock add record deleted and inventory item updated."}, status=204)
 
         added_item.delete()
         return Response(

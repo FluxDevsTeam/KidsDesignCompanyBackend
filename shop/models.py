@@ -82,7 +82,7 @@ class AddStock(models.Model):
     name = models.CharField(max_length=100)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateTimeField(auto_now_add=True)
+    date = models.DateField(default=now)
 
     def __str__(self):
         return f"added {self.quantity} {self.item.name}"

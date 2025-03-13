@@ -402,7 +402,7 @@ class ApiAddStock(ModelViewSet):
         added_item = self.get_object()
         if added_item.item is not None:
             inventory_item = get_object_or_404(InventoryItem, id=added_item.item.id)
-            inventory_item.quantity -= added_item.quantity
+            inventory_item.stock -= added_item.quantity
             inventory_item.save()
             added_item.delete()
             return Response({"message": "stock add record deleted and inventorygf item updated."}, status=204)
@@ -418,11 +418,23 @@ class ApiInventoryCategory(ModelViewSet):
     serializer_class = InventoryCategorySerializer
     # permission_classes = [IsCEO | IsProjectManager]
 
+    def list(self, request, *args, **kwargs):
+        """Override list to disable pagination."""
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
 
 class ApiStoreCategory(ModelViewSet):
     queryset = StoreCategory.objects.all()
     serializer_class = StoreCategorySerializer
     # permission_classes = [IsCEO | IsProjectManager]
+
+    def list(self, request, *args, **kwargs):
+        """Override list to disable pagination."""
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class ApiSold(ModelViewSet):
@@ -807,6 +819,12 @@ class ApiExpenseCategory(ModelViewSet):
     serializer_class = ExpenseCategorySerializer
     # permission_classes = [IsCEO | IsProjectManager]
 
+    def list(self, request, *args, **kwargs):
+        """Override list to disable pagination."""
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
 
 class ApiExpense(ModelViewSet):
     serializer_class = ExpenseSerializer
@@ -941,8 +959,19 @@ class ApiRawMaterialUsed(ReadOnlyModelViewSet):
 
     def get_queryset(self):
         product_id = self.kwargs.get('product_pk')
-        return Removed.objects.filter(product=product_id)
-    # permission_classes = [IsCEO | IsProjectManager | IsStoreKeeperReadonly]
+        return (
+            Removed.objects.filter(product=product_id)
+            .values("material", "material__name")
+            .annotate(total_quantity=Sum("quantity"))
+            .order_by("-date")
+        )
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        # Rename material__name to material_name in the response
+        data = [{"material": item["material"], "material_name": item["material__name"], "total_quantity": item["total_quantity"]} for item in serializer.data]
+        return Response(data)
 
 
 class ApiProductContractor(ModelViewSet):
@@ -1033,8 +1062,7 @@ class ApiProduct(ModelViewSet):
 
 class ApiProject(ModelViewSet):
     serializer_class = ProjectSerializer
-    queryset = Project.objects.all()
-    # permission_classes = [IsCEO | IsProjectManager]
+    queryset = Project.objects.all().order_by("start_date")
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ProjectFilter
     search_fields = ['customer__name', 'name']
@@ -1046,21 +1074,35 @@ class ApiProject(ModelViewSet):
         return qs
 
     def list(self, request, *args, **kwargs):
-        projects = self.get_queryset()
-        all_projects_count = projects.count()
+        projects = self.filter_queryset(self.get_queryset())
+        get_all = self.get_queryset()
+        all_time_projects_count = get_all.count()
+        all_projects_count = get_all.filter(is_delivered=False, archived=False).count()
+        completed_projects_count = get_all.filter(computed_progress=100, is_delivered=False, archived=False).count()
+        ongoing_projects_count = get_all.filter(computed_progress__lt=100).count()
+        average_progress = get_all.filter(is_delivered=False, archived=False).aggregate(avg_progress=Avg("computed_progress"))["avg_progress"] or 0
 
         page = self.paginate_queryset(projects)
         if page is not None:
-            all_projects = self.get_serializer(projects, many=True).data
+            all_projects = self.get_serializer(page, many=True).data
             response_data = {
+                "all_time_projects_count": all_time_projects_count,
                 "all_projects_count": all_projects_count,
-                "all_projects": all_projects
+                "completed_projects_count": completed_projects_count,
+                "ongoing_projects_count": ongoing_projects_count,
+                "average_progress": round(average_progress, 2),
+                "all_projects": all_projects,
             }
             return Response(response_data)
+
         all_projects = self.get_serializer(projects, many=True).data
         response_data = {
-            "all_projects_count": all_projects_count,
-            "all_projects": all_projects
+            "all_time_projects_count": all_time_projects_count,
+            "all_ongoing_projects_count": all_projects_count,
+            "completed_projects_count": completed_projects_count,
+            "ongoing_projects_count": ongoing_projects_count,
+            "average_progress": round(average_progress, 2),
+            "all_projects": all_projects,
         }
         return Response(response_data)
 

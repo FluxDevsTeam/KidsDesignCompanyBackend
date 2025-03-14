@@ -1,16 +1,14 @@
 from django.db import models
-from django.db.models import Sum, F, DecimalField
-from django.forms import DecimalField
+
 from rest_framework import viewsets
 from rest_framework.response import Response
 from django.utils import timezone
-from django.db.models import Sum, Q, F, Count, Subquery, OuterRef, FloatField, Prefetch, ExpressionWrapper
+from django.db.models import Sum, Q, F, Count, Subquery, OuterRef, FloatField, ExpressionWrapper
 from django.db.models.functions import Coalesce
 from dateutil.relativedelta import relativedelta
-from .dashboard_serializers import CustomerDashboardSerializer, CEODashboardSerializer, AdminSerializer
 from customers.models import Customer
 from expensis.models import Assets, ExpenseCategory, Expense
-from products.models import ProductContractor, Product
+from products.models import ProductContractor
 from store.models import RawMaterial, Removed, AddRawMaterials
 from shop.models import InventoryItem, Sold, AddStock
 from datetime import timedelta
@@ -498,7 +496,6 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
             'monthly_expense_trend': list(reversed(monthly_trend)),
             'top_categories': top_categories,
         }
-
         return Response(data)
 
 
@@ -530,6 +527,236 @@ class CEODashboardViewSet(viewsets.ViewSet):
         total_shop_income = Sold.objects.filter(project__isnull=True).aggregate(
             total=Sum(F('selling_price') * F('quantity'))
         )['total'] or 0
+
+        total_income = total_projects_income + total_shop_income
+
+        # Expenses Breakdown
+        salary_costs = SalaryWorkers.objects.filter(is_still_active=True).aggregate(total=Sum('salary'))['total'] or 0
+        contractor_costs = ProductContractor.objects.aggregate(total=Sum('cost'))['total'] or 0
+        raw_material_costs = AddRawMaterials.objects.aggregate(
+            total=Sum(F('item__price') * F('quantity'))
+        )['total'] or 0
+        asset_costs = Assets.objects.aggregate(total=Sum('value'))['total'] or 0
+        other_expenses = Expense.objects.aggregate(total=Sum('amount'))['total'] or 0
+
+        total_expenses = sum([salary_costs, contractor_costs, raw_material_costs, asset_costs, other_expenses])
+
+        # Profit Calculations
+        net_profit = total_income - total_expenses
+        gross_profit = (total_projects_income + total_shop_income) - (
+                raw_material_costs + salary_costs + contractor_costs)
+
+        # Project Statistics with proper cost calculations
+        project_profitability = Project.objects.annotate(
+            # Calculate material costs
+            material_cost=Coalesce(Subquery(
+                Removed.objects.filter(product__project=OuterRef('pk'))
+                .annotate(
+                    cost=ExpressionWrapper(
+                        F('quantity') * F('material__price'),
+                        output_field=FloatField()
+                    )
+                )
+                .values('product__project')
+                .annotate(total=Sum('cost'))
+                .values('total'),
+                output_field=FloatField()
+            ), 0.0),
+
+            # Calculate artisan costs
+            artisan_cost=Coalesce(Subquery(
+                ProductContractor.objects.filter(product__project=OuterRef('pk'))
+                .values('product__project')
+                .annotate(total=Sum('cost'))
+                .values('total'),
+                output_field=FloatField()
+            ), 0.0),
+
+            # Calculate total product costs
+            product_costs=ExpressionWrapper(
+                F('material_cost') + F('artisan_cost'),
+                output_field=FloatField()
+            ),
+
+            # Calculate total expenses
+            expense_costs=Coalesce(Subquery(
+                Expense.objects.filter(project=OuterRef('pk'))
+                .values('project')
+                .annotate(total=Sum('amount'))
+                .values('total'),
+                output_field=FloatField()
+            ), 0.0),
+
+            # Calculate other production costs
+            production_costs=Coalesce(Subquery(
+                OtherProduction.objects.filter(project=OuterRef('pk'))
+                .values('project')
+                .annotate(total=Sum('cost'))
+                .values('total'),
+                output_field=FloatField()
+            ), 0.0),
+
+            # Sum all costs
+            total_project_cost=ExpressionWrapper(
+                F('product_costs') + F('expense_costs') + F('production_costs'),
+                output_field=FloatField()
+            ),
+
+            # Calculate profit
+            profit=ExpressionWrapper(
+                F('selling_price') - F('total_project_cost'),
+                output_field=FloatField()
+            )
+        ).values('name', 'selling_price', 'total_project_cost', 'profit')
+
+        project_stats = Project.objects.aggregate(
+            total=Count('id'),
+            completed=Count('id', filter=Q(status='completed')),
+            in_progress=Count('id', filter=Q(status='in_progress')),
+            overdue=Count('id', filter=Q(status='overdue'))
+        )
+
+        # Inventory Value
+        inventory_value = InventoryItem.objects.aggregate(
+            total=Sum(F('stock') * F('selling_price'))
+        )['total'] or 0
+
+        # Monthly Trends
+        monthly_income = get_monthly_data(
+            Sold, 'date', F('selling_price') * F('quantity')
+        )
+
+        monthly_expenses = []
+        for i in range(12):
+            month_start = today.replace(day=1) - timedelta(days=30 * i)
+            month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+
+            expenses = {
+                'salary': SalaryWorkers.objects.filter(
+                    is_still_active=True,
+                    created_at__lte=month_end
+                ).aggregate(total=Sum('salary'))['total'] or 0,
+                'contractors': ProductContractor.objects.filter(
+                    product__project__start_date__gte=month_start,
+                    product__project__start_date__lte=month_end
+                ).aggregate(total=Sum('cost'))['total'] or 0,
+                'materials': AddRawMaterials.objects.filter(
+                    date__gte=month_start,
+                    date__lte=month_end
+                ).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0,
+                'other': Expense.objects.filter(
+                    date__gte=month_start,
+                    date__lte=month_end
+                ).aggregate(total=Sum('amount'))['total'] or 0
+            }
+
+            monthly_expenses.append({
+                'month': month_start.strftime("%b %Y"),
+                'total': sum(expenses.values()),
+                'breakdown': expenses
+            })
+
+        monthly_expenses.reverse()
+
+        # Categorical Breakdowns
+        expense_categories = ExpenseCategory.objects.annotate(
+            total=Sum('expense__amount')
+        ).values('name', 'total').order_by('-total')
+
+        # Asset Analysis
+        asset_analysis = Assets.objects.aggregate(
+            active=Sum('value', filter=Q(is_still_available=True)),
+            deprecated=Sum('value', filter=Q(is_still_available=False))
+        )
+
+        data = {
+            'key_metrics': {
+                'total_income': round(total_income, 2),
+                'total_expenses': round(total_expenses, 2),
+                'net_profit': round(net_profit, 2),
+                'gross_profit': round(gross_profit, 2),
+                'current_assets_value': round(asset_analysis.get('active', 0), 2),
+                'inventory_value': round(inventory_value, 2)
+            },
+            'income_breakdown': {
+                'projects': round(total_projects_income, 2),
+                'shop_sales': round(total_shop_income, 2),
+                'percentage_projects': round((total_projects_income / total_income * 100) if total_income else 0, 2),
+                'percentage_shop': round((total_shop_income / total_income * 100) if total_income else 0, 2)
+            },
+            'expense_breakdown': {
+                'salaries': round(salary_costs, 2),
+                'contractors': round(contractor_costs, 2),
+                'raw_materials': round(raw_material_costs, 2),
+                'assets': round(asset_costs, 2),
+                'other_expenses': round(other_expenses, 2),
+                'operational_ratio': round((total_expenses / total_income * 100) if total_income else 0, 2)
+            },
+            'project_statistics': {
+                'total_projects': project_stats['total'],
+                'completed': project_stats['completed'],
+                'in_progress': project_stats['in_progress'],
+                'overdue': project_stats['overdue'],
+                'average_project_profit': round(
+                    sum(p['profit'] for p in project_profitability) / project_stats['total']
+                    if project_stats['total'] else 0, 2
+                )
+            },
+            'monthly_trends': {
+                'income': monthly_income,
+                'expenses': monthly_expenses,
+                'profit': [{
+                    'month': m['month'],
+                    'total': float(m['total'] or 0) - float(e['total'] or 0)
+                } for m, e in zip(monthly_income, monthly_expenses)]
+            },
+            'categorical_data': {
+                'expense_categories': [
+                    {'name': cat['name'], 'value': cat['total']}
+                    for cat in expense_categories if cat['total']
+                ],
+                'project_profitability': list(project_profitability),
+                'asset_analysis': {
+                    'active_assets': asset_analysis.get('active', 0),
+                    'deprecated_assets': asset_analysis.get('deprecated', 0)
+                }
+            },
+            'additional_metrics': {
+                'total_customers': Customer.objects.count(),
+                'active_contractors': Contractors.objects.filter(is_still_active=True).count(),
+                'active_employees': SalaryWorkers.objects.filter(is_still_active=True).count(),
+                'inventory_items': InventoryItem.objects.count(),
+                'raw_materials_types': RawMaterial.objects.count()
+            }
+        }
+
+        return Response(data)
+
+
+class ProjectManagerDashboardViewSet(viewsets.ViewSet):
+    def list(self, request):
+        today = timezone.now().date()
+        one_year_ago = today - timedelta(days=365)
+
+        # Helper function for monthly aggregates
+        def get_monthly_data(model, date_field, value_field):
+            monthly_data = []
+            for i in range(12):
+                month_start = today.replace(day=1) - timedelta(days=30 * i)
+                month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+                total = model.objects.filter(
+                    **{f"{date_field}__gte": month_start, f"{date_field}__lte": month_end}
+                ).aggregate(total=Sum(value_field))['total'] or 0
+                monthly_data.append({
+                    'month': month_start.strftime("%b %Y"),
+                    'total': float(total)
+                })
+            return list(reversed(monthly_data))
+
+        # Financial Metrics
+        total_projects_income = Project.objects.aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge')))['total'] or 0
+
+        total_shop_income = Sold.objects.filter(project__isnull=True).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
 
         total_income = total_projects_income + total_shop_income
 

@@ -2,7 +2,8 @@ from django.urls import path, include
 from . import views
 from rest_framework.routers import DefaultRouter
 from rest_framework_nested.routers import NestedDefaultRouter
-from .dashboard_views import ApiStorekeeper, ApiAdminDashboard, ApiFactoryManagerDashboard, CEODashboardViewSet, ApiShopkeeper
+from .dashboard_views import ApiStorekeeper, ApiAdminDashboard, ApiFactoryManagerDashboard, CEODashboardViewSet, \
+    ApiShopkeeper, ProjectManagerDashboardViewSet
 from .views import StoreQuotation
 
 router = DefaultRouter()
@@ -48,17 +49,13 @@ urlpatterns = [
     path("", include(salary_router.urls)),
     path("", include(contractor_router.urls)),
     path("", include(project_router.urls)),
-    # path('view-added-stock/', views.ApiAddStock.as_view({'get': 'list'}), name='view_added_stock'),
-    # path('add-stock/', views.ApiAddStock.as_view({'post': 'create'}), name='add_stock'),
-    # path('view-added-raw-materials/', views.ApiAddRawMaterials.as_view({'get': 'list'}), name='view_added_raw_materials'),
-    # path('add-raw-materials/', views.ApiAddRawMaterials.as_view({'post': 'create'}), name='add_raw_materials'),
     path('overhead-cost/', overhead_cost_view, name='overhead-cost'),
 
     #     ############ dashboard #####################
     path('all-quotation/', StoreQuotation.as_view({'get': 'list'})),
     path('storekeeper-dashboard/', ApiStorekeeper.as_view({'get': 'list'})),
     path('shopkeeper-dashboard/', ApiShopkeeper.as_view({'get': 'list'})),
-    # path('workers-dashboard/', WorkersDashboardViewSet.as_view({'get': 'list'})),
+    path('project-manager-dashboard/', ProjectManagerDashboardViewSet.as_view({'get': 'list'})),
     path('admin-dashboard/', ApiAdminDashboard.as_view({'get': 'list'})),
     path('factory-manager-dashboard/', ApiFactoryManagerDashboard.as_view({'get': 'list'})),
     path('ceo-dashboard/', CEODashboardViewSet.as_view({'get': 'list'}))

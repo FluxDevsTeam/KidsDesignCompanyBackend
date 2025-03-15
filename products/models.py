@@ -5,6 +5,7 @@ from workers.models import Contractors, SalaryWorkers
 from project.models import Project
 from django.core.validators import MinValueValidator, MaxValueValidator
 import project.utils as p
+from datetime import date
 
 
 class Product(models.Model):
@@ -49,7 +50,7 @@ class ProductContractor(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     contractor = models.ForeignKey(Contractors, on_delete=models.PROTECT)
     cost = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateField(null=True, blank=True)
+    date = models.DateField(default=date.today, null=True, blank=True)
 
     def __str__(self):
         return f"{self.contractor.name} for {self.product.name}"
@@ -58,7 +59,7 @@ class ProductContractor(models.Model):
 class ProductSalaryWorker(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     salary_worker = models.ForeignKey(SalaryWorkers, on_delete=models.PROTECT)
-    date = models.DateField(null=True, blank=True)
+    date = models.DateField(default=date.today, null=True, blank=True)
 
     def __str__(self):
         return f"{self.salary_worker.name} for {self.product.name}"

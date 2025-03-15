@@ -2,6 +2,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from customers.models import Customer
 from django.utils.timezone import now
+import datetime
 
 from project.models import Project
 
@@ -42,11 +43,11 @@ class Sold(models.Model):
     item = models.ForeignKey(InventoryItem, on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=100)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
-    date = models.DateTimeField(auto_now_add=True)
+    date = models.DateField(default=datetime.date.today)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
     logistics = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
-    updated_on = models.DateTimeField(null=True, blank=True)
+    updated_on = models.DateField(default=datetime.date.today, null=True, blank=True)
 
     @property
     def total_price(self):
@@ -82,7 +83,7 @@ class AddStock(models.Model):
     name = models.CharField(max_length=100)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateField(default=now)
+    date = models.DateField(default=datetime.date.today)
 
     def __str__(self):
         return f"added {self.quantity} {self.name}"

@@ -1,6 +1,7 @@
 from django.core.validators import MinValueValidator
 from django.db import models
 from products.models import Product
+from datetime import date
 
 
 class StoreCategory(models.Model):
@@ -32,7 +33,7 @@ class Removed(models.Model):
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True)
-    date = models.DateField(auto_now_add=True)
+    date = models.DateField(default=date.today)
 
     class Meta:
         ordering = ["-date"]
@@ -46,7 +47,7 @@ class AddRawMaterials(models.Model):
     name = models.CharField(max_length=100)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateTimeField(auto_now_add=True)
+    date = models.DateField(default=date.today)
 
     def __str__(self):
         return f"added {self.quantity} {self.item.name}"

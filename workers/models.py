@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.db import models
 from django.core.exceptions import ValidationError
 
@@ -12,13 +14,13 @@ class Contractors(models.Model):
     years_of_experience = models.PositiveIntegerField(blank=True, null=True)
     image = models.ImageField(blank=True, null=True)
     agreement_form_image = models.ImageField(blank=True, null=True)
-    date_joined = models.DateField(auto_now_add=True)
+    date_joined = models.DateField(default=date.today)
     date_left = models.DateField(null=True, blank=True)
     guarantor_name = models.CharField(max_length=20, blank=True, null=True)
     guarantor_phone_number = models.CharField(max_length=20, blank=True, null=True)
     guarantor_address = models.TextField(blank=True, null=True)
-    created_at = models.DateField(auto_now_add=True)
-    updated_at = models.DateField(auto_now=True)
+    created_at = models.DateField(default=date.today)
+    updated_at = models.DateField(null=True, blank=True)
     is_still_active = models.BooleanField(default=True)
 
     def __str__(self):
@@ -38,13 +40,13 @@ class SalaryWorkers(models.Model):
     years_of_experience = models.PositiveIntegerField(blank=True, null=True)
     image = models.ImageField(blank=True, null=True)
     agreement_form_image = models.ImageField(blank=True, null=True)
-    date_joined = models.DateField(auto_now_add=True)
+    date_joined = models.DateField(default=date.today)
     date_left = models.DateField(null=True, blank=True)
     guarantor_name = models.CharField(max_length=20, blank=True, null=True)
     guarantor_phone_number = models.CharField(max_length=20, blank=True, null=True)
     guarantor_address = models.TextField(blank=True, null=True)
-    created_at = models.DateField(auto_now_add=True)
-    updated_at = models.DateField(auto_now=True)
+    created_at = models.DateField(default=date.today)
+    updated_at = models.DateField(null=True, blank=True)
     salary = models.DecimalField(max_digits=10, decimal_places=2)
     is_still_active = models.BooleanField(default=True)
 
@@ -57,7 +59,7 @@ class SalaryWorkers(models.Model):
 
 class ContractorRecord(models.Model):
     report = models.TextField()
-    date = models.DateField(auto_now=True)
+    date = models.DateField(default=date.today)
     contractor = models.ForeignKey(Contractors, on_delete=models.CASCADE)
 
     class Meta:

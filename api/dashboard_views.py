@@ -873,20 +873,6 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
         asset_analysis = Assets.objects.aggregate(active=Sum('value', filter=Q(is_still_available=True)),deprecated=Sum('value', filter=Q(is_still_available=False)))
 
         # Calculate project statistics
-        project_stats = {
-            'total': Project.objects.count(),
-            'completed': Project.objects.filter(is_delivered=True).count(),
-            'in_progress': Project.objects.filter(is_delivered=False).count(),
-            'overdue': Project.objects.filter(is_delivered=False, deadline__lt=today).count()
-        }
-
-        # Calculate project profitability
-        project_profitability = Project.objects.annotate(
-            profit=ExpressionWrapper(
-                F('selling_price') - F('cost_price'),
-                output_field=FloatField()
-            )
-        ).values('profit')
 
         data = {
             'key_metrics': {

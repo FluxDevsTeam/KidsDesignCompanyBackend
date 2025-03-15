@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 
 from rest_framework import viewsets
@@ -8,7 +10,7 @@ from django.db.models.functions import Coalesce
 from dateutil.relativedelta import relativedelta
 from customers.models import Customer
 from expensis.models import Assets, ExpenseCategory, Expense
-from products.models import ProductContractor
+from products.models import ProductContractor, Product
 from store.models import RawMaterial, Removed, AddRawMaterials
 from shop.models import InventoryItem, Sold, AddStock
 from datetime import timedelta
@@ -808,6 +810,7 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
         expense = Expense.objects.all()
         sold = Sold.objects.all()
         project = Project.objects.all()
+        product = Product.objects.all()
         paid = Paid.objects.all()
         product_contractor = ProductContractor.objects.all()
         add_raw_materials = AddRawMaterials.objects.all()
@@ -832,156 +835,130 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
             return list(reversed(monthly_data))
 
         # Financial Metrics for the year
-        total_shop_income_year = sold.filter(date__gte=start_of_year).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
-        total_non_project_shop_income_year = sold.filter(project__isnull=True, date__gte=start_of_year).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
+        total_project_shop_income_year = sold.filter(project__isnull=False, date__gte=start_of_year).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
 
+        total_projects_count_year = project.filter(start_date__gte=start_of_year).count()
         total_projects_income_year = project.filter(start_date__gte=start_of_year).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge')))['total'] or 0
-        no_shop_projects_income_year = project.filter(start_date__gte=start_of_year).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge') - (total_shop_income_year -total_non_project_shop_income_year)))['total'] or 0
+        no_shop_projects_income_year = project.filter(start_date__gte=start_of_year).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge') - total_project_shop_income_year))['total'] or 0
 
-        total_income_year = no_shop_projects_income_year + total_shop_income_year
 
         # Financial Metrics for the current month
-        total_shop_income_month = sold.filter(project__isnull=True, date__gte=start_of_month).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
-        total_non_project_shop_income_month = sold.filter(project__isnull=True, date__gte=start_of_month).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
+        total_project_shop_income_month = sold.filter(project__isnull=False, date__gte=start_of_month).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
 
+        total_projects_count_month = project.filter(start_date__gte=start_of_month).count()
         total_projects_income_month = project.filter(start_date__gte=start_of_month).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge')))['total'] or 0
-        no_shop_projects_income_month = project.filter(start_date__gte=start_of_month).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge') - (total_shop_income_year -total_non_project_shop_income_year)))['total'] or 0
+        no_shop_projects_income_month = project.filter(start_date__gte=start_of_month).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge') - total_project_shop_income_month))['total'] or 0
 
-        total_income_month = no_shop_projects_income_month + total_shop_income_month
 
         # Expenses Breakdown for the year
-        salary_costs_year = paid.filter(contract__isnull=True, date__gte=start_of_year).aggregate(total=Sum('amount'))['total'] or 0
 
         contractor_costs_year = product_contractor.filter(product__project__start_date__gte=start_of_year).aggregate(total=Sum('cost'))['total'] or 0
 
         raw_material_costs_year = add_raw_materials.filter(date__gte=start_of_year).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
 
-        asset_costs_year = assets.filter(date_added__gte=start_of_year).aggregate(total=Sum('value'))['total'] or 0
+        overhead_cost_year = product.filter(project__start_date__gte=start_of_year).aggregate(total=Coalesce(Sum(F("overhead_cost") * F("overhead_cost_base_at_creation")), Decimal(0)))["total"]
 
-        other_expenses_year = expense.filter(date__gte=start_of_year).aggregate(total=Sum('amount'))['total'] or 0
+        expenses_year = expense.filter(date__gte=start_of_year, project__isnull=False).aggregate(total=Sum('amount'))['total'] or 0
 
         other_production_expensis_year = other_production.filter(project__start_date__gte=start_of_year).aggregate(total=Sum('cost'))['total'] or 0
 
-        sold_cost_year = sold.filter(date__gte=start_of_year).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
+        sold_cost_year = sold.filter(date__gte=start_of_year, project__isnull=False).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
 
-        total_expenses_year = sum([sold_cost_year + salary_costs_year, contractor_costs_year, raw_material_costs_year, other_expenses_year + other_production_expensis_year])
+        total_project_expenses_year = sum([overhead_cost_year + sold_cost_year, contractor_costs_year, raw_material_costs_year, expenses_year + other_production_expensis_year])
+
+        # Profit Calculations for the year
+        profit_year = total_projects_income_year - total_project_expenses_year
 
         # Expenses Breakdown for the current month
-        salary_costs_month = paid.filter(contract__isnull=True, date__gte=start_of_month).aggregate(total=Sum('amount'))['total'] or 0
+        contractor_costs_month = product_contractor.filter(product__project__start_date__gte=start_of_month).aggregate(total=Sum('cost'))['total'] or 0
 
-        contractor_costs_month = product_contractor.filter(product__project__start_date__year=start_of_month.year, product__project__start_date__month=start_of_month.month).aggregate(total=Sum('cost'))['total'] or 0
+        raw_material_costs_month = add_raw_materials.filter(date__gte=start_of_month).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
 
-        raw_material_costs_month = add_raw_materials.filter(date__year=start_of_month.year, date__month=start_of_month.month).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
+        overhead_cost_month = product.filter(project__start_date__gte=start_of_month).aggregate(total=Coalesce(Sum(F("overhead_cost") * F("overhead_cost_base_at_creation")), Decimal(0)))["total"]
 
-        asset_costs_month = assets.filter(date_added__year=start_of_month.year, date_added__month=start_of_month.month).aggregate(total=Sum('value'))['total'] or 0
-
-        other_expenses_month = expense.filter(date__year=start_of_month.year, date__month=start_of_month.month).aggregate(total=Sum('amount'))['total'] or 0
+        expenses_month = expense.filter(date__gte=start_of_month, project__isnull=False).aggregate(total=Sum('amount'))['total'] or 0
 
         other_production_expensis_month = other_production.filter(project__start_date__gte=start_of_month).aggregate(total=Sum('cost'))['total'] or 0
 
-        sold_cost_month = sold.filter(date__gte=start_of_month).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
+        sold_cost_month = sold.filter(date__gte=start_of_month, project__isnull=False).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
 
-        total_expenses_month = sum([sold_cost_month + salary_costs_month, contractor_costs_month, raw_material_costs_month, other_expenses_month + other_production_expensis_month])
-
-        # Profit Calculations for the year
-        profit_year = total_income_year - total_expenses_year
+        total_project_expenses_month = sum([overhead_cost_month + sold_cost_month, contractor_costs_month, raw_material_costs_month, expenses_month + other_production_expensis_month])
 
         # Profit Calculations for the current month
-        profit_month = total_income_month - total_expenses_month
-
-        # Inventory Value
-        inventory_value = inventory_item.aggregate(total=Sum(F('stock') * F('selling_price')))['total'] or 0
-
-        # Store Value
-        total_store_value = raw_material.aggregate(total=Sum(F('quantity') * F('price')))['total'] or 0
+        profit_month = total_projects_income_month - total_project_expenses_month
 
         # Monthly Trends
-        monthly_income = get_monthly_data(sold, 'date', F('selling_price') * F('quantity'))
-
+        monthly_income = get_monthly_data(project, 'start_date', F('selling_price') + F('logistics') + F('service_charge'))
 
         monthly_expenses = []
         for i in range(12):
             month_start = today.replace(day=1) - relativedelta(months=i)
             month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
-            expenses = {
-                'salary': paid.filter(contract__isnull=True, date__month=month_start.month, date__year=month_start.year).aggregate(total=Sum('amount'))['total'] or 0,
-                'contractors': ProductContractor.objects.filter( product__project__start_date__year=month_start.year,product__project__start_date__month=month_start.month).aggregate(total=Sum('cost'))['total'] or 0,
-                'materials': AddRawMaterials.objects.filter(date__year=month_start.year,date__month=month_start.month).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0,
-                'other_expensis': expense.filter(date__year=month_start.year,date__month=month_start.month).aggregate(total=Sum('amount'))['total'] or 0,
-                'other_production_expensis': OtherProduction.objects.filter( project__start_date__year=month_start.year, project__start_date__month=month_start.month).aggregate(total=Sum('cost'))['total'] or 0,
-                'sold_cost': sold.filter( date__year=month_start.year,date__month=month_start.month).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
-            }
+            contractor_costs_month = product_contractor.filter(product__project__start_date__year=month_start.year,product__project__start_date__month=month_start.month).aggregate(total=Sum('cost'))['total'] or 0
 
-            total_expenses = sum(expenses.values())
+            raw_material_costs_month = add_raw_materials.filter(date__year=month_start.year,date__month=month_start.month).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
+
+            overhead_cost_month = product.filter(project__start_date__year=month_start.year, project__start_date__month=month_start.month, ).aggregate(total=Coalesce(Sum(F("overhead_cost") * F("overhead_cost_base_at_creation")), Decimal(0)))["total"]
+
+            expenses_month = expense.filter(date__year=month_start.year,date__month=month_start.month, project__isnull=False).aggregate(total=Sum('amount'))['total'] or 0
+
+            other_production_expensis_month = other_production.filter( project__start_date__year=month_start.year, project__start_date__month=month_start.month).aggregate(total=Sum('cost'))['total'] or 0
+
+            sold_cost_month = sold.filter(date__year=month_start.year,date__month=month_start.month, project__isnull=False).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
+
+            total_project = sum([overhead_cost_month + sold_cost_month, contractor_costs_month, raw_material_costs_month,expenses_month + other_production_expensis_month])
+
             monthly_expenses.append({
                 'month': month_start.strftime("%b %Y"),
-                'total': total_expenses,
+                'total': total_project,
             })
 
         monthly_expenses.reverse()
 
-        # Categorical Breakdowns for the year
-        expense_categories_year = expense_category.annotate(total=Sum('expense__amount')).values('name', 'total').order_by('-total')
-
-        # Categorical Breakdowns for the month
-        expense_categories_month = expense_category.annotate(total=Sum('expense__amount', filter=Q(expense__date__gte=start_of_month))).values('name', 'total').order_by('-total')
-
-        # Asset Analysis
-        asset_analysis = assets.aggregate(active=Sum('value', filter=Q(is_still_available=True)),deprecated=Sum('value', filter=Q(is_still_available=False)))
-
-        # Calculate project statistics
-
         data = {
             'key_metrics': {
                 'overhead_cost': OverheadCost.objects.first().overhead_cost_base,
-                'total_income_year': round(total_income_year, 2),
-                'total_expenses_year': round(total_expenses_year, 2),
-                'total_profit_year': round(profit_year, 2),
-                'total_income_month': round(total_income_month, 2),
-                'total_expenses_month': round(total_expenses_month, 2),
+            },
+            'breakdown_year': {
+                'projects_count_year': round(total_projects_count_year, 2),
+                'total_projects_income_year': round(total_projects_income_year, 2),
+                'no_shop_projects_year': round(no_shop_projects_income_year, 2),
+                'project_shop_income_year': round(total_project_shop_income_year, 2),
+                'percentage_projects': round((no_shop_projects_income_year / total_projects_income_year * 100) if total_projects_income_year else 0, 2),
+                'percentage_shop': round((total_project_shop_income_year / total_projects_income_year * 100) if total_projects_income_year else 0, 2),
+                'project_expenses_year': round(total_project_expenses_year, 2),
+                'profit_year': round(profit_year, 2),
+            },
+            'breakdown_month': {
+                'projects_count_month': round(total_projects_count_month, 2),
+                'total_projects_income_month': round(total_projects_income_month, 2),
+                'no_shop_projects_month': round(no_shop_projects_income_month, 2),
+                'project_shop_income_month': round(total_project_shop_income_month, 2),
+                'percentage_projects': round((no_shop_projects_income_month / total_projects_income_month * 100) if total_projects_income_month else 0,2),
+                'percentage_shop': round((total_project_shop_income_month / total_projects_income_month * 100) if total_projects_income_month else 0,2),
+                'project_expenses_month': round(total_project_expenses_month, 2),
                 'profit_month': round(profit_month, 2),
-                'current_assets_value': round(asset_analysis.get('active', 0), 2),
-                'inventory_value': round(inventory_value, 2),
-                'total_store_value': round(total_store_value, 2)
-            },
-            'income_breakdown_year': {
-                'projects': round(total_projects_income_year, 2),
-                'no_shop_projects': round(no_shop_projects_income_year, 2),
-                'shop_sales': round(total_shop_income_year, 2),
-                'non_project_shop_sales': round(total_non_project_shop_income_year, 2),
-                'percentage_projects': round(
-                    (no_shop_projects_income_year / total_income_year * 100) if total_income_year else 0, 2),
-                'percentage_shop': round((total_shop_income_year / total_income_year * 100) if total_income_year else 0,
-                                         2)
-            },
-            'income_breakdown_month': {
-                'projects': round(total_projects_income_month, 2),
-                'no_shop_projects': round(no_shop_projects_income_month, 2),
-                'shop_sales': round(total_shop_income_month, 2),
-                'non_project_shop_sales': round(total_non_project_shop_income_month, 2),
-                'percentage_projects': round(
-                    (no_shop_projects_income_month / total_income_month * 100) if total_income_month else 0, 2),
-                'percentage_shop': round(
-                    (total_shop_income_month / total_income_month * 100) if total_income_month else 0, 2)
             },
             'expense_breakdown_year': {
-                'salaries': round(salary_costs_year, 2),
                 'contractors': round(contractor_costs_year, 2),
                 'raw_materials': round(raw_material_costs_year, 2),
-                'assets': round(asset_costs_year, 2),
-                'factory_expenses': round(other_expenses_year, 2),
+                'overhead': round(overhead_cost_year, 2),
+                'factory_expenses': round(expenses_year, 2),
                 'other_production_expensis': round(other_production_expensis_year, 2),
-                'monthly_sold_cost_price': round(sold_cost_year, 2),
+                'sold_cost': round(sold_cost_year, 2),
+                'yearly_sold_cost_price': round(sold_cost_year, 2),
+                'total_project_expenses_year': round(total_project_expenses_year, 2),
             },
             'expense_breakdown_month': {
-                'salaries': round(salary_costs_month, 2),
                 'contractors': round(contractor_costs_month, 2),
                 'raw_materials': round(raw_material_costs_month, 2),
-                'assets': round(asset_costs_month, 2),
-                'factory_expenses': round(other_expenses_month, 2),
+                'overhead': round(overhead_cost_month, 2),
+                'factory_expenses': round(expenses_month, 2),
                 'other_production_expensis': round(other_production_expensis_month, 2),
+                'sold_cost': round(sold_cost_month, 2),
                 'monthly_sold_cost_price': round(sold_cost_month, 2),
+                'total_project_expenses_month': round(total_project_expenses_month, 2),
             },
             'monthly_trends': {
                 'income': monthly_income,
@@ -991,28 +968,11 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
                     'total': float(m['total'] or 0) - float(e['total'] or 0)
                 } for m, e in zip(monthly_income, monthly_expenses)]
             },
-            'categorical_data_year': {
-                'expense_categories': [
-                    {'name': cat['name'], 'value': cat['total']}
-                    for cat in expense_categories_year if cat['total']
-                ]
-            },
-            'categorical_data_month': {
-                'expense_categories': [
-                    {'name': cat['name'], 'value': cat['total']}
-                    for cat in expense_categories_month if cat['total']
-                ]
-            },
-            'asset_analysis': {
-                'active_assets': asset_analysis.get('active', 0),
-                'deprecated_assets': asset_analysis.get('deprecated', 0)
-            },
+
             'additional_metrics': {
                 'total_customers': Customer.objects.count(),
                 'active_contractors': Contractors.objects.filter(is_still_active=True).count(),
-                'active_employees': SalaryWorkers.objects.filter(is_still_active=True).count(),
-                'inventory_items': InventoryItem.objects.count(),
-                'raw_materials_types': RawMaterial.objects.count()
+                'active_employees': SalaryWorkers.objects.filter(is_still_active=True).count() + Contractors.objects.filter(is_still_active=True).count(),
             }
         }
 

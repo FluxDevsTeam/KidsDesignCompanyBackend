@@ -46,8 +46,8 @@ class ApiStorekeeper(viewsets.ViewSet):
             month_end = (month_start + timezone.timedelta(days=32)).replace(day=1) - timezone.timedelta(days=1)
 
             added_total = add_raw_material.filter(
-                date__date__gte=month_start,
-                date__date__lte=month_end
+                date__gte=month_start,
+                date__lte=month_end
             ).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
 
             removed_total = removed.filter(

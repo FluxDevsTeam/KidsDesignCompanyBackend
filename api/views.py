@@ -1035,10 +1035,10 @@ class ApiProductSalaryWorker(ModelViewSet):
         product = get_object_or_404(Product, pk=product_id)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        contractor = serializer.validated_data.get("contractor")
+        salary_worker = serializer.validated_data.get("salary_worker")
         cost = serializer.validated_data.get("cost")
         try:
-            instance = ProductSalaryWorker.objects.get(product=product, contractor=contractor)
+            instance = ProductSalaryWorker.objects.get(product=product, salary_worker=salary_worker)
             instance.cost = cost
             instance.save()
             serializer = self.get_serializer(instance)

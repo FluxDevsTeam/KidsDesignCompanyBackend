@@ -702,9 +702,10 @@ class CEODashboardViewSet(viewsets.ViewSet):
         asset_analysis = assets.aggregate(active=Sum('value', filter=Q(is_still_available=True)), deprecated=Sum('value', filter=Q(is_still_available=False)))
 
         # Customer Analysis
-        total_customers = customer.count()
-        active_customers = customer.filter(project__is_delivered=False).distinct().count()
-        owing_customers = customer.filter(project__balance__gte=1).distinct().count()
+        owing_customers = SimpleCustomerSerializer(customer.filter(project__balance__gte=1).distinct(), many=True).data
+        owing_customers_count = customer.filter(project__balance__gte=1).distinct().count()
+        all_customers = customer.count()
+        all_active_customers = customer.filter(project__is_delivered=False).distinct().count()
 
         # Worker Analysis
         total_salary_workers = all_salary_workers.count()
@@ -783,10 +784,13 @@ class CEODashboardViewSet(viewsets.ViewSet):
                 'active_assets': asset_analysis.get('active', 0),
                 'deprecated_assets': asset_analysis.get('deprecated', 0)
             },
+            'customers': {
+                "all_customers_count": all_customers,
+                "active_customers_count": all_active_customers,
+                'owing_customers_count': owing_customers_count,
+                'owing_customers': owing_customers
+            },
             'additional_metrics': {
-                'total_customers': total_customers,
-                'active_customers': active_customers,
-                'owing_customers': owing_customers,
                 'total_salary_workers': total_salary_workers,
                 'active_salary_workers': active_salary_workers,
                 'total_contractors': total_contractors,
@@ -815,9 +819,7 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
         product_contractor = ProductContractor.objects.all()
         add_raw_materials = AddRawMaterials.objects.all()
         other_production = OtherProduction.objects.all()
-        inventory_item = InventoryItem.objects.all()
-        raw_material = RawMaterial.objects.all()
-        expense_category = ExpenseCategory.objects.all()
+        customer = Customer.objects.all()
 
         # Helper function for monthly aggregates
         def get_monthly_data(model, date_field, value_field):
@@ -915,6 +917,10 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
             })
 
         monthly_expenses.reverse()
+        owing_customers = SimpleCustomerSerializer(customer.filter(project__balance__gte=1).distinct(), many=True).data
+        owing_customers_count = customer.filter(project__balance__gte=1).distinct().count()
+        all_customers = customer.count()
+        all_active_customers = customer.filter(project__is_delivered=False).distinct().count()
 
         data = {
             'key_metrics': {
@@ -968,10 +974,13 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
                     'total': float(m['total'] or 0) - float(e['total'] or 0)
                 } for m, e in zip(monthly_income, monthly_expenses)]
             },
-
+            'customers': {
+                "all_customers_count": all_customers,
+                "active_customers_count": all_active_customers,
+                'owing_customers_count': owing_customers_count,
+                'owing_customers': owing_customers
+            },
             'additional_metrics': {
-                'total_customers': Customer.objects.count(),
-                'active_contractors': Contractors.objects.filter(is_still_active=True).count(),
                 'active_employees': SalaryWorkers.objects.filter(is_still_active=True).count() + Contractors.objects.filter(is_still_active=True).count(),
             }
         }

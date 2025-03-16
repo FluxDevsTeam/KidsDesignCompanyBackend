@@ -17,6 +17,38 @@ from django.shortcuts import get_object_or_404
 from decimal import Decimal
 
 
+class SimpleExpenseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Expense
+        fields = ['name', 'amount']
+
+
+class SimpleContractorsSerializer(ModelSerializer):
+    class Meta:
+        model = Contractors
+        fields = ['id', 'first_name', 'last_name']
+
+
+class SimpleProductSerializer(ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'selling_price', 'progress']
+
+
+class SimpleSoldSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source='item.name', read_only=True)
+
+    class Meta:
+        model = Sold
+        fields = ['id', 'name', 'quantity', 'cost_price', 'selling_price', 'total_price']
+
+
+class SimpleOtherProductionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OtherProduction
+        fields = ['id', 'name', 'cost']
+
+
 class OverheadCostSerializer(serializers.ModelSerializer):
     class Meta:
         model = OverheadCost
@@ -48,6 +80,12 @@ class SimpleInventoryItemSerializer(ModelSerializer):
         model = InventoryItem
         fields = ['id', 'name', 'dimensions', 'inventory_category', 'image']
         read_only_fields = ['id']
+
+
+class SimpleSalaryWorkersSerializer(ModelSerializer):
+    class Meta:
+        model = SalaryWorkers
+        fields = ['id', 'first_name', 'last_name']
 
 
 class SimpleCustomerSerializer(ModelSerializer):
@@ -202,17 +240,25 @@ class QuotationSerializer(serializers.ModelSerializer):
 
 
 class ProductContractorSerializer(serializers.ModelSerializer):
+    product = SimpleProductSerializer(read_only=True)
+    linked_contractor = SimpleContractorsSerializer(source="contractor", read_only=True)
+
     class Meta:
         model = ProductContractor
-        fields = ["id", "product", "contractor", "cost"]
+        fields = ["id", "product", "linked_contractor", "cost"]
         read_only_fields = ['id', 'product']
+        extra_kwargs = {'contractor': {'write_only': True}, }
 
 
 class ProductSalaryWorkerSerializer(serializers.ModelSerializer):
+    product = SimpleProductSerializer(read_only=True)
+    linked_salary_worker = SimpleSalaryWorkersSerializer(source="salary_worker", read_only=True)
+
     class Meta:
         model = ProductSalaryWorker
-        fields = ["id", "product", "salary_worker", ]
+        fields = ["id", "product", "salary_worker", "linked_salary_worker", ]
         read_only_fields = ['id', 'product']
+        extra_kwargs = {'salary_worker': {'write_only': True}, }
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -312,32 +358,6 @@ class OtherProductionSerializer(ModelSerializer):
         model = OtherProduction
         fields = ['id', 'name', 'budget', 'project_link', 'cost']
         read_only_fields = ['id']
-
-
-class SimpleExpenseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Expense
-        fields = ['name', 'amount']
-
-
-class SimpleProductSerializer(ModelSerializer):
-    class Meta:
-        model = Product
-        fields = ['id', 'name', 'selling_price', 'progress']
-
-
-class SimpleSoldSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(source='item.name', read_only=True)
-
-    class Meta:
-        model = Sold
-        fields = ['id', 'name', 'quantity', 'cost_price', 'selling_price', 'total_price']
-
-
-class SimpleOtherProductionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OtherProduction
-        fields = ['id', 'name', 'cost']
 
 
 class ProjectSerializer(serializers.ModelSerializer):
@@ -508,18 +528,6 @@ class RemovedSerializer(ModelSerializer):
         fields = ["id", "material", "raw_material", "quantity", "price", "product", "product_its_used", "date"]
         read_only_fields = ["id", "date"]
         extra_kwargs = {'material': {'write_only': True}, 'product': {'write_only': True}}
-
-
-class SimpleContractorsSerializer(ModelSerializer):
-    class Meta:
-        model = Contractors
-        fields = ['id', 'first_name', 'last_name']
-
-
-class SimpleSalaryWorkersSerializer(ModelSerializer):
-    class Meta:
-        model = SalaryWorkers
-        fields = ['id', 'first_name', 'last_name']
 
 
 class ContractorRecordSerializer(ModelSerializer):

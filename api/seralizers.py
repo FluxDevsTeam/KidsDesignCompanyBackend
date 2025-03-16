@@ -132,7 +132,7 @@ class CustomerSerializer(ModelSerializer):
     class Meta:
         model = Customer
         fields = ["id", "name", "email", "phone_number", "address", "project", "shop_item", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id"]
 
     def get_project(self, obj):
         project = obj.project_set.first()
@@ -244,7 +244,7 @@ class ProductContractorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductContractor
-        fields = ["id", "product", "contractor", "linked_contractor", "cost"]
+        fields = ["id", "product", "contractor", "linked_contractor", "cost", "date"]
         read_only_fields = ['id', 'product']
 
 
@@ -253,7 +253,7 @@ class ProductSalaryWorkerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductSalaryWorker
-        fields = ["id", "product", "salary_worker", "linked_salary_worker", ]
+        fields = ["id", "product", "salary_worker", "linked_salary_worker", "date"]
         read_only_fields = ['id', 'product']
 
 
@@ -372,7 +372,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             'products', 'sold_items', 'expenses', 'other_productions', 'selling_price', 'logistics',
             'service_charge', 'note', "calculations"
         ]
-        read_only_fields = ['id', 'start_date']
+        read_only_fields = ['id']
         extra_kwargs = {'customer': {'write_only': True}}
 
     def get_products(self, obj):
@@ -522,7 +522,7 @@ class RemovedSerializer(ModelSerializer):
     class Meta:
         model = Removed
         fields = ["id", "material", "raw_material", "quantity", "price", "product", "product_its_used", "date"]
-        read_only_fields = ["id", "date"]
+        read_only_fields = ["id"]
         extra_kwargs = {'material': {'write_only': True}, 'product': {'write_only': True}}
 
 
@@ -532,7 +532,7 @@ class ContractorRecordSerializer(ModelSerializer):
     class Meta:
         model = ContractorRecord
         fields = ['id', 'report', 'date', 'worker']
-        read_only_fields = ['id', 'date']
+        read_only_fields = ['id']
 
 
 class ExpenseSerializer(ModelSerializer):
@@ -544,7 +544,7 @@ class ExpenseSerializer(ModelSerializer):
         model = Expense
         fields = ['id', 'name', 'category', 'expense_category', 'description', 'project', 'shop', 'linked_project',
                   'sold_item', 'amount', 'quantity', 'date']
-        read_only_fields = ['id', 'date']
+        read_only_fields = ['id']
         extra_kwargs = {'category': {'write_only': True}, 'project': {'write_only': True}, 'shop': {'write_only': True}}
 
     def validate(self, attrs):
@@ -573,7 +573,7 @@ class SalaryWorkersRecordSerializer(ModelSerializer):
     class Meta:
         model = SalaryWorkersRecord
         fields = ['id', 'report', 'date', 'worker']
-        read_only_fields = ['id', 'date']
+        read_only_fields = ['id']
 
 
 class AssetsSerializer(ModelSerializer):
@@ -588,5 +588,6 @@ class AddRawMaterialsSerializer(ModelSerializer):
 
     class Meta:
         model = AddRawMaterials
-        fields = ["item", "material", "quantity", "cost_price", "date"]
+        fields = ["id", "item", "material", "quantity", "cost_price", "date"]
+        read_only_fields = ["id"]
         extra_kwargs = {'item': {'write_only': True}}

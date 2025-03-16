@@ -5,7 +5,7 @@ from django.db import models
 from rest_framework import viewsets
 from rest_framework.response import Response
 from django.utils import timezone
-from django.db.models import Sum, Q, F, Count, Subquery, OuterRef, FloatField, ExpressionWrapper
+from django.db.models import Sum, Q, F
 from django.db.models.functions import Coalesce
 from dateutil.relativedelta import relativedelta
 from customers.models import Customer
@@ -669,6 +669,8 @@ class CEODashboardViewSet(viewsets.ViewSet):
 
         # Monthly Trends
         monthly_income = get_monthly_data(sold, 'date', F('selling_price') * F('quantity'))
+        factory_expenses_month = expense.filter(date__year=start_of_month.year, date__month=start_of_month.month, project__isnull=True, shop__isnull=True ).aggregate(total=Sum('amount'))['total'] or 0
+        suggested_overhead_cost = (salary_costs_month + factory_expenses_month) / 26 # 26 is the number of working days in a month
 
         monthly_expenses = []
         for i in range(12):
@@ -716,6 +718,7 @@ class CEODashboardViewSet(viewsets.ViewSet):
         data = {
             'key_metrics': {
                 'overhead_cost': OverheadCost.objects.first().overhead_cost_base,
+                'suggested_overhead_cost': round(suggested_overhead_cost),
                 'total_income_year': round(total_income_year, 2),
                 'total_expenses_year': round(total_expenses_year, 2),
                 'total_profit_year': round(profit_year, 2),

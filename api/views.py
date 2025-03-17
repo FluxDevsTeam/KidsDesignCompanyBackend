@@ -512,7 +512,7 @@ class ApiSold(ModelViewSet):
             if current_date != sold_date:
                 if daily_solds:
                     daily_data.append({
-                        "date": current_date.strftime('%Y-%m-%d'),
+                        "date": current_date,
                         "entries": self.get_serializer(daily_solds, many=True).data,
                         "daily_total": sum(s.total_price for s in daily_solds)
                     })
@@ -522,7 +522,7 @@ class ApiSold(ModelViewSet):
                 daily_solds.append(sold)
         if daily_solds:
             daily_data.append({
-                "date": current_date.strftime('%Y-%m-%d'),
+                "date": current_date,
                 "entries": self.get_serializer(daily_solds, many=True).data,
                 "daily_total": sum(s.total_price for s in daily_solds)
             })
@@ -907,7 +907,7 @@ class ApiExpense(ModelViewSet):
             if expense_date != current_date:
                 if daily_expenses:
                     daily_data.append({
-                        "date": current_date.strftime('%Y-%m-%d'),
+                        "date": current_date,
                         "entries": ExpenseSerializer(daily_expenses, many=True).data,
                         "daily_total": sum(e.amount for e in daily_expenses),
                     })
@@ -918,7 +918,7 @@ class ApiExpense(ModelViewSet):
 
         if daily_expenses:
             daily_data.append({
-                "date": current_date.strftime('%Y-%m-%d'),
+                "date": current_date,
                 "entries": ExpenseSerializer(daily_expenses, many=True).data,
                 "daily_total": sum(e.amount for e in daily_expenses),
             })
@@ -1166,7 +1166,6 @@ class ApiRawMaterial(ModelViewSet):
 class ApiRemoved(ModelViewSet):
     serializer_class = RemovedSerializer
     queryset = Removed.objects.all()
-    # permission_classes = [IsCEO | IsStoreKeeper]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = RemovedFilter
     search_fields = ['material__name', 'product__name', 'material__description']
@@ -1221,7 +1220,7 @@ class ApiRemoved(ModelViewSet):
             if current_date != removed_date:
                 if daily_removed:
                     daily_data.append({
-                        "date": current_date.strftime('%Y-%m-%d'),
+                        "date": current_date,
                         "entries": self.get_serializer(daily_removed, many=True).data,
                         "daily_total": sum(s.price * s.quantity for s in daily_removed)
                     })
@@ -1231,7 +1230,7 @@ class ApiRemoved(ModelViewSet):
                 daily_removed.append(removed)
         if daily_removed:
             daily_data.append({
-                "date": current_date.strftime('%Y-%m-%d'),
+                "date": current_date,
                 "entries": self.get_serializer(daily_removed, many=True).data,
                 "daily_total": sum(s.price * s.quantity for s in daily_removed)
             })
@@ -1269,7 +1268,7 @@ class ApiRemoved(ModelViewSet):
             return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
 
         Removed.objects.create(material=material_data, quantity=quantity, product=product_data,
-                               price=material_data.price)
+                               price=material_data.price, name=material_data.name)
         material_data.quantity -= quantity
         material_data.save()
 
@@ -1334,6 +1333,7 @@ class ApiRemoved(ModelViewSet):
                 removed_item.material.id = material
                 removed_item.quantity = quantity
                 removed_item.price = new_raw_material_item.price
+                removed_item.name = new_raw_material_item.name
                 removed_item.save()
 
                 return Response({"message": "removed raw material edited successfully."}, status=status.HTTP_200_OK)
@@ -1611,7 +1611,7 @@ class ApiPaid(ModelViewSet):
             if current_date != paid_date:
                 if daily_paid:
                     daily_data.append({
-                        "date": current_date.strftime('%Y-%m-%d'),
+                        "date": current_date,
                         "entries": self.get_serializer(daily_paid, many=True).data,
                         "daily_total": sum(s.amount for s in daily_paid)
                     })
@@ -1621,7 +1621,7 @@ class ApiPaid(ModelViewSet):
                 daily_paid.append(paid)
         if daily_paid:
             daily_data.append({
-                "date": current_date.strftime('%Y-%m-%d'),
+                "date": current_date,
                 "entries": self.get_serializer(daily_paid, many=True).data,
                 "daily_total": sum(s.amount for s in daily_paid)
             })

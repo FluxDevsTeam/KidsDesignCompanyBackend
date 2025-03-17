@@ -16,7 +16,7 @@ class RawMaterial(models.Model):
     unit = models.CharField(max_length=20)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    category = models.ForeignKey(StoreCategory, on_delete=models.PROTECT)
+    category = models.ForeignKey(StoreCategory, on_delete=models.CASCADE, null=True, blank=True)
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(upload_to="raw_materials/", blank=True, null=True)
     archived = models.BooleanField(default=False)
@@ -29,10 +29,11 @@ class RawMaterial(models.Model):
 
 
 class Removed(models.Model):
-    material = models.ForeignKey(RawMaterial, on_delete=models.PROTECT)
+    material = models.ForeignKey(RawMaterial, on_delete=models.SET_NULL, null=True)
+    name = models.CharField(max_length=50)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True)
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
     date = models.DateField(default=date.today)
 
     class Meta:
@@ -43,7 +44,7 @@ class Removed(models.Model):
 
 
 class AddRawMaterials(models.Model):
-    item = models.ForeignKey(RawMaterial, on_delete=models.PROTECT)
+    item = models.ForeignKey(RawMaterial, on_delete=models.SET_NULL, null=True, blank=True)
     name = models.CharField(max_length=100)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)

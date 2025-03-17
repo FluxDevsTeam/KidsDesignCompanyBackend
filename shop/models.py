@@ -38,8 +38,8 @@ class InventoryItem(models.Model):
 
 
 class Sold(models.Model):
-    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True)
-    project = models.ForeignKey(Project, on_delete=models.SET_NULL, null=True, blank=True)
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, null=True, blank=True)
+    project = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True)
     item = models.ForeignKey(InventoryItem, on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=100)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, validators=[MinValueValidator(0.01)])

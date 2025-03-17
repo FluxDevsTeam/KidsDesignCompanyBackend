@@ -521,7 +521,7 @@ class RemovedSerializer(ModelSerializer):
 
     class Meta:
         model = Removed
-        fields = ["id", "material", "raw_material", "quantity", "price", "product", "product_its_used", "date"]
+        fields = ["id", "material", "raw_material", "name", "quantity", "price", "product", "product_its_used", "date"]
         read_only_fields = ["id"]
         extra_kwargs = {'material': {'write_only': True}, 'product': {'write_only': True}}
 

@@ -8,17 +8,29 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from django.contrib.auth.hashers import make_password
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.filters import SearchFilter
 from .serializers import (UserSignupSerializer, LoginSerializer, PasswordChangeRequestSerializer, \
                           UserProfileSerializer, ForgotPasswordRequestSerializer, UserSignupSerializerResendOTP,
-                          UserSignupSerializerOTP, ViewUserProfileSerializer)
+                          UserSignupSerializerOTP, ViewUserProfileSerializer,GroupSerializer)
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from .utils import EmailThread
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import EmailChangeRequest, PasswordChangeRequest, ForgotPasswordRequest, NameChangeRequest
 from django.utils.timezone import now
+from django.contrib.auth.models import Group
+from .permissions import IsCeo
 
 User = get_user_model()
+
+class GroupViewSet(viewsets.ModelViewSet):
+    """Only the CEO is allowed to create a new role, endpoint to CRUD Group(roles)
+    ['storekeeper', 'shopkeeper', 'factory_manager', 'product_manager', 'admin', 'ceo']"""
+    queryset = Group.objects.all()
+    serializer_class = GroupSerializer
+    permission_classes = [IsCeo]
+    filter_backends = [SearchFilter]
+    search_fields = ["name"]
 
 
 class ForgotPasswordViewSet(viewsets.ModelViewSet):
@@ -480,22 +492,36 @@ class PasswordChangeRequestViewSet(viewsets.ModelViewSet):
         return Response({"message": "Password changed successfully. You have been logged out."},
                         status=status.HTTP_200_OK)
 
-
-class UserSignupViewSet(viewsets.ViewSet):
+class UserSignupViewSet(viewsets.ModelViewSet):
     """
-    Viewset for handling user signup and OTP verification.
+    ModelViewSet for handling user signup and OTP verification.
+    example of object:
+    {
+        "first_name": "Themy",
+        "last_name": "Olla",
+        "email": "themy01@example.com",
+        "password": "pass@worD",
+        "verify_password": "pass@worD",
+        "phone_number": "107070007",
+        "roles": ["shopkeeper", "storekeeper"]
+    }
     """
+    queryset = User.objects.all()
+    serializer_class = UserSignupSerializer
+    permission_classes = [IsCeo]
 
     def create(self, request, *args, **kwargs):
         """
         Handles user signup.
         """
-        serializer = UserSignupSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
         phone_number = serializer.validated_data['phone_number']
+        roles = serializer.validated_data.pop('groups', [])
+        print('####### ROles',roles)
 
         # Check if the user already exists
         user = User.objects.filter(email=email).first()
@@ -514,14 +540,19 @@ class UserSignupViewSet(viewsets.ViewSet):
                     from_email=settings.EMAIL_HOST_USER,
                 )
 
-                return Response({"message": f"User already exists but is not verified. OTP resent."},
-                                status=status.HTTP_200_OK)
+                return Response(
+                    {"message": "User already exists but is not verified. OTP resent."},
+                    status=status.HTTP_200_OK
+                )
             else:
-                return Response({"error": "User already exists and is verified."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": "User already exists and is verified."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         # Create new user
         otp = random.randint(100000, 999999)
-        User.objects.create(
+        user = User.objects.create(
             first_name=serializer.validated_data['first_name'],
             last_name=serializer.validated_data['last_name'],
             email=email,
@@ -530,6 +561,7 @@ class UserSignupViewSet(viewsets.ViewSet):
             otp=otp,
             otp_created_at=now()
         )
+        user.groups.set(roles)
 
         send_mail(
             subject='Verify your email',
@@ -538,7 +570,10 @@ class UserSignupViewSet(viewsets.ViewSet):
             from_email=settings.EMAIL_HOST_USER,
         )
 
-        return Response({"message": f"Signup successful. OTP sent to your email "}, status=status.HTTP_201_CREATED)
+        return Response(
+            {"message": "Signup successful. OTP sent to your email."},
+            status=status.HTTP_201_CREATED
+        )
 
     @action(detail=False, methods=['post'], url_path='verify-otp')
     def verify_otp(self, request):
@@ -547,10 +582,11 @@ class UserSignupViewSet(viewsets.ViewSet):
         """
         serializer = UserSignupSerializerOTP(data=request.data)
         serializer.is_valid(raise_exception=True)
+
         email = serializer.validated_data['email']
         otp = serializer.validated_data['otp']
-
         user = User.objects.filter(email=email).first()
+
         if not user:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -569,7 +605,7 @@ class UserSignupViewSet(viewsets.ViewSet):
 
         send_mail(
             subject='Signup successful',
-            message=f'You have finished the signup verification for ASLuxeryOriginals.com. Welcome!',
+            message=f'You have successfully completed the signup verification for ASLuxeryOriginals.com. Welcome!',
             recipient_list=[email],
             from_email=settings.EMAIL_HOST_USER,
         )
@@ -590,9 +626,10 @@ class UserSignupViewSet(viewsets.ViewSet):
         """
         serializer = UserSignupSerializerResendOTP(data=request.data)
         serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data['email']
 
+        email = serializer.validated_data['email']
         user = User.objects.filter(email=email).first()
+
         if not user:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -611,7 +648,7 @@ class UserSignupViewSet(viewsets.ViewSet):
             from_email=settings.EMAIL_HOST_USER,
         )
 
-        return Response({"message": f"OTP resent to your email."}, status=status.HTTP_200_OK)
+        return Response({"message": "OTP resent to your email."}, status=status.HTTP_200_OK)
 
 
 class UserLoginViewSet(viewsets.ViewSet):

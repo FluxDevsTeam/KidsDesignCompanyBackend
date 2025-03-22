@@ -7,8 +7,6 @@ from rest_framework.response import Response
 from django.utils import timezone
 from decimal import Decimal
 from .pagination import AssetsPagination
-from .permissions import IsCEO, IsArtisan, IsStoreKeeper, IsProjectManager, IsOwnerOrAdmin, IsAdminOrReadOnly, \
-    IsArtisanReadOnly, IsStoreKeeperReadonly, IsManager
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
     QuotationSerializer, ProductSerializer, RawMaterialSerializer, ProjectSerializer, RawMaterialUsedSerializer, \
@@ -25,13 +23,15 @@ from store.models import RawMaterial, Removed, StoreCategory, AddRawMaterials
 from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryWorkersRecord, Paid
 from rest_framework import viewsets, status, permissions, mixins
 from django.contrib.auth import get_user_model
-from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter, ProjectFilter, \
-    AddRawMaterialsFilter, PaidFilter, RawMaterialFilter, RemovedFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from datetime import datetime, timedelta
 from django.db.models import F, ExpressionWrapper, DecimalField, Sum
 from django.db.models import Avg, IntegerField
 from django.db.models.functions import Round, Cast, Coalesce
+from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter, ProjectFilter, \
+    AddRawMaterialsFilter, PaidFilter, RawMaterialFilter, RemovedFilter
+from authentication.permissions import IsCeo, IsAdmin, IsProductManager, IsFactoryManager,IsShopKeeper, IsStoreKeeper
+
 
 User = get_user_model()
 
@@ -44,7 +44,7 @@ class ApiInventoryItem(ModelViewSet):
     search_fields = ['name', 'description']
     pagination_class = PageNumberPagination
 
-    # permission_classes = [IsCEO | IsStoreKeeper]
+    # permission_classes = [IsCeo | IsStoreKeeper]
 
     def get_queryset(self):
         qs = super().get_queryset()

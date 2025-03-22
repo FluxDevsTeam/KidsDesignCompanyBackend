@@ -17,11 +17,6 @@ class IsOwnerOrAdmin(permissions.BasePermission):
         return obj.owner == request.user
 
 
-class IsCEO(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user.groups.filter(name='CEO').exists()
-
-
 class IsStoreKeeper(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.groups.filter(name='Store Keeper').exists()

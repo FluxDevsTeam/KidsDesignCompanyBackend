@@ -89,17 +89,6 @@ class UserSignupSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Passwords do not match.")
         return data
 
-    def create(self, validated_data):
-        """
-        Remove verify_password before creating the user.
-        """
-        validated_data.pop('verify_password', None)
-        roles = validated_data.pop('groups', [])
-
-        user = User.objects.create_user(**validated_data)
-        user.groups.set(roles)
-        return user
-
     def update(self, instance, validated_data):
         """
         Prevent updating sensitive fields during the update.

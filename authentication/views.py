@@ -495,7 +495,7 @@ class PasswordChangeRequestViewSet(viewsets.ModelViewSet):
 class UserSignupViewSet(viewsets.ModelViewSet):
     """
     ModelViewSet for handling user signup and OTP verification.
-    example of object:
+    example of object for creating new user:
     {
         "first_name": "Themy",
         "last_name": "Olla",

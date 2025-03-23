@@ -26,6 +26,7 @@ User = get_user_model()
 class GroupViewSet(viewsets.ModelViewSet):
     """Only the CEO is allowed to create a new role, endpoint to CRUD Group(roles)
     ['storekeeper', 'shopkeeper', 'factory_manager', 'product_manager', 'admin', 'ceo']"""
+
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
     permission_classes = [IsCeo]

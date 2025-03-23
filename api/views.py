@@ -99,6 +99,9 @@ class ApiAddRawMaterials(ModelViewSet):
     filterset_class = AddRawMaterialsFilter
     search_fields = ['item__name']
 
+    permission_classes = [CheckUserRoles]
+    required_roles = ['storekeeper','ceo']
+
     def perform_create(self, serializer):
         item_id = self.request.data.get("item")
         quantity = self.request.data.get("quantity")
@@ -262,8 +265,8 @@ class ApiAddStock(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = AddStockFilter
     search_fields = ["item__name"]
-
-    # permission_classes = [IsCEO | IsStoreKeeper | IsManager]
+    permission_classes = [CheckUserRoles]
+    required_roles = ['shopkeeper','ceo']
 
     def perform_create(self, serializer):
         item_id = self.request.data.get("item")
@@ -427,6 +430,8 @@ class ApiInventoryCategory(ModelViewSet):
     queryset = InventoryCategory.objects.all()
     serializer_class = InventoryCategorySerializer
     # permission_classes = [IsCEO | IsProjectManager]
+    permission_classes = [CheckUserRoles]
+    required_roles = ['shopkeeper','ceo']
 
     def list(self, request, *args, **kwargs):
         """Override list to disable pagination."""
@@ -438,7 +443,8 @@ class ApiInventoryCategory(ModelViewSet):
 class ApiStoreCategory(ModelViewSet):
     queryset = StoreCategory.objects.all()
     serializer_class = StoreCategorySerializer
-    # permission_classes = [IsCEO | IsProjectManager]
+    permission_classes = [CheckUserRoles]
+    required_roles = ['shopkeeper','ceo']
 
     def list(self, request, *args, **kwargs):
         """Override list to disable pagination."""
@@ -450,10 +456,12 @@ class ApiStoreCategory(ModelViewSet):
 class ApiSold(ModelViewSet):
     serializer_class = SoldSerializer
     queryset = Sold.objects.all()
-    # permission_classes = [IsCEO | IsStoreKeeper]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = SoldFilter
     search_fields = ['item__name', 'customer__name']
+
+    permission_classes = [CheckUserRoles]
+    required_roles = ['shopkeeper','ceo']
 
     def list(self, request, *args, **kwargs):
         today = timezone.now().date()
@@ -769,6 +777,8 @@ class ApiSold(ModelViewSet):
 class ApiCustomer(ModelViewSet):
     serializer_class = CustomerSerializer
     queryset = Customer.objects.all()
+    permission_classes = [CheckUserRoles]
+    required_roles = ['factory_manager', 'project_manager','ceo']
 
     def list(self, request, *args, **kwargs):
         all_customers = self.get_queryset()
@@ -827,7 +837,8 @@ class ApiCustomer(ModelViewSet):
 class ApiExpenseCategory(ModelViewSet):
     queryset = ExpenseCategory.objects.all()
     serializer_class = ExpenseCategorySerializer
-    # permission_classes = [IsCEO | IsProjectManager]
+    permission_classes = [CheckUserRoles]
+    required_roles = ['factory_manager', 'admin','ceo']
 
     def list(self, request, *args, **kwargs):
         """Override list to disable pagination."""
@@ -840,8 +851,8 @@ class ApiExpense(ModelViewSet):
     serializer_class = ExpenseSerializer
     queryset = Expense.objects.all()
     filter_class = ExpenseFilter
-
-    # permission_classes = [IsCEO | IsProjectManager]
+    permission_classes = [CheckUserRoles]
+    required_roles = ['factory_manager', 'admin','ceo']
 
     def list(self, request, *args, **kwargs):
         filterset = self.filter_class(request.GET, queryset=self.get_queryset())
@@ -1063,11 +1074,12 @@ class ApiProductSalaryWorker(ModelViewSet):
 class ApiProduct(ModelViewSet):
     serializer_class = ProductSerializer
     queryset = Product.objects.prefetch_related("productcontractor_set", "productsalaryworker_set")
-    # permission_classes = [IsCEO | IsProjectManager]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['project']
     search_fields = ['project__name', 'name']
     ordering = ['progress']
+    permission_classes = [CheckUserRoles]
+    required_roles = ['shopkeeper', 'factory_manager', 'project_manager','ceo']
 
 
 class ApiProject(ModelViewSet):
@@ -1077,6 +1089,8 @@ class ApiProject(ModelViewSet):
     filterset_class = ProjectFilter
     search_fields = ['customer__name', 'name']
     ordering = ['progress', "deadline"]
+    permission_classes = [CheckUserRoles]
+    required_roles = ['factory_manager' , 'project_manager','ceo']
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1123,8 +1137,8 @@ class ApiRawMaterial(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = RawMaterialFilter
     search_fields = ['name', 'description']
-
-    # permission_classes = [IsCEO | IsStoreKeeper]
+    permission_classes = [CheckUserRoles]
+    required_roles = ['shopkeeper','ceo']
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1169,8 +1183,8 @@ class ApiRemoved(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = RemovedFilter
     search_fields = ['material__name', 'product__name', 'material__description']
-
-    # permission_classes = [IsCEO | IsStoreKeeper]
+    permission_classes = [CheckUserRoles]
+    required_roles = ['storekeeper','ceo']
 
     def list(self, request, *args, **kwargs):
         today = timezone.now().date()
@@ -1362,8 +1376,9 @@ class ApiRemoved(ModelViewSet):
 class ApiContractors(ModelViewSet):
     serializer_class = ContractorsSerializer
     queryset = Contractors.objects.all()
+    permission_classes = [CheckUserRoles]
+    required_roles = ['shopkeeper', 'factory_manager', 'project_manager', 'admin', 'ceo']
 
-    # permission_classes = [IsCEO | IsArtisanReadOnly | IsProjectManager]
 
     def list(self, request, *args, **kwargs):
         today = timezone.now().date()
@@ -1407,6 +1422,8 @@ class ApiContractors(ModelViewSet):
 class ApiSalaryWorkers(ModelViewSet):
     serializer_class = SalaryWorkersSerializer
     queryset = SalaryWorkers.objects.all()
+    permission_classes = [CheckUserRoles]
+    required_roles = ['admin', 'factory_manager','ceo']
 
     # permission_classes = [IsCEO | IsArtisanReadOnly]
 
@@ -1509,6 +1526,8 @@ class ApiAssets(ModelViewSet):
     serializer_class = AssetsSerializer
     queryset = Assets.objects.all().order_by('-is_still_available', '-date_added')
     pagination_class = AssetsPagination
+    permission_classes = [CheckUserRoles]
+    required_roles = ['factory_manager', 'admin','ceo']
 
     def list(self, request, *args, **kwargs):
         all_assets = self.get_queryset()
@@ -1563,6 +1582,8 @@ class ApiPaid(ModelViewSet):
     serializer_class = PaidSerializer
     queryset = Paid.objects.all().order_by('-date')
     filterset_class = PaidFilter
+    permission_classes = [CheckUserRoles]
+    required_roles = ['factory_manager', 'admin','ceo']
 
     def list(self, request, *args, **kwargs):
         today = timezone.now().date()

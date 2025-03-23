@@ -950,6 +950,9 @@ class ApiExpense(ModelViewSet):
 
 class ApiQuotation(ModelViewSet):
     serializer_class = QuotationSerializer
+    permission_classes = [CheckUserRoles]
+    required_roles = ['shopkeeper', 'factory_manager', 'project_manager', 'ceo']
+
 
     def get_queryset(self):
         product_id = self.kwargs.get('product_pk')
@@ -977,6 +980,8 @@ class ApiQuotation(ModelViewSet):
 
 class ApiRawMaterialUsed(ReadOnlyModelViewSet):
     serializer_class = RawMaterialUsedSerializer
+    permission_classes = [CheckUserRoles]
+    required_roles = ['shopkeeper', 'factory_manager', 'project_manager', 'ceo']
 
     def get_queryset(self):
         product_id = self.kwargs.get('product_pk')
@@ -997,6 +1002,8 @@ class ApiRawMaterialUsed(ReadOnlyModelViewSet):
 
 class ApiProductContractor(ModelViewSet):
     serializer_class = ProductContractorSerializer
+    permission_classes = [CheckUserRoles]
+    required_roles = ['shopkeeper', 'factory_manager', 'project_manager', 'admin', 'ceo']
 
     def get_queryset(self):
         product_id = self.kwargs.get('product_pk')
@@ -1034,8 +1041,8 @@ class ApiProductContractor(ModelViewSet):
 
 class ApiProductSalaryWorker(ModelViewSet):
     serializer_class = ProductSalaryWorkerSerializer
-
-    # permission_classes = [IsCEO | IsProjectManager | IsStoreKeeperReadonly]
+    permission_classes = [CheckUserRoles]
+    required_roles = ['shopkeeper', 'project_manager', 'factory_manager', 'ceo']
 
     def get_queryset(self):
         product_id = self.kwargs.get('product_pk')
@@ -1425,8 +1432,6 @@ class ApiSalaryWorkers(ModelViewSet):
     permission_classes = [CheckUserRoles]
     required_roles = ['admin', 'factory_manager','ceo']
 
-    # permission_classes = [IsCEO | IsArtisanReadOnly]
-
     def list(self, request, *args, **kwargs):
         today = timezone.now().date()
         start_of_week = today - timezone.timedelta(days=today.weekday())
@@ -1464,6 +1469,9 @@ class ApiSalaryWorkers(ModelViewSet):
 
 class ApiSalaryWorkersRecord(ModelViewSet):
     serializer_class = SalaryWorkersRecordSerializer
+    permission_classes = [CheckUserRoles]
+    required_roles = ['admin', 'factory_manager', 'ceo']
+
 
     def get_queryset(self):
         salary_id = self.kwargs.get('salary_worker_pk')
@@ -1482,6 +1490,9 @@ class ApiSalaryWorkersRecord(ModelViewSet):
 
 class ApiContractorRecord(ModelViewSet):
     serializer_class = ContractorRecordSerializer
+    permission_classes = [CheckUserRoles]
+    required_roles = ['admin', 'factory_manager', 'ceo']
+
 
     def get_queryset(self):
         contractor_id = self.kwargs.get('contractor_pk')
@@ -1500,6 +1511,9 @@ class ApiContractorRecord(ModelViewSet):
 
 class OverheadCostViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
     serializer_class = OverheadCostSerializer
+    permission_classes = [CheckUserRoles]
+    required_roles = ['ceo']
+
 
     def get_queryset(self):
         return OverheadCost.objects.all()
@@ -1562,6 +1576,8 @@ class ApiAssets(ModelViewSet):
 
 class ApiOtherProductionRecord(ModelViewSet):
     serializer_class = OtherProductionSerializer
+    permission_classes = [CheckUserRoles]
+    required_roles = ['factory_manager', 'project_manager','ceo']
 
     def get_queryset(self):
         project_id = self.kwargs.get('project_pk')
@@ -1663,6 +1679,8 @@ class StoreQuotation(ModelViewSet):
     queryset = Quotation.objects.filter(product__progress__lt=100).order_by('-product__project__start_date')
     filter_backends = [DjangoFilterBackend, SearchFilter]
     search_fields = ['product__project__name', 'product__name', 'product__production_note']
+    permission_classes = [CheckUserRoles]
+    required_roles = ['storekeeper', 'ceo']
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())

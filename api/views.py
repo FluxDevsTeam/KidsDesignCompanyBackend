@@ -1599,7 +1599,7 @@ class ApiPaid(ModelViewSet):
     queryset = Paid.objects.all().order_by('-date')
     filterset_class = PaidFilter
     permission_classes = [CheckUserRoles]
-    required_roles = ['factory_manager', 'admin','ceo']
+    required_roles = ['factory_manager', 'admin', 'ceo']
 
     def list(self, request, *args, **kwargs):
         today = timezone.now().date()

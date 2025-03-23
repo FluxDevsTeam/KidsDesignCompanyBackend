@@ -30,8 +30,7 @@ from django.db.models import Avg, IntegerField
 from django.db.models.functions import Round, Cast, Coalesce
 from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter, ProjectFilter, \
     AddRawMaterialsFilter, PaidFilter, RawMaterialFilter, RemovedFilter
-from authentication.permissions import IsCeo, IsAdmin, IsProductManager, IsFactoryManager,IsShopKeeper, IsStoreKeeper
-
+from .permissions import CheckUserRoles
 
 User = get_user_model()
 
@@ -44,7 +43,8 @@ class ApiInventoryItem(ModelViewSet):
     search_fields = ['name', 'description']
     pagination_class = PageNumberPagination
 
-    # permission_classes = [IsCeo | IsStoreKeeper]
+    permission_classes = [CheckUserRoles]
+    required_roles = ['shopkeeper','ceo']
 
     def get_queryset(self):
         qs = super().get_queryset()

@@ -1,6 +1,27 @@
 from rest_framework import permissions
 
 
+class CheckUserRoles(permissions.BasePermission):
+    """
+    Checks if a user has the necessary roles to access a view.
+    """
+    message = "You don't have the necessary roles to access this view"
+
+    def has_permission(self, request, view):
+        # Superuser has unrestricted access
+        if request.user and request.user.is_superuser:
+            return True
+
+        # Get user roles
+        user_roles = request.user.groups.values_list("name", flat=True)
+
+        # Get required roles from the view or default to an empty list
+        required_roles = getattr(view, "required_roles", [])
+
+        # Check if there's an intersection between user roles and required roles
+        return bool(set(user_roles) & set(required_roles))
+
+
 class IsAdminOrReadOnly(permissions.IsAdminUser):
     def has_permission(self, request, view):
         admin_permission = super().has_permission(request, view)
@@ -15,11 +36,6 @@ class IsOwnerOrAdmin(permissions.BasePermission):
             return True
 
         return obj.owner == request.user
-
-
-class IsCEO(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user.groups.filter(name='CEO').exists()
 
 
 class IsStoreKeeper(permissions.BasePermission):

@@ -17,9 +17,11 @@ from datetime import timedelta
 from workers.models import Contractors, SalaryWorkers, Paid
 from project.models import Project, OtherProduction, OverheadCost
 from .seralizers import SimpleCustomerSerializer
-
+from .permissions import CheckUserRoles
 
 class ApiStorekeeper(viewsets.ViewSet):
+    permission_classes = [CheckUserRoles]
+    required_roles = ['storekeeper','ceo']
 
     def list(self, request):
         today = timezone.now().date()
@@ -97,6 +99,9 @@ class ApiStorekeeper(viewsets.ViewSet):
 
 
 class ApiShopkeeper(viewsets.ViewSet):
+    permission_classes = [CheckUserRoles]
+    required_roles = ['shopkeeper', 'ceo']
+
     def list(self, request):
         today = timezone.now().date()
         one_year_ago = today - timezone.timedelta(days=365)
@@ -241,6 +246,9 @@ class ApiShopkeeper(viewsets.ViewSet):
 
 
 class ApiAdminDashboard(viewsets.ViewSet):
+    permission_classes = [CheckUserRoles]
+    required_roles = ['admin','ceo']
+
     def list(self, request):
         today = timezone.now().date()
         assets = Assets.objects.all()
@@ -351,6 +359,8 @@ class ApiAdminDashboard(viewsets.ViewSet):
 
 
 class ApiFactoryManagerDashboard(viewsets.ViewSet):
+    permission_classes = [CheckUserRoles]
+    required_roles = ['factory_manager','ceo']
 
     def list(self, request):
         today = timezone.now().date()
@@ -566,6 +576,9 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
 
 
 class CEODashboardViewSet(viewsets.ViewSet):
+    permission_classes = [CheckUserRoles]
+    required_roles = ['ceo']
+
     def list(self, request):
         today = timezone.now().date()
         start_of_year = today.replace(month=1, day=1)
@@ -807,6 +820,9 @@ class CEODashboardViewSet(viewsets.ViewSet):
 
 
 class ProjectManagerDashboardViewSet(viewsets.ViewSet):
+    permission_classes = [CheckUserRoles]
+    required_roles = ['project_manager','ceo']
+
     def list(self, request):
         today = timezone.now().date()
         start_of_year = today.replace(month=1, day=1)

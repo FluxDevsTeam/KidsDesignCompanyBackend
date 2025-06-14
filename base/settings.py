@@ -185,6 +185,7 @@ JAZZMIN_SETTINGS = {
     "site_copyright": "kidsdecornaija.com",
     "show_ui_builder": True
 }
+
 JAZZMIN_UI_TWEAKS = {
     "theme": "cyborg",
 }

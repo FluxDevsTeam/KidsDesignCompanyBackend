@@ -1,13 +1,16 @@
-from django.urls import path
-from .views import (UserSignupViewSet, UserLoginViewSet, LogoutViewSet, UserProfileViewSet, PasswordChangeRequestViewSet, ForgotPasswordViewSet)
+from django.urls import path,include
+from .views import (UserSignupViewSet, UserLoginViewSet, LogoutViewSet, 
+                    UserProfileViewSet, PasswordChangeRequestViewSet, ForgotPasswordViewSet,GroupViewSet)
 from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework.routers import DefaultRouter
+
+router = DefaultRouter()
+router.register('roles', GroupViewSet, basename='role')
+router.register('signup', UserSignupViewSet, basename='user_signup')
 
 
 urlpatterns = [
-    # path('', include(router.urls)),
-    path('signup/', UserSignupViewSet.as_view({'post': 'create'}), name='user_signup'),
-    path('signup/verify-otp/', UserSignupViewSet.as_view({'post': 'verify_otp'}), name='verify_otp'),
-    path('signup/resend-otp/', UserSignupViewSet.as_view({'post': 'resend_otp'}), name='resend_otp'),
+    path('', include(router.urls)),
     path('login/', UserLoginViewSet.as_view({'post': 'create'}), name='UserLoginViewSet'),
     path('logout/', LogoutViewSet.as_view({'post': 'logout'}), name='logout'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

@@ -34,11 +34,14 @@ product_router.register('quotation', views.ApiQuotation, basename='quotation')
 salary_router = NestedDefaultRouter(router, 'salary-workers', lookup='salary_worker')
 salary_router.register('record', views.ApiSalaryWorkersRecord, basename='Salary_worker_record')
 
+
 contractor_router = NestedDefaultRouter(router, 'contractors', lookup='contractor')
 contractor_router.register('record', views.ApiContractorRecord, basename='contractors_record')
 
+
 project_router = NestedDefaultRouter(router, 'project', lookup='project')
 project_router.register('other-production-record', views.ApiOtherProductionRecord, basename='other_production_record')
+
 
 overhead_cost_view = views.OverheadCostViewSet.as_view({'get': 'list', 'patch': 'partial_update'})
 

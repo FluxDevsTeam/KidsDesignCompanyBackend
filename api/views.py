@@ -1366,9 +1366,9 @@ class ApiRemoved(ModelViewSet):
                 if quantity > removed_item.quantity:
                     if difference > raw_material_item.quantity:
                         return Response({"error": "Not enough stock available."}, status=status.HTTP_400_BAD_REQUEST)
-                    raw_material_item.stock -= difference
+                    raw_material_item.quantity -= difference
                 else:
-                    raw_material_item.stock += difference
+                    raw_material_item.quantity += difference
 
                 raw_material_item.save()
                 removed_item.quantity = quantity

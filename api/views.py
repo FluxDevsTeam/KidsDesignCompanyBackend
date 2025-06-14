@@ -1339,7 +1339,7 @@ class ApiRemoved(ModelViewSet):
                 return Response({"message": "removed raw material edited successfully."}, status=status.HTTP_200_OK)
 
             if quantity is not None and quantity != removed_item.quantity:
-                raw_material_item = get_object_or_404(RawMaterial, id=removed_item.quantity.id)
+                raw_material_item = get_object_or_404(RawMaterial, id=removed_item.id)
                 difference = abs(quantity - removed_item.quantity)
 
                 if quantity > removed_item.quantity:

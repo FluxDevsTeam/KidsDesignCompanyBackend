@@ -15,6 +15,7 @@ class GroupSerializer(serializers.ModelSerializer):
         ('factory_manager', 'factory_manager'),
         ('ceo', 'ceo'),
         ('storekeeper', 'storekeeper'),
+        ('admin', 'admin'),
     )
 
     name = serializers.ChoiceField(choices=GROUP_CHOICES, required=True)

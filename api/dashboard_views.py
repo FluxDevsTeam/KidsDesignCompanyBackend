@@ -21,7 +21,7 @@ from .permissions import CheckUserRoles
 
 class ApiStorekeeper(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
-    required_roles = ['storekeeper','ceo']
+    required_roles = ['storekeeper', 'ceo']
 
     def list(self, request):
         today = timezone.now().date()
@@ -247,7 +247,7 @@ class ApiShopkeeper(viewsets.ViewSet):
 
 class ApiAdminDashboard(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
-    required_roles = ['admin','ceo']
+    required_roles = ['admin', 'ceo']
 
     def list(self, request):
         today = timezone.now().date()
@@ -821,7 +821,7 @@ class CEODashboardViewSet(viewsets.ViewSet):
 
 class ProjectManagerDashboardViewSet(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
-    required_roles = ['project_manager','ceo']
+    required_roles = ['project_manager', 'ceo']
 
     def list(self, request):
         today = timezone.now().date()

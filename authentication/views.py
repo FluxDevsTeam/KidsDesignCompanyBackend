@@ -138,5 +138,5 @@ class UserLoginViewSet(viewsets.ViewSet):
             'message': 'Login successful.',
             'access_token': access_token,
             'refresh_token': str(refresh),
-            'group': group_name
+            'role': group_name
         }, status=status.HTTP_200_OK)

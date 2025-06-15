@@ -19,6 +19,7 @@ from project.models import Project, OtherProduction, OverheadCost
 from .seralizers import SimpleCustomerSerializer
 from .permissions import CheckUserRoles
 
+
 class ApiStorekeeper(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
     required_roles = ['storekeeper', 'ceo']

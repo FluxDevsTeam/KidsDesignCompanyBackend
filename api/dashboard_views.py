@@ -361,7 +361,7 @@ class ApiAdminDashboard(viewsets.ViewSet):
 
 class ApiFactoryManagerDashboard(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
-    required_roles = ['factory_manager','ceo']
+    required_roles = ['factory_manager', 'ceo']
 
     def list(self, request):
         today = timezone.now().date()
@@ -386,43 +386,123 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
         all_active_customers = customer.filter(project__is_delivered=False).distinct().count()
 
         # Financial Metrics for the year
-        total_shop_income_year = sold.filter(date__gte=start_of_year).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
-        total_non_project_shop_income_year = sold.filter(project__isnull=True, date__gte=start_of_year).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
+        total_shop_income_year = sold.filter(date__gte=start_of_year).aggregate(
+            total=Sum(
+                Coalesce(F('selling_price') * F('quantity'), Decimal('0')),
+                output_field=DecimalField()
+            )
+        )['total'] or 0
+        total_non_project_shop_income_year = sold.filter(project__isnull=True, date__gte=start_of_year).aggregate(
+            total=Sum(
+                Coalesce(F('selling_price') * F('quantity'), Decimal('0')),
+                output_field=DecimalField()
+            )
+        )['total'] or 0
 
-        total_projects_income_year = project.filter(start_date__gte=start_of_year).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge')))['total'] or 0
-        no_shop_projects_income_year = project.filter(start_date__gte=start_of_year).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge') - (total_shop_income_year -total_non_project_shop_income_year)))['total'] or 0
+        total_projects_income_year = project.filter(start_date__gte=start_of_year).aggregate(
+            total=Sum(
+                Coalesce(F('selling_price'), Decimal('0')) +
+                Coalesce(F('logistics'), Decimal('0')) +
+                Coalesce(F('service_charge'), Decimal('0')),
+                output_field=DecimalField()
+            )
+        )['total'] or 0
+        no_shop_projects_income_year = project.filter(start_date__gte=start_of_year).aggregate(
+            total=Sum(
+                Coalesce(F('selling_price'), Decimal('0')) +
+                Coalesce(F('logistics'), Decimal('0')) +
+                Coalesce(F('service_charge'), Decimal('0')) -
+                (total_shop_income_year - total_non_project_shop_income_year),
+                output_field=DecimalField()
+            )
+        )['total'] or 0
 
         total_income_year = no_shop_projects_income_year + total_shop_income_year
 
-
         # Financial Health
         sales_count_this_month = sold.filter(date__month=today.month).count()
-        total_project_sales_this_month = sold.filter(date__month=today.month, logistics=None).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
-        total_non_project_sales_this_month = sold.filter(date__month=today.month, project=None).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
-        total_sold_this_month = sold.filter(date__month=today.month).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
-        total_sold_profit_this_month = sold.filter(date__month=today.month).aggregate(total=Sum((F('selling_price') * F('quantity')) - (F('cost_price') * F('quantity'))))['total'] or 0
+        total_project_sales_this_month = sold.filter(date__month=today.month, logistics=None).aggregate(
+            total=Sum(
+                Coalesce(F('selling_price') * F('quantity'), Decimal('0')),
+                output_field=DecimalField()
+            )
+        )['total'] or 0
+        total_non_project_sales_this_month = sold.filter(date__month=today.month, project=None).aggregate(
+            total=Sum(
+                Coalesce(F('selling_price') * F('quantity'), Decimal('0')),
+                output_field=DecimalField()
+            )
+        )['total'] or 0
+        total_sold_this_month = sold.filter(date__month=today.month).aggregate(
+            total=Sum(
+                Coalesce(F('selling_price') * F('quantity'), Decimal('0')),
+                output_field=DecimalField()
+            )
+        )['total'] or 0
+        total_sold_profit_this_month = sold.filter(date__month=today.month).aggregate(
+            total=Sum(
+                (Coalesce(F('selling_price'), Decimal('0')) * Coalesce(F('quantity'), 0)) -
+                (Coalesce(F('cost_price'), Decimal('0')) * Coalesce(F('quantity'), 0)),
+                output_field=DecimalField()
+            )
+        )['total'] or 0
         project_count_this_month = project.filter(start_date__month=today.month).count()
-        total_project_amount_this_month = project.filter(start_date__month=today.month).aggregate(total=Sum(Coalesce(F('selling_price'), Decimal('0')) + Coalesce(F('logistics'), Decimal('0')) + Coalesce(F('service_charge'), Decimal('0')), output_field=DecimalField()))['total'] or 0
-        total_income_this_month = total_project_amount_this_month + (sold.filter(date__month=today.month, project=None).aggregate(total=Sum(Coalesce(F('selling_price') * F('quantity'), Decimal('0')), output_field=DecimalField()))['total'] or 0)
+        total_project_amount_this_month = project.filter(start_date__month=today.month).aggregate(
+            total=Sum(
+                Coalesce(F('selling_price'), Decimal('0')) +
+                Coalesce(F('logistics'), Decimal('0')) +
+                Coalesce(F('service_charge'), Decimal('0')),
+                output_field=DecimalField()
+            )
+        )['total'] or 0
+        total_income_this_month = total_project_amount_this_month + (
+            sold.filter(date__month=today.month, project=None).aggregate(
+                total=Sum(
+                    Coalesce(F('selling_price') * F('quantity'), Decimal('0')),
+                    output_field=DecimalField()
+                )
+            )['total'] or 0
+        )
+
         # Expenses Breakdown for the current month
         salary_costs_month = paid.filter(contract__isnull=True, date__gte=start_of_month).aggregate(total=Sum('amount'))['total'] or 0
         contractor_costs_month = product_contractor.filter(product__project__start_date__year=start_of_month.year, product__project__start_date__month=start_of_month.month).aggregate(total=Sum('cost'))['total'] or 0
-        raw_material_costs_month = add_raw_materials.filter(date__year=start_of_month.year, date__month=start_of_month.month).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
+        raw_material_costs_month = add_raw_materials.filter(date__year=start_of_month.year, date__month=start_of_month.month).aggregate(
+            total=Sum(
+                Coalesce(F('item__price') * F('quantity'), Decimal('0')),
+                output_field=DecimalField()
+            )
+        )['total'] or 0
         asset_costs_month = assets.filter(date_added__year=start_of_month.year, date_added__month=start_of_month.month).aggregate(total=Sum('value'))['total'] or 0
         other_expenses_month = expense.filter(date__year=start_of_month.year, date__month=start_of_month.month).aggregate(total=Sum('amount'))['total'] or 0
         other_production_expensis_month = other_production.filter(project__start_date__gte=start_of_month).aggregate(total=Sum('cost'))['total'] or 0
-        sold_cost_month = sold.filter(date__gte=start_of_month).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
+        sold_cost_month = sold.filter(date__gte=start_of_month).aggregate(
+            total=Sum(
+                Coalesce(F('cost_price') * F('quantity'), Decimal('0')),
+                output_field=DecimalField()
+            )
+        )['total'] or 0
 
         expenses_month = sum([sold_cost_month + salary_costs_month, contractor_costs_month, raw_material_costs_month, other_expenses_month + other_production_expensis_month])
 
         # Expenses Breakdown for the year
         salary_costs_year = paid.filter(contract__isnull=True, date__gte=start_of_year).aggregate(total=Sum('amount'))['total'] or 0
         contractor_costs_year = product_contractor.filter(product__project__start_date__gte=start_of_year).aggregate(total=Sum('cost'))['total'] or 0
-        raw_material_costs_year = add_raw_materials.filter(date__gte=start_of_year).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
+        raw_material_costs_year = add_raw_materials.filter(date__gte=start_of_year).aggregate(
+            total=Sum(
+                Coalesce(F('item__price') * F('quantity'), Decimal('0')),
+                output_field=DecimalField()
+            )
+        )['total'] or 0
         asset_costs_year = assets.filter(date_added__gte=start_of_year).aggregate(total=Sum('value'))['total'] or 0
         other_expenses_year = expense.filter(date__gte=start_of_year).aggregate(total=Sum('amount'))['total'] or 0
         other_production_expensis_year = other_production.filter(project__start_date__gte=start_of_year).aggregate(total=Sum('cost'))['total'] or 0
-        sold_cost_year = sold.filter(date__gte=start_of_year).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
+        sold_cost_year = sold.filter(date__gte=start_of_year).aggregate(
+            total=Sum(
+                Coalesce(F('cost_price') * F('quantity'), Decimal('0')),
+                output_field=DecimalField()
+            )
+        )['total'] or 0
         total_expenses_year = sum([sold_cost_year + salary_costs_year, contractor_costs_year, raw_material_costs_year, other_expenses_year + other_production_expensis_year])
 
         # Calculate profit for the current month
@@ -457,7 +537,7 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
             })
 
         total_percentage = sum(item['percentage'] for item in expensis_category_breakdown)
-        if total_percentage != 100:
+        if expensis_category_breakdown and total_percentage != 100:
             difference = 100 - total_percentage
             expensis_category_breakdown[0]['percentage'] += difference
 
@@ -487,14 +567,31 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
 
         monthly_trend_income = []
         for i in range(12):
-            start_of_month = today.replace(day=1)
             month_start = (today.replace(day=1) - relativedelta(months=i))
             month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
-            total_shop_income_year = sold.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
-            total_non_project_shop_income_year = sold.filter(project__isnull=True, date__gte=month_start, date__lte=month_end).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
+            total_shop_income_year = sold.filter(date__gte=month_start, date__lte=month_end).aggregate(
+                total=Sum(
+                    Coalesce(F('selling_price') * F('quantity'), Decimal('0')),
+                    output_field=DecimalField()
+                )
+            )['total'] or 0
+            total_non_project_shop_income_year = sold.filter(project__isnull=True, date__gte=month_start, date__lte=month_end).aggregate(
+                total=Sum(
+                    Coalesce(F('selling_price') * F('quantity'), Decimal('0')),
+                    output_field=DecimalField()
+                )
+            )['total'] or 0
 
-            no_shop_projects_income_year = project.filter(start_date__gte=month_start, start_date__lte=month_end).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge') - (total_shop_income_year - total_non_project_shop_income_year)))['total'] or 0
+            no_shop_projects_income_year = project.filter(start_date__gte=month_start, start_date__lte=month_end).aggregate(
+                total=Sum(
+                    Coalesce(F('selling_price'), Decimal('0')) +
+                    Coalesce(F('logistics'), Decimal('0')) +
+                    Coalesce(F('service_charge'), Decimal('0')) -
+                    (total_shop_income_year - total_non_project_shop_income_year),
+                    output_field=DecimalField()
+                )
+            )['total'] or 0
 
             month_total = total_shop_income_year + no_shop_projects_income_year
 
@@ -511,19 +608,18 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
         # Top 5 Categories
         top_categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by('-total')[:5].values('name', 'total')
         monthly_total_paid = paid.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        weekly_total_paid = paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))[ 'amount__sum'] or 0.0
+        weekly_total_paid = paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))['amount__sum'] or 0.0
 
         salary_workers_count = all_salary_workers.count()
         active_salary_workers_count = all_salary_workers.filter(is_still_active=True).count()
-        total_salary_workers_monthly_pay = all_salary_workers.aggregate(total=Sum("salary"))["total"] or 0.0
-        total_paid = all_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))[ "total"] or 0.0
+        total_salary_workers_monthly_pay = all_salary_workers.aggregate(total=Sum('salary'))['total'] or 0.0
+        total_paid = all_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum('paid__amount'))['total'] or 0.0
 
         all_contractors_count = all_contractors.count()
         all_active_contractors_count = all_contractors.filter(is_still_active=True).count()
 
-        total_contractors_monthly_pay = all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
-
-        total_contractors_weekly_pay = all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))[ "total"] or 0.0
+        total_contractors_monthly_pay = all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum('paid__amount'))['total'] or 0.0
+        total_contractors_weekly_pay = all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum('paid__amount'))['total'] or 0.0
 
         data = {
             'financial_health': {
@@ -538,35 +634,33 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
                 'total_project_amount_this_month': total_project_amount_this_month,
                 'total_income_this_month': total_income_this_month,
                 'total_expenses_month': expenses_month,
-                'profit_month': profit_month  
+                'profit_month': profit_month
             },
             'yearly_data': {
-                "total_expenses_year": total_expenses_year,
-                "total_income_year": total_income_year,
-                "profit_year": profit_year,
+                'total_expenses_year': total_expenses_year,
+                'total_income_year': total_income_year,
+                'profit_year': profit_year,
             },
             'customers': {
-                "all_customers_count": all_customers,
-                "active_customers_count": all_active_customers,
+                'all_customers_count': all_customers,
+                'active_customers_count': all_active_customers,
                 'owing_customers_count': owing_customers_count,
                 'owing_customers': owing_customers
             },
-
             'workers': {
-                "salary_workers_count": salary_workers_count,
-                "active_salary_workers_count": active_salary_workers_count,
-                "total_salary_workers_monthly_pay": total_salary_workers_monthly_pay,
-                "all_contractors_count": all_contractors_count,
-                "all_active_contractors_count": all_active_contractors_count,
+                'salary_workers_count': salary_workers_count,
+                'active_salary_workers_count': active_salary_workers_count,
+                'total_salary_workers_monthly_pay': total_salary_workers_monthly_pay,
+                'all_contractors_count': all_contractors_count,
+                'all_active_contractors_count': all_active_contractors_count,
             },
             'paid': {
                 'monthly_total_paid': monthly_total_paid,
                 'weekly_total_paid': weekly_total_paid,
-                "total_paid": total_paid,
-                "total_contractors_monthly_pay": total_contractors_monthly_pay,
-                "total_contractors_weekly_pay": total_contractors_weekly_pay,
+                'total_paid': total_paid,
+                'total_contractors_monthly_pay': total_contractors_monthly_pay,
+                'total_contractors_weekly_pay': total_contractors_weekly_pay,
             },
-
             'expense_category_breakdown': expensis_category_breakdown,
             'monthly_expense_trend': list(reversed(monthly_trend)),
             'monthly_income_trend': list(reversed(monthly_trend_income)),

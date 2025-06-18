@@ -5,7 +5,7 @@ from django.db import models
 from rest_framework import viewsets
 from rest_framework.response import Response
 from django.utils import timezone
-from django.db.models import Sum, Q, F
+from django.db.models import Sum, Q, F, DecimalField
 from django.db.models.functions import Coalesce
 from dateutil.relativedelta import relativedelta
 from customers.models import Customer
@@ -402,8 +402,8 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
         total_sold_this_month = sold.filter(date__month=today.month).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
         total_sold_profit_this_month = sold.filter(date__month=today.month).aggregate(total=Sum((F('selling_price') * F('quantity')) - (F('cost_price') * F('quantity'))))['total'] or 0
         project_count_this_month = project.filter(start_date__month=today.month).count()
-        total_project_amount_this_month = project.filter(start_date__month=today.month).aggregate(total=Sum(Coalesce(F('selling_price'), 0) + Coalesce(F('logistics'), 0) + Coalesce(F('service_charge'), 0)))['total'] or 0
-        total_income_this_month = total_project_amount_this_month + (sold.filter(date__month=today.month, project=None).aggregate(total=Sum(Coalesce(F('selling_price') * F('quantity'), 0)))['total'] or 0)
+        total_project_amount_this_month = project.filter(start_date__month=today.month).aggregate(total=Sum(Coalesce(F('selling_price'), Decimal('0')) + Coalesce(F('logistics'), Decimal('0')) + Coalesce(F('service_charge'), Decimal('0')), output_field=DecimalField()))['total'] or 0
+        total_income_this_month = total_project_amount_this_month + (sold.filter(date__month=today.month, project=None).aggregate(total=Sum(Coalesce(F('selling_price') * F('quantity'), Decimal('0')), output_field=DecimalField()))['total'] or 0)
         # Expenses Breakdown for the current month
         salary_costs_month = paid.filter(contract__isnull=True, date__gte=start_of_month).aggregate(total=Sum('amount'))['total'] or 0
         contractor_costs_month = product_contractor.filter(product__project__start_date__year=start_of_month.year, product__project__start_date__month=start_of_month.month).aggregate(total=Sum('cost'))['total'] or 0

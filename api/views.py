@@ -779,13 +779,15 @@ class ApiCustomer(ModelViewSet):
     queryset = Customer.objects.all()
     permission_classes = [CheckUserRoles]
     required_roles = ['factory_manager', 'project_manager', 'ceo']
+    filter_backends = [SearchFilter]
+    search_fields = ['name', 'address']
 
     def list(self, request, *args, **kwargs):
-        all_customers = self.get_queryset()
-        all_customers_count = all_customers.count()
-        active_customers = all_customers.filter(project__is_delivered=False).distinct().count()
+        queryset = self.filter_queryset(self.get_queryset())
+        all_customers_count = queryset.count()
+        active_customers = queryset.filter(project__is_delivered=False).distinct().count()
 
-        page = self.paginate_queryset(all_customers)
+        page = self.paginate_queryset(queryset)
         if page is not None:
             data = self.get_serializer(page, many=True).data
             response_data = {
@@ -795,7 +797,7 @@ class ApiCustomer(ModelViewSet):
             }
             return self.get_paginated_response(response_data)
 
-        data = self.get_serializer(all_customers, many=True).data
+        data = self.get_serializer(queryset, many=True).data
         response_data = {
             "all_customers_count": all_customers_count,
             "active_customers": active_customers,

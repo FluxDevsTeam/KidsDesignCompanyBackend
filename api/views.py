@@ -1107,7 +1107,7 @@ class ApiProject(ModelViewSet):
         return qs
 
     def list(self, request, *args, **kwargs):
-        projects = self.filter_queryset(self.get_queryset())
+        queryset = self.filter_queryset(self.get_queryset())
         get_all = self.get_queryset()
         all_time_projects_count = get_all.count()
         all_projects_count = get_all.filter(is_delivered=False, archived=False).count()
@@ -1115,27 +1115,33 @@ class ApiProject(ModelViewSet):
         ongoing_projects_count = get_all.filter(computed_progress__lt=100).count()
         average_progress = get_all.filter(is_delivered=False, archived=False).aggregate(avg_progress=Avg("computed_progress"))["avg_progress"] or 0
 
-        page = self.paginate_queryset(projects)
+        page = self.paginate_queryset(queryset)
         if page is not None:
-            all_projects = self.get_serializer(page, many=True).data
+            serializer = self.get_serializer(page, many=True)
             response_data = {
+                "count": self.paginator.count,
+                "next": self.paginator.get_next_link(),
+                "previous": self.paginator.get_previous_link(),
                 "all_time_projects_count": all_time_projects_count,
                 "all_projects_count": all_projects_count,
                 "completed_projects_count": completed_projects_count,
                 "ongoing_projects_count": ongoing_projects_count,
                 "average_progress": round(average_progress, 2),
-                "all_projects": all_projects,
+                "all_projects": serializer.data,
             }
             return Response(response_data)
 
-        all_projects = self.get_serializer(projects, many=True).data
+        serializer = self.get_serializer(queryset, many=True)
         response_data = {
+            "count": queryset.count(),
+            "next": None,
+            "previous": None,
             "all_time_projects_count": all_time_projects_count,
             "all_ongoing_projects_count": all_projects_count,
             "completed_projects_count": completed_projects_count,
             "ongoing_projects_count": ongoing_projects_count,
             "average_progress": round(average_progress, 2),
-            "all_projects": all_projects,
+            "all_projects": serializer.data,
         }
         return Response(response_data)
 

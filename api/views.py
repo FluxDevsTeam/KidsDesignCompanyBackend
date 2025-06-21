@@ -59,24 +59,24 @@ class ApiInventoryItem(ModelViewSet):
                                     quantity=instance.stock)
 
     def list(self, request, *args, **kwargs):
-        filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
-        filtered_items = filterset.qs
-        total_stock_count = filtered_items.count()
-        total_stock_value = filtered_items.aggregate(
+        queryset = self.filter_queryset(self.get_queryset())  # ← applies search + filterset
+
+        total_stock_count = queryset.count()
+        total_stock_value = queryset.aggregate(
             total_stock_value=Coalesce(Sum(F('stock') * F('selling_price')), 0.0, output_field=DecimalField())
         )['total_stock_value'] or 0.0
 
-        total_cost_value = filtered_items.aggregate(
+        total_cost_value = queryset.aggregate(
             total_cost_value=Coalesce(Sum(F('stock') * F('cost_price')), 0.0, output_field=DecimalField())
         )['total_cost_value'] or 0.0
 
         total_profit = total_stock_value - total_cost_value
 
-        page = self.paginate_queryset(filtered_items)
+        page = self.paginate_queryset(queryset)
         if page is not None:
             serialized_items = self.get_serializer(page, many=True).data
         else:
-            serialized_items = self.get_serializer(filtered_items, many=True).data
+            serialized_items = self.get_serializer(queryset, many=True).data
 
         response_data = {
             "total_stock_count": total_stock_count,

@@ -778,7 +778,7 @@ class ApiCustomer(ModelViewSet):
     serializer_class = CustomerSerializer
     queryset = Customer.objects.all()
     permission_classes = [CheckUserRoles]
-    required_roles = ['factory_manager', 'project_manager', 'ceo']
+    required_roles = ['factory_manager', 'project_manager', 'ceo', 'shopkeeper']
     filter_backends = [SearchFilter]
     search_fields = ['name', 'address']
 
@@ -1099,7 +1099,7 @@ class ApiProject(ModelViewSet):
     search_fields = ['customer__name', 'name']
     ordering = ['progress', "deadline"]
     permission_classes = [CheckUserRoles]
-    required_roles = ['factory_manager', 'project_manager', 'ceo']
+    required_roles = ['factory_manager', 'project_manager', 'ceo', 'shopkeeper']
 
     def get_queryset(self):
         qs = super().get_queryset()

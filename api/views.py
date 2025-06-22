@@ -1119,7 +1119,7 @@ class ApiProject(ModelViewSet):
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             response_data = {
-                "count": self.paginator.count,
+                "count": self.paginator.page.paginator.count,
                 "next": self.paginator.get_next_link(),
                 "previous": self.paginator.get_previous_link(),
                 "all_time_projects_count": all_time_projects_count,

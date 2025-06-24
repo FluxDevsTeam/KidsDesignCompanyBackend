@@ -344,7 +344,7 @@ class ApiAddStock(ModelViewSet):
                 if daily_entries:
                     daily_data.append({
                         "date": current_date,
-                        "entries": AddSockSerializer(daily_entries, many=True).data,
+                        "entries": AddSockSerializer(daily_entries, many=True, context={'request': request}).data,
                         "daily_added_cost_total": sum(e.quantity * e.cost_price for e in daily_entries),
                     })
                 current_date = entry_date
@@ -355,7 +355,7 @@ class ApiAddStock(ModelViewSet):
         if daily_entries:
             daily_data.append({
                 "date": current_date,
-                "entries": AddSockSerializer(daily_entries, many=True).data,
+                "entries": AddSockSerializer(daily_entries, many=True, context={'request': request}).data,
                 "daily_added_cost_total": sum(e.quantity * e.cost_price for e in daily_entries),
             })
 

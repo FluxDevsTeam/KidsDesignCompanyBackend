@@ -44,7 +44,7 @@ class ApiInventoryItem(ModelViewSet):
     pagination_class = PageNumberPagination
 
     permission_classes = [CheckUserRoles]
-    required_roles = ['shopkeeper','ceo']
+    required_roles = ['shopkeeper', 'ceo', 'admin']
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -469,7 +469,7 @@ class ApiSold(ModelViewSet):
     search_fields = ['item__name', 'customer__name']
 
     permission_classes = [CheckUserRoles]
-    required_roles = ['shopkeeper','ceo']
+    required_roles = ['shopkeeper', 'ceo']
 
     def list(self, request, *args, **kwargs):
         today = timezone.now().date()
@@ -1107,7 +1107,7 @@ class ApiProject(ModelViewSet):
     search_fields = ['customer__name', 'name']
     ordering = ['progress', "deadline"]
     permission_classes = [CheckUserRoles]
-    required_roles = ['factory_manager', 'project_manager', 'ceo', 'shopkeeper']
+    required_roles = ['factory_manager', 'project_manager', 'ceo', 'shopkeeper', 'admin']
 
     def get_queryset(self):
         qs = super().get_queryset()

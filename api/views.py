@@ -111,7 +111,7 @@ class ApiAddRawMaterials(ModelViewSet):
 
         try:
             quantity = Decimal(quantity)
-            if quantity <= 0:
+            if quantity or cost_price <= 0:
                 raise ValueError("Quantity must be greater than zero.")
         except (ValueError, TypeError):
             raise ValueError("Invalid quantity.")
@@ -120,10 +120,12 @@ class ApiAddRawMaterials(ModelViewSet):
 
         with transaction.atomic():
             item.quantity += quantity
-            item.save()
             if cost_price != item.price:
+                item.price = cost_price
+                item.save()
                 serializer.save(item=item, name=item.name, cost_price=cost_price)
             else:
+                item.save()
                 serializer.save(item=item, name=item.name, cost_price=item.price)
 
     def list(self, request, *args, **kwargs):

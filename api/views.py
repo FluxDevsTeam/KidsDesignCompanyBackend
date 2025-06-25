@@ -432,10 +432,12 @@ class ApiInventoryCategory(ModelViewSet):
     # permission_classes = [IsCEO | IsProjectManager]
     permission_classes = [CheckUserRoles]
     required_roles = ['shopkeeper','ceo']
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
 
     def list(self, request, *args, **kwargs):
         """Override list to disable pagination."""
-        queryset = self.get_queryset()
+        queryset = self.filter_queryset(self.get_queryset())
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -444,11 +446,13 @@ class ApiStoreCategory(ModelViewSet):
     queryset = StoreCategory.objects.all()
     serializer_class = StoreCategorySerializer
     permission_classes = [CheckUserRoles]
-    required_roles = ['storekeeper','ceo']
+    required_roles = ['storekeeper', 'ceo']
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
 
     def list(self, request, *args, **kwargs):
-        """Override list to disable pagination."""
-        queryset = self.get_queryset()
+        """Override list to disable pagination and apply search filters."""
+        queryset = self.filter_queryset(self.get_queryset())  # Apply filter backends
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -1168,18 +1172,16 @@ class ApiRawMaterial(ModelViewSet):
                                            name=instance.name)
 
     def list(self, request, *args, **kwargs):
-        filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
-        filtered_items = filterset.qs
-        total_store_count = filtered_items.count()
-        total_store_value = filtered_items.aggregate(
-            total_value=Coalesce(Sum(F('quantity') * F('price')), 0.0, output_field=DecimalField()))[
-                                'total_value'] or 0.0
+        queryset = self.filter_queryset(self.get_queryset())
+        total_store_count = queryset.count()
+        total_store_value = queryset.aggregate(
+            total_value=Coalesce(Sum(F('quantity') * F('price')), 0.0, output_field=DecimalField()))['total_value'] or 0.0
 
-        page = self.paginate_queryset(filtered_items)
+        page = self.paginate_queryset(queryset)
         if page is not None:
             serialized_items = self.get_serializer(page, many=True).data
         else:
-            serialized_items = self.get_serializer(filtered_items, many=True).data
+            serialized_items = self.get_serializer(queryset, many=True).data
 
         response_data = {
             "total_store_count": total_store_count,

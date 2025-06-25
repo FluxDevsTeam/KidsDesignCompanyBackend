@@ -105,12 +105,12 @@ class ApiAddRawMaterials(ModelViewSet):
     def perform_create(self, serializer):
         item_id = self.request.data.get("item")
         quantity = self.request.data.get("quantity")
-
+        cost_price = self.request.data.get("cost_price")
         if not item_id:
             raise ValueError("Please input a valid item.")
 
         try:
-            quantity = int(quantity)
+            quantity = Decimal(quantity)
             if quantity <= 0:
                 raise ValueError("Quantity must be greater than zero.")
         except (ValueError, TypeError):
@@ -121,8 +121,10 @@ class ApiAddRawMaterials(ModelViewSet):
         with transaction.atomic():
             item.quantity += quantity
             item.save()
-
-            serializer.save(item=item, name=item.name, cost_price=item.price)
+            if cost_price != item.price:
+                serializer.save(item=item, name=item.name, cost_price=cost_price)
+            else:
+                serializer.save(item=item, name=item.name, cost_price=item.price)
 
     def list(self, request, *args, **kwargs):
         today = timezone.now().date()

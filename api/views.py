@@ -1556,6 +1556,8 @@ class ApiAssets(ModelViewSet):
     pagination_class = AssetsPagination
     permission_classes = [CheckUserRoles]
     required_roles = ['factory_manager', 'admin', 'ceo']
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
 
     def list(self, request, *args, **kwargs):
         all_assets = self.get_queryset()

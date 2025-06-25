@@ -894,7 +894,7 @@ class ApiExpense(ModelViewSet):
                 if monthly_expenses.exists():
                     entries = []
                     for expense in monthly_expenses:
-                        entries.append(ExpenseSerializer(expense).data)
+                        entries.append(ExpenseSerializer(expense, context={'request': request}).data)
 
                     data.append({
                         "month": f"{year}-{m:02d}",
@@ -905,11 +905,11 @@ class ApiExpense(ModelViewSet):
             yearly_total = filtered_expenses.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
 
             response_data = {
-                "monthly_total": current_month_total,
-                "monthly_project_expenses_total": current_month_project_total,
-                "monthly_shop_expenses_total": current_month_shop_total,
+                "monthly_total": float(current_month_total),
+                "monthly_project_expenses_total": float(current_month_project_total),
+                "monthly_shop_expenses_total": float(current_month_shop_total),
                 "daily_data": data,
-                "yearly_total": yearly_total,
+                "yearly_total": float(yearly_total),
             }
             return Response(response_data)
 
@@ -923,13 +923,13 @@ class ApiExpense(ModelViewSet):
         daily_expenses = []
 
         for expense in filtered:
-            expense_date = expense.date.date()
+            expense_date = expense.date
 
             if expense_date != current_date:
                 if daily_expenses:
                     daily_data.append({
                         "date": current_date,
-                        "entries": ExpenseSerializer(daily_expenses, many=True).data,
+                        "entries": ExpenseSerializer(daily_expenses, many=True, context={'request': request}).data,
                         "daily_total": sum(e.amount for e in daily_expenses),
                     })
                 current_date = expense_date
@@ -940,20 +940,20 @@ class ApiExpense(ModelViewSet):
         if daily_expenses:
             daily_data.append({
                 "date": current_date,
-                "entries": ExpenseSerializer(daily_expenses, many=True).data,
+                "entries": ExpenseSerializer(daily_expenses, many=True, context={'request': request}).data,
                 "daily_total": sum(e.amount for e in daily_expenses),
             })
 
         response_data = {
-            "monthly_total": current_month_total,
-            "monthly_project_expenses_total": current_month_project_total,
-            "monthly_shop_expenses_total": current_month_shop_total,
+            "monthly_total": float(current_month_total),
+            "monthly_project_expenses_total": float(current_month_project_total),
+            "monthly_shop_expenses_total": float(current_month_shop_total),
             "daily_data": daily_data,
         }
 
         if year:
             yearly_total = filtered_expenses.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
-            response_data["yearly_total"] = yearly_total
+            response_data["yearly_total"] = float(yearly_total)
 
         return Response(response_data)
 

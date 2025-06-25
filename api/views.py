@@ -231,7 +231,7 @@ class ApiAddRawMaterials(ModelViewSet):
                 raw_material = get_object_or_404(RawMaterial, id=added_material.item.id)
                 change = abs(added_material.quantity - quantity)
                 if added_material.quantity > quantity:
-                    if raw_material.stock < change:
+                    if raw_material.quantity < change:
                         return Response({"data": "not enough stock remaining in inventory."})
                     raw_material.quantity -= change
                     added_material.quantity -= change

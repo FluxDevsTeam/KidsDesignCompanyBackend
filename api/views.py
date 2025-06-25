@@ -5,7 +5,7 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from django.utils import timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from .pagination import AssetsPagination
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
@@ -1286,12 +1286,12 @@ class ApiRemoved(ModelViewSet):
                 {"error": "'material', 'quantity' and 'product' are all required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            quantity = int(quantity)
+            quantity = Decimal(quantity)
             if quantity <= 0:
-                raise ValueError
-        except ValueError:
+                raise ValueError("Quantity must be greater than zero.")
+        except (InvalidOperation, TypeError, ValueError):
             return Response(
-                {"error": "'quantity' must be a positive integer."}, status=status.HTTP_400_BAD_REQUEST)
+                {"error": "'quantity' must be a valid decimal number."}, status=status.HTTP_400_BAD_REQUEST)
 
         material_data = get_object_or_404(RawMaterial, id=material)
         product_data = get_object_or_404(Product, id=product)
@@ -1337,16 +1337,16 @@ class ApiRemoved(ModelViewSet):
 
         if quantity is not None:
             try:
-                quantity = int(quantity)
+                quantity = Decimal(quantity)
                 if quantity <= 0:
                     return Response({"error": "Quantity must be a positive number."},
                                     status=status.HTTP_400_BAD_REQUEST)
-            except ValueError:
-                return Response({"error": "quantity most be an number"}, status=status.HTTP_400_BAD_REQUEST)
+            except (InvalidOperation, TypeError):
+                return Response({"error": "quantity must be a valid decimal number (e.g., 2.3, 0.5)"},
+                                status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             if material and int(material) != int(removed_item.material.id):
-
                 old_raw_material_item = get_object_or_404(RawMaterial, id=removed_item.material.id)
                 old_raw_material_item.quantity += removed_item.quantity
 
@@ -1361,7 +1361,7 @@ class ApiRemoved(ModelViewSet):
                 new_raw_material_item.quantity -= quantity
                 new_raw_material_item.save()
 
-                removed_item.material.id = material
+                removed_item.material = new_raw_material_item
                 removed_item.quantity = quantity
                 removed_item.price = new_raw_material_item.price
                 removed_item.name = new_raw_material_item.name
@@ -1370,7 +1370,7 @@ class ApiRemoved(ModelViewSet):
                 return Response({"message": "removed raw material edited successfully."}, status=status.HTTP_200_OK)
 
             if quantity is not None and quantity != removed_item.quantity:
-                raw_material_item = get_object_or_404(RawMaterial, id=removed_item.id)
+                raw_material_item = get_object_or_404(RawMaterial, id=removed_item.material.id)
                 difference = abs(quantity - removed_item.quantity)
 
                 if quantity > removed_item.quantity:

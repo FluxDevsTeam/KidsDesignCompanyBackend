@@ -1561,29 +1561,30 @@ class ApiAssets(viewsets.ModelViewSet):
     search_fields = ['name']
 
     def list(self, request, *args, **kwargs):
-        all_assets = self.get_queryset()
-        all_assets_total = all_assets.filter(is_still_available=True).aggregate(Sum('value'))['value__sum'] or 0.0
-        no_of_good_assets = all_assets.filter(is_still_available=True).count()
-        no_of_bad_assets = all_assets.filter(is_still_available=False).count()
-        total_assets_count = all_assets.count()
+        filtered_assets = self.filter_queryset(self.get_queryset())
 
-        page = self.paginate_queryset(all_assets)
+        all_assets_total = filtered_assets.filter(is_still_available=True).aggregate(Sum('value'))['value__sum'] or 0.0
+        no_of_good_assets = filtered_assets.filter(is_still_available=True).count()
+        no_of_bad_assets = filtered_assets.filter(is_still_available=False).count()
+        total_assets_count = filtered_assets.count()
+
+        page = self.paginate_queryset(filtered_assets)
         if page is not None:
-            data = self.serializer_class(page, many=True).data
+            data = self.serializer_class(page, many=True, context={'request': request}).data
             response_data = {
                 "total_assets_count": total_assets_count,
                 "good_assets_count": no_of_good_assets,
-                "good_assets_value": all_assets_total,
+                "good_assets_value": float(all_assets_total),
                 "depreciated_assets_count": no_of_bad_assets,
                 "assets": data
             }
             return self.get_paginated_response(response_data)
 
-        data = self.serializer_class(all_assets, many=True).data
+        data = self.serializer_class(filtered_assets, many=True, context={'request': request}).data
         response_data = {
             "total_assets_count": total_assets_count,
             "good_assets_count": no_of_good_assets,
-            "good_assets_value": all_assets_total,
+            "good_assets_value": float(all_assets_total),
             "depreciated_assets_count": no_of_bad_assets,
             "assets": data
         }

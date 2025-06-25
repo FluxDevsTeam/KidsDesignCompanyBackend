@@ -111,7 +111,7 @@ class ApiAddRawMaterials(ModelViewSet):
 
         try:
             quantity = Decimal(quantity)
-            if quantity or cost_price <= 0:
+            if quantity <= 0 or cost_price <= 0:
                 raise ValueError("Quantity must be greater than zero.")
         except (ValueError, TypeError):
             raise ValueError("Invalid quantity.")

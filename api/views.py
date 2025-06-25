@@ -1550,13 +1550,14 @@ class OverheadCostViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
         return super().update(request, *args, **kwargs)
 
 
-class ApiAssets(ModelViewSet):
+class ApiAssets(viewsets.ModelViewSet):
     serializer_class = AssetsSerializer
     queryset = Assets.objects.all().order_by('-is_still_available', '-date_added')
     pagination_class = AssetsPagination
     permission_classes = [CheckUserRoles]
     required_roles = ['factory_manager', 'admin', 'ceo']
-    filter_backends = [SearchFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['is_still_available']
     search_fields = ['name']
 
     def list(self, request, *args, **kwargs):

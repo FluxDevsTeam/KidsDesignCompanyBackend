@@ -1382,86 +1382,101 @@ class ApiContractors(ModelViewSet):
     queryset = Contractors.objects.all()
     permission_classes = [CheckUserRoles]
     required_roles = ['storekeeper', 'factory_manager', 'project_manager', 'admin', 'ceo']
-
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['is_still_active']
+    search_fields = ['first_name', 'last_name', 'email']
 
     def list(self, request, *args, **kwargs):
-        today = timezone.now().date()
-        start_of_week = today - timezone.timedelta(days=today.weekday())
+        try:
+            today = timezone.now().date()
+            start_of_week = today - timezone.timedelta(days=today.weekday())
 
-        all_contractors = self.get_queryset()
-        all_contractors_count = all_contractors.count()
-        all_active_contractors_count = all_contractors.filter(is_still_active=True).count()
+            filtered_contractors = self.filter_queryset(self.get_queryset())
 
-        total_contractors_monthly_pay = \
-            all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+            all_contractors_count = filtered_contractors.count()
+            all_active_contractors_count = filtered_contractors.filter(is_still_active=True).count()
+            total_contractors_monthly_pay = filtered_contractors.filter(
+                paid__date__month=today.month
+            ).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+            total_contractors_weekly_pay = filtered_contractors.filter(
+                paid__date__range=(start_of_week, today)
+            ).aggregate(total=Sum("paid__amount"))["total"] or 0.0
 
-        total_contractors_weekly_pay = \
-            all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))[
-                "total"] or 0.0
+            page = self.paginate_queryset(filtered_contractors)
+            if page is not None:
+                data = self.serializer_class(page, many=True, context={'request': request}).data
+                response_data = {
+                    "all_contractors_count": all_contractors_count,
+                    "all_active_contractors_count": all_active_contractors_count,
+                    "total_contractors_monthly_pay": float(total_contractors_monthly_pay),
+                    "total_contractors_weekly_pay": float(total_contractors_weekly_pay),
+                    "contractor": data,
+                }
+                return self.get_paginated_response(response_data)
 
-        page = self.paginate_queryset(all_contractors)
-        if page is not None:
-            data = self.serializer_class(page, many=True).data
+            data = self.serializer_class(filtered_contractors, many=True, context={'request': request}).data
             response_data = {
                 "all_contractors_count": all_contractors_count,
                 "all_active_contractors_count": all_active_contractors_count,
-                "total_contractors_monthly_pay": total_contractors_monthly_pay,
-                "total_contractors_weekly_pay": total_contractors_weekly_pay,
+                "total_contractors_monthly_pay": float(total_contractors_monthly_pay),
+                "total_contractors_weekly_pay": float(total_contractors_weekly_pay),
                 "contractor": data,
             }
-            return self.get_paginated_response(response_data)
 
-        data = self.serializer_class(all_contractors, many=True).data
-        response_data = {
-            "all_contractors_count": all_contractors_count,
-            "all_active_contractors_count": all_active_contractors_count,
-            "total_contractors_monthly_pay": total_contractors_monthly_pay,
-            "total_contractors_weekly_pay": total_contractors_weekly_pay,
-            "contractor": data,
-        }
-
-        return Response(response_data)
+            return Response(response_data)
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
 
 
-class ApiSalaryWorkers(ModelViewSet):
+class ApiSalaryWorkers(viewsets.ModelViewSet):
     serializer_class = SalaryWorkersSerializer
     queryset = SalaryWorkers.objects.all()
     permission_classes = [CheckUserRoles]
     required_roles = ['admin', 'factory_manager', 'ceo']
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['is_still_active']
+    search_fields = ['first_name', 'last_name', 'email']
 
     def list(self, request, *args, **kwargs):
-        today = timezone.now().date()
-        start_of_week = today - timezone.timedelta(days=today.weekday())
+        try:
+            today = timezone.now().date()
+            start_of_week = today - timezone.timedelta(days=today.weekday())
 
-        all_salary_workers = self.get_queryset()
-        salary_workers_count = all_salary_workers.count()
-        active_salary_workers_count = all_salary_workers.filter(is_still_active=True).count()
-        total_salary_workers_monthly_pay = all_salary_workers.aggregate(total=Sum("salary"))["total"] or 0.0
-        total_paid = all_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))[
-                         "total"] or 0.0
+            filtered_salary_workers = self.filter_queryset(self.get_queryset())
 
-        page = self.paginate_queryset(all_salary_workers)
-        if page is not None:
-            data = self.serializer_class(page, many=True).data
+            salary_workers_count = filtered_salary_workers.count()
+            active_salary_workers_count = filtered_salary_workers.filter(is_still_active=True).count()
+            total_salary_workers_monthly_pay = filtered_salary_workers.aggregate(
+                total=Sum("salary")
+            )["total"] or 0.0
+            total_paid = filtered_salary_workers.filter(
+                paid__date__month=today.month
+            ).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+
+            page = self.paginate_queryset(filtered_salary_workers)
+            if page is not None:
+                data = self.serializer_class(page, many=True, context={'request': request}).data
+                response_data = {
+                    "salary_workers_count": salary_workers_count,
+                    "active_salary_workers_count": active_salary_workers_count,
+                    "total_salary_workers_monthly_pay": float(total_salary_workers_monthly_pay),
+                    "total_paid": float(total_paid),
+                    "workers": data,
+                }
+                return self.get_paginated_response(response_data)
+
+            data = self.serializer_class(filtered_salary_workers, many=True, context={'request': request}).data
             response_data = {
                 "salary_workers_count": salary_workers_count,
                 "active_salary_workers_count": active_salary_workers_count,
-                "total_salary_workers_monthly_pay": total_salary_workers_monthly_pay,
-                "total_paid": total_paid,
+                "total_salary_workers_monthly_pay": float(total_salary_workers_monthly_pay),
+                "total_paid": float(total_paid),
                 "workers": data,
             }
-            return self.get_paginated_response(response_data)
 
-        data = self.serializer_class(all_salary_workers, many=True).data
-        response_data = {
-            "salary_workers_count": salary_workers_count,
-            "active_salary_workers_count": active_salary_workers_count,
-            "total_salary_workers_monthly_pay": total_salary_workers_monthly_pay,
-            "total_paid": total_paid,
-            "workers": data,
-        }
-
-        return Response(response_data)
+            return Response(response_data)
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
 
 
 class ApiSalaryWorkersRecord(ModelViewSet):
@@ -1673,7 +1688,6 @@ class ApiPaid(viewsets.ModelViewSet):
             yearly_total = queryset.filter(date__year=year).aggregate(total=Sum("amount"))['total'] or 0.0
             response_data["yearly_total"] = yearly_total
         return Response(response_data)
-
 
 
 class StoreQuotation(ModelViewSet):

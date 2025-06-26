@@ -182,8 +182,8 @@ class SalaryWorkersSerializer(ModelSerializer):
 
 
 class PaidSerializer(serializers.ModelSerializer):
-    contractor_detail = ContractorsSerializer(source="item", read_only=True)
-    salary_detail = SalaryWorkersSerializer(source="customer", read_only=True)
+    contractor_detail = ContractorsSerializer(source="contract", read_only=True)
+    salary_detail = SalaryWorkersSerializer(source="salary", read_only=True)
 
     class Meta:
         model = Paid

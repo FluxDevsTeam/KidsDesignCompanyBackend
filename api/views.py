@@ -1603,76 +1603,66 @@ class ApiPaid(ModelViewSet):
     required_roles = ['factory_manager', 'admin', 'ceo']
 
     def list(self, request, *args, **kwargs):
-        today = timezone.now().date()
-        queryset = self.get_queryset()
-        filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
-        filtered_paid = filterset.qs.order_by('-date')
+        try:
+            filtered_paid = self.filter_queryset(self.get_queryset()).order_by('-date')
 
-        monthly_total = filtered_paid.filter(date__month=today.month).aggregate(total=Sum('amount'))['total'] or 0.0
-        salary_paid_this_month = filtered_paid.filter(contract=None).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        contractors_paid_this_month = filtered_paid.filter(salary=None).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        # filters
-        year = request.query_params.get('year', None)
-        month = request.query_params.get('month', None)
-        day = request.query_params.get('day', None)
+            today = timezone.now().date()
 
-        filtered = filtered_paid
+            this_month_payments = filtered_paid.filter(date__year=today.year, date__month=today.month)
+            monthly_total = this_month_payments.aggregate(total=Sum('amount'))['total'] or 0.0
+            salary_paid_this_month = this_month_payments.filter(contract=None).aggregate(
+                total=Sum('amount')
+            )['total'] or 0.0
+            contractors_paid_this_month = this_month_payments.filter(salary=None).aggregate(
+                total=Sum('amount')
+            )['total'] or 0.0
 
-        if day is not None and year is None and month is None:
-            year = today.year
-            month = today.month
-
-        if year is None and month is None:
-            year = today.year
-            month = today.month
-
-        if year is not None and month is None and day is None:
-            filtered = filtered_paid.filter(date__year=year)
-
-        elif year is not None and day is not None:
-            if month is None:
-                month = today.month
-            filtered = filtered_paid.filter(date__year=year, date__month=month, date__day=day)
-
-        elif year is not None and month is not None and day is None:
-            filtered = filtered_paid.filter(date__year=year, date__month=month)
-
-        elif year is not None and month is not None and day is not None:
-            filtered = filtered_paid.filter(date__year=year, date__month=month, date__day=day)
-
-        daily_data = []
-        current_date = None
-        daily_paid = []
-        for paid in filtered:
-            paid_date = paid.date.date() if isinstance(paid.date, datetime) else paid.date
-
-            if current_date != paid_date:
-                if daily_paid:
-                    daily_data.append({
-                        "date": current_date,
-                        "entries": self.get_serializer(daily_paid, many=True).data,
-                        "daily_total": sum(s.amount for s in daily_paid)
-                    })
-                current_date = paid_date
-                daily_paid = [paid]
+            year = request.query_params.get('year', None)
+            if year:
+                yearly_total = filtered_paid.filter(date__year=year).aggregate(total=Sum('amount'))['total'] or 0.0
             else:
-                daily_paid.append(paid)
-        if daily_paid:
-            daily_data.append({
-                "date": current_date,
-                "entries": self.get_serializer(daily_paid, many=True).data,
-                "daily_total": sum(s.amount for s in daily_paid)
-            })
-        response_data = {
-            "monthly_total": monthly_total,
-            "salary_paid_this_month": salary_paid_this_month,
-            "contractors_paid_this_month": contractors_paid_this_month,
-            "daily_data": daily_data,
-        }
-        if year:
-            yearly_total = queryset.filter(date__year=year).aggregate(total=Sum("amount"))['total'] or 0.0
-            response_data["yearly_total"] = yearly_total
-        return Response(response_data)
+                yearly_total = None
+
+            daily_data = []
+            current_date = None
+            daily_paid = []
+
+            for paid in filtered_paid:
+                paid_date = paid.date.date() if isinstance(paid.date, datetime) else paid.date
+
+                if current_date != paid_date:
+                    if daily_paid:
+                        daily_data.append({
+                            "date": current_date,
+                            "entries": self.get_serializer(daily_paid, many=True, context={'request': request}).data,
+                            "daily_total": float(sum(p.amount for p in daily_paid)),
+                        })
+                    current_date = paid_date
+                    daily_paid = [paid]
+                else:
+                    daily_paid.append(paid)
+
+            if daily_paid:
+                daily_data.append({
+                    "date": current_date,
+                    "entries": self.get_serializer(daily_paid, many=True, context={'request': request}).data,
+                    "daily_total": float(sum(p.amount for p in daily_paid)),
+                })
+
+            response_data = {
+                "monthly_total": float(monthly_total),
+                "salary_paid_this_month": float(salary_paid_this_month),
+                "contractors_paid_this_month": float(contractors_paid_this_month),
+                "daily_data": daily_data,
+            }
+
+            if yearly_total is not None:
+                response_data["yearly_total"] = float(yearly_total)
+
+            return Response(response_data)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
 
 
 class StoreQuotation(ModelViewSet):

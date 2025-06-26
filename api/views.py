@@ -467,94 +467,78 @@ class ApiSold(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = SoldFilter
     search_fields = ['item__name', 'customer__name']
-
     permission_classes = [CheckUserRoles]
     required_roles = ['shopkeeper', 'ceo', 'admin']
 
     def list(self, request, *args, **kwargs):
-        today = timezone.now().date()
-        queryset = self.get_queryset()
-        filterset = self.filterset_class(request.GET, queryset=self.get_queryset())
-        filtered_solds = filterset.qs.order_by('-date')
+        try:
+            filtered_solds = self.filter_queryset(self.get_queryset()).order_by('-date')
 
-        this_month_sold_count = queryset.filter(date__month=today.month).count()
-        this_month_sales = \
-        queryset.filter(date__month=today.month).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"]
-        this_month_profit = queryset.filter(date__month=today.month).aggregate(
-            total=Sum((F("selling_price") * F("quantity") - (F("cost_price") * F("quantity"))),
-                      output_field=DecimalField(max_digits=10, decimal_places=2)))["total"]
+            today = timezone.now().date()
 
-        this_month_project_sales = queryset.filter(date__month=today.month, logistics=None).aggregate(
-            total=Sum(F("selling_price") * F("quantity")))["total"]
-        this_month_non_project_sales = \
-        queryset.filter(date__month=today.month, project=None).aggregate(total=Sum(F("selling_price") * F("quantity")))[
-            "total"]
+            this_month_solds = filtered_solds.filter(date__year=today.year, date__month=today.month)
+            this_month_sold_count = this_month_solds.count()
+            this_month_sales = this_month_solds.aggregate(
+                total=Sum(F("selling_price") * F("quantity"))
+            )["total"] or Decimal('0.00')
+            this_month_profit = this_month_solds.aggregate(
+                total=Sum(
+                    (F("selling_price") * F("quantity")) - (F("cost_price") * F("quantity")),
+                    output_field=DecimalField(max_digits=10, decimal_places=2)))["total"] or Decimal('0.00')
+            this_month_project_sales = this_month_solds.filter(logistics=None).aggregate(
+                total=Sum(F("selling_price") * F("quantity")))["total"] or Decimal('0.00')
+            this_month_non_project_sales = this_month_solds.filter(project=None).aggregate(
+                total=Sum(F("selling_price") * F("quantity")))["total"] or Decimal('0.00')
 
-        # filters
-        year = request.query_params.get('year', None)
-        month = request.query_params.get('month', None)
-        day = request.query_params.get('day', None)
-
-        filtered = filtered_solds
-
-        if day is not None and year is None and month is None:
-            year = today.year
-            month = today.month
-
-        if year is None and month is None:
-            year = today.year
-            month = today.month
-
-        if year is not None and month is None and day is None:
-            filtered = filtered_solds.filter(date__year=year)
-
-        elif year is not None and day is not None:
-            if month is None:
-                month = today.month
-            filtered = filtered_solds.filter(date__year=year, date__month=month, date__day=day)
-
-        elif year is not None and month is not None and day is None:
-            filtered = filtered_solds.filter(date__year=year, date__month=month)
-
-        elif year is not None and month is not None and day is not None:
-            filtered = filtered_solds.filter(date__year=year, date__month=month, date__day=day)
-
-        daily_data = []
-        current_date = None
-        daily_solds = []
-        for sold in filtered:
-            sold_date = sold.date.date() if isinstance(sold.date, datetime) else sold.date
-
-            if current_date != sold_date:
-                if daily_solds:
-                    daily_data.append({
-                        "date": current_date,
-                        "entries": self.get_serializer(daily_solds, many=True).data,
-                        "daily_total": sum(s.total_price for s in daily_solds)
-                    })
-                current_date = sold_date
-                daily_solds = [sold]
+            year = request.query_params.get('year', None)
+            if year:
+                yearly_total = filtered_solds.filter(date__year=year).aggregate(
+                    total=Sum(F("quantity") * F("selling_price")))['total'] or Decimal('0.00')
             else:
-                daily_solds.append(sold)
-        if daily_solds:
-            daily_data.append({
-                "date": current_date,
-                "entries": self.get_serializer(daily_solds, many=True).data,
-                "daily_total": sum(s.total_price for s in daily_solds)
-            })
-        response_data = {
-            "this_month_sales_count": this_month_sold_count,
-            "this_month_sales": this_month_sales,
-            "this_month_profit": this_month_profit,
-            "this_month_project_sales": this_month_project_sales,
-            "this_month_non_project_sales": this_month_non_project_sales,
-            "daily_data": daily_data,
-        }
-        if year:
-            yearly_total = queryset.filter(date__year=year).aggregate(total=Sum(F("quantity") * F("selling_price")))[
-                               'total'] or 0.0
-            response_data["yearly_total"] = yearly_total
-        return Response(response_data)
+                yearly_total = None
+
+            daily_data = []
+            current_date = None
+            daily_solds = []
+
+            for sold in filtered_solds:
+                sold_date = sold.date.date() if isinstance(sold.date, datetime) else sold.date
+
+                if current_date != sold_date:
+                    if daily_solds:
+                        daily_data.append({
+                            "date": current_date,
+                            "entries": self.get_serializer(daily_solds, many=True, context={'request': request}).data,
+                            "daily_total": float(sum(s.total_price for s in daily_solds)),
+                        })
+                    current_date = sold_date
+                    daily_solds = [sold]
+                else:
+                    daily_solds.append(sold)
+
+            if daily_solds:
+                daily_data.append({
+                    "date": current_date,
+                    "entries": self.get_serializer(daily_solds, many=True, context={'request': request}).data,
+                    "daily_total": float(sum(s.total_price for s in daily_solds)),
+                })
+
+            response_data = {
+                "this_month_sales_count": this_month_sold_count,
+                "this_month_sales": float(this_month_sales),
+                "this_month_profit": float(this_month_profit),
+                "this_month_project_sales": float(this_month_project_sales),
+                "this_month_non_project_sales": float(this_month_non_project_sales),
+                "daily_data": daily_data,
+            }
+
+            if yearly_total is not None:
+                response_data["yearly_total"] = float(yearly_total)
+
+            return Response(response_data)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
 
     def create(self, request, *args, **kwargs):
         item_id = request.data.get("item")
@@ -608,8 +592,7 @@ class ApiSold(ModelViewSet):
 
         inventory_item.stock -= quantity
         inventory_item.save()
-        return Response(
-            {"message": "Sale completed successfully."}, status=status.HTTP_200_OK)
+        return Response({"message": "Sale completed successfully."}, status=status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
         sold_item = self.get_object()

@@ -175,10 +175,21 @@ class ContractorsSerializer(ModelSerializer):
         fields = '__all__'
 
 
+class SalaryWorkersSerializer(ModelSerializer):
+    class Meta:
+        model = SalaryWorkers
+        fields = '__all__'
+
+
 class PaidSerializer(serializers.ModelSerializer):
+    contractor_detail = ContractorsSerializer(source="item", read_only=True)
+    salary_detail = SalaryWorkersSerializer(source="customer", read_only=True)
+
     class Meta:
         model = Paid
-        fields = '__all__'
+        fields = ["id", "amount", "salary", "contract", "date", "contractor_detail", "salary_detail"]
+        read_only_fields = ['id']
+        extra_kwargs = {'salary': {'write_only': True}, 'contract': {'write_only': True}}
 
     def validate(self, attrs):
         if not attrs.get("salary") and not attrs.get("contract"):
@@ -188,12 +199,6 @@ class PaidSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"error": "Only one of salary or contract is allowed."})
 
         return attrs
-
-
-class SalaryWorkersSerializer(ModelSerializer):
-    class Meta:
-        model = SalaryWorkers
-        fields = '__all__'
 
 
 class QuotationSerializer(serializers.ModelSerializer):

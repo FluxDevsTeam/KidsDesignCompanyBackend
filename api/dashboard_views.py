@@ -34,7 +34,7 @@ class ApiStorekeeper(viewsets.ViewSet):
         removed = Removed.objects.all()
         add_raw_material = AddRawMaterials.objects.all()
 
-        total_raw_materials = raw_materials.aggregate(total=Sum('quantity'))['total'] or 0
+        total_raw_materials = raw_materials.count() or 0
         total_value = raw_materials.aggregate(total=Sum(F('price') * F('quantity')))['total'] or 0
         removed_cost_month = removed.filter(date__month=today.month).aggregate(total=Sum('price'))['total'] or 0
         removed_amount_year = removed.filter(date__year=today.year).aggregate(total=Sum(F('price') * F('quantity')))['total'] or 0

@@ -985,15 +985,15 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
         profit_year = total_projects_income_year - total_project_expenses_year
 
         # Expenses Breakdown for the current month
-        contractor_costs_month = product_contractor.filter(product__project__start_date__gte=start_of_month).aggregate(total=Sum('cost'))['total'] or 0
+        contractor_costs_month = product_contractor.filter(date__gte=start_of_month).aggregate(total=Sum('cost'))['total'] or 0
 
         raw_material_costs_month = add_raw_materials.filter(date__gte=start_of_month).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
 
-        overhead_cost_month = product.filter(project__start_date__gte=start_of_month).aggregate(total=Coalesce(Sum(F("overhead_cost") * F("overhead_cost_base_at_creation")), Decimal(0)))["total"]
+        overhead_cost_month = product.filter(date__gte=start_of_month).aggregate(total=Coalesce(Sum(F("overhead_cost") * F("overhead_cost_base_at_creation")), Decimal(0)))["total"]
 
         expenses_month = expense.filter(date__gte=start_of_month, project__isnull=False).aggregate(total=Sum('amount'))['total'] or 0
 
-        other_production_expensis_month = other_production.filter(project__start_date__gte=start_of_month).aggregate(total=Sum('cost'))['total'] or 0
+        other_production_expensis_month = other_production.filter(date__gte=start_of_month).aggregate(total=Sum('cost'))['total'] or 0
 
         sold_cost_month = sold.filter(date__gte=start_of_month, project__isnull=False).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
 

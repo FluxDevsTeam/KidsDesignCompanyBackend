@@ -1381,7 +1381,7 @@ class ApiContractors(ModelViewSet):
     serializer_class = ContractorsSerializer
     queryset = Contractors.objects.all()
     permission_classes = [CheckUserRoles]
-    required_roles = ['storekeeper', 'factory_manager', 'project_manager', 'admin', 'ceo']
+    required_roles = ['factory_manager', 'project_manager', 'admin', 'ceo']
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['is_still_active']
     search_fields = ['first_name', 'last_name', 'email']
@@ -1432,7 +1432,7 @@ class ApiSalaryWorkers(viewsets.ModelViewSet):
     serializer_class = SalaryWorkersSerializer
     queryset = SalaryWorkers.objects.all()
     permission_classes = [CheckUserRoles]
-    required_roles = ['admin', 'factory_manager', 'ceo']
+    required_roles = ['admin', 'factory_manager', 'ceo', "project_manager"]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['is_still_active']
     search_fields = ['first_name', 'last_name', 'email']

@@ -273,7 +273,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            "id", "project", "linked_project", "name", "images", "sketch", "dimensions", "colour", "design",
+            "id", "project", "quantity", "linked_project", "name", "images", "sketch", "dimensions", "colour", "design",
             "production_note", "progress", "contractors", "salary_workers", "selling_price", "overhead_cost",
             "overhead_cost_base_at_creation", "calculations"]
         read_only_fields = ['overhead_cost_base_at_creation']

@@ -12,6 +12,7 @@ class Project(models.Model):
     status = models.CharField(max_length=50, default="Not started")
     start_date = models.DateField(default=date.today)
     all_items = models.JSONField(blank=True, null=True)
+    tasks = models.JSONField(blank=True, null=True)
     deadline = models.DateField(default=date.today, blank=True, null=True)
     progress = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)],help_text="Progress as a whole number percentage (0 to 100).")
     date_delivered = models.DateField(default=date.today, blank=True, null=True)

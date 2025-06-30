@@ -41,7 +41,7 @@ class UserSignupViewSet(viewsets.ModelViewSet):
         "roles": ["shopkeeper"]
     }
     """
-    queryset = User.objects.all()
+    queryset = User.objects.all().order_by("id")
     serializer_class = UserSignupSerializer
     permission_classes = [IsCeo]
 

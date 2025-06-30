@@ -373,7 +373,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         model = Project
         fields = [
             'id', 'name', 'invoice_image', 'status', 'start_date', 'deadline', 'timeframe', 'date_delivered',
-            'all_items', 'is_delivered', 'archived', 'customer', 'customer_detail',
+            'all_items', 'tasks', 'is_delivered', 'archived', 'customer', 'customer_detail',
             'products', 'sold_items', 'expenses', 'other_productions', 'selling_price', 'logistics',
             'service_charge', 'note', "calculations"
         ]

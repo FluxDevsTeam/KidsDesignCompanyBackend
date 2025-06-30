@@ -46,7 +46,7 @@ class SimpleSoldSerializer(serializers.ModelSerializer):
 class SimpleOtherProductionSerializer(serializers.ModelSerializer):
     class Meta:
         model = OtherProduction
-        fields = ['id', 'name', 'cost']
+        fields = ['id', 'name', 'budget', 'cost']
 
 
 class OverheadCostSerializer(serializers.ModelSerializer):

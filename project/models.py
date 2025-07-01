@@ -15,7 +15,7 @@ class Project(models.Model):
     tasks = models.JSONField(blank=True, null=True)
     deadline = models.DateField(default=date.today, blank=True, null=True)
     progress = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)],help_text="Progress as a whole number percentage (0 to 100).")
-    date_delivered = models.DateField(default=date.today, blank=True, null=True)
+    date_delivered = models.DateField(blank=True, null=True)
     is_delivered = models.BooleanField(default=False)
     archived = models.BooleanField(default=False)
     selling_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)

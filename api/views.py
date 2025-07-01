@@ -468,7 +468,7 @@ class ApiSold(ModelViewSet):
     filterset_class = SoldFilter
     search_fields = ['item__name', 'customer__name']
     permission_classes = [CheckUserRoles]
-    required_roles = ['shopkeeper', 'ceo', 'admin']
+    required_roles = ['shopkeeper', 'ceo', 'admin', 'accountant']
 
     def list(self, request, *args, **kwargs):
         try:
@@ -831,7 +831,7 @@ class ApiExpenseCategory(ModelViewSet):
     queryset = ExpenseCategory.objects.all()
     serializer_class = ExpenseCategorySerializer
     permission_classes = [CheckUserRoles]
-    required_roles = ['factory_manager', 'admin', 'ceo']
+    required_roles = ['factory_manager', 'admin', 'ceo', 'accountant']
 
     def list(self, request, *args, **kwargs):
         """Override list to disable pagination."""
@@ -845,7 +845,7 @@ class ApiExpense(ModelViewSet):
     queryset = Expense.objects.all()
     filter_class = ExpenseFilter
     permission_classes = [CheckUserRoles]
-    required_roles = ['factory_manager', 'admin', 'ceo']
+    required_roles = ['factory_manager', 'admin', 'ceo', 'accountant']
 
     def list(self, request, *args, **kwargs):
         filterset = self.filter_class(request.GET, queryset=self.get_queryset())
@@ -996,7 +996,7 @@ class ApiRawMaterialUsed(ReadOnlyModelViewSet):
 class ApiProductContractor(ModelViewSet):
     serializer_class = ProductContractorSerializer
     permission_classes = [CheckUserRoles]
-    required_roles = ['storekeeper', 'factory_manager', 'project_manager', 'admin', 'ceo']
+    required_roles = ['storekeeper', 'factory_manager', 'project_manager', 'admin', 'ceo', 'accountant']
 
     def get_queryset(self):
         product_id = self.kwargs.get('product_pk')
@@ -1088,9 +1088,9 @@ class ApiProject(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ProjectFilter
     search_fields = ['customer__name', 'name']
-    ordering = ['start_date', 'progress', "deadline"]
+    ordering = ['start_date', "deadline"]
     permission_classes = [CheckUserRoles]
-    required_roles = ['factory_manager', 'project_manager', 'ceo', 'shopkeeper', 'admin']
+    required_roles = ['factory_manager', 'project_manager', 'ceo', 'shopkeeper', 'admin', 'accountant']
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1381,7 +1381,7 @@ class ApiContractors(ModelViewSet):
     serializer_class = ContractorsSerializer
     queryset = Contractors.objects.all()
     permission_classes = [CheckUserRoles]
-    required_roles = ['factory_manager', 'project_manager', 'admin', 'ceo']
+    required_roles = ['factory_manager', 'project_manager', 'admin', 'ceo', 'accountant']
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['is_still_active']
     search_fields = ['first_name', 'last_name', 'email']
@@ -1432,7 +1432,7 @@ class ApiSalaryWorkers(viewsets.ModelViewSet):
     serializer_class = SalaryWorkersSerializer
     queryset = SalaryWorkers.objects.all()
     permission_classes = [CheckUserRoles]
-    required_roles = ['admin', 'factory_manager', 'ceo', "project_manager"]
+    required_roles = ['admin', 'factory_manager', 'ceo', "project_manager", 'accountant']
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['is_still_active']
     search_fields = ['first_name', 'last_name', 'email']
@@ -1482,7 +1482,7 @@ class ApiSalaryWorkers(viewsets.ModelViewSet):
 class ApiSalaryWorkersRecord(ModelViewSet):
     serializer_class = SalaryWorkersRecordSerializer
     permission_classes = [CheckUserRoles]
-    required_roles = ['admin', 'factory_manager', 'ceo']
+    required_roles = ['admin', 'factory_manager', 'ceo', 'accountant']
 
 
     def get_queryset(self):
@@ -1503,7 +1503,7 @@ class ApiSalaryWorkersRecord(ModelViewSet):
 class ApiContractorRecord(ModelViewSet):
     serializer_class = ContractorRecordSerializer
     permission_classes = [CheckUserRoles]
-    required_roles = ['admin', 'factory_manager', 'ceo']
+    required_roles = ['admin', 'factory_manager', 'ceo', 'accountant']
 
 
     def get_queryset(self):
@@ -1553,7 +1553,7 @@ class ApiAssets(viewsets.ModelViewSet):
     queryset = Assets.objects.all().order_by('-is_still_available', '-date_added')
     pagination_class = AssetsPagination
     permission_classes = [CheckUserRoles]
-    required_roles = ['factory_manager', 'admin', 'ceo']
+    required_roles = ['factory_manager', 'admin', 'ceo', 'accountant']
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['is_still_available']
     search_fields = ['name']
@@ -1615,7 +1615,7 @@ class ApiPaid(viewsets.ModelViewSet):
     queryset = Paid.objects.all().order_by('-date')
     filterset_class = PaidFilter
     permission_classes = [CheckUserRoles]
-    required_roles = ['factory_manager', 'admin', 'ceo']
+    required_roles = ['factory_manager', 'admin', 'ceo', 'accountant']
 
     def list(self, request, *args, **kwargs):
         today = timezone.now().date()

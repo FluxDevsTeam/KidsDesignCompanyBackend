@@ -3,7 +3,7 @@ from . import views
 from rest_framework.routers import DefaultRouter
 from rest_framework_nested.routers import NestedDefaultRouter
 from .dashboard_views import ApiStorekeeper, ApiAdminDashboard, ApiFactoryManagerDashboard, CEODashboardViewSet, \
-    ApiShopkeeper, ProjectManagerDashboardViewSet
+    ApiShopkeeper, ProjectManagerDashboardViewSet, ApiAccountantDashboard
 from .views import StoreQuotation
 
 router = DefaultRouter()
@@ -60,6 +60,7 @@ urlpatterns = [
     path('shopkeeper-dashboard/', ApiShopkeeper.as_view({'get': 'list'})),
     path('project-manager-dashboard/', ProjectManagerDashboardViewSet.as_view({'get': 'list'})),
     path('admin-dashboard/', ApiAdminDashboard.as_view({'get': 'list'})),
+    path('accountant-dashboard/', ApiAccountantDashboard.as_view({'get': 'list'})),
     path('factory-manager-dashboard/', ApiFactoryManagerDashboard.as_view({'get': 'list'})),
     path('ceo-dashboard/', CEODashboardViewSet.as_view({'get': 'list'}))
 ]

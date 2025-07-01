@@ -359,6 +359,119 @@ class ApiAdminDashboard(viewsets.ViewSet):
         return Response(data)
 
 
+class ApiAccountantDashboard(viewsets.ViewSet):
+    permission_classes = [CheckUserRoles]
+    required_roles = ['accountant', 'ceo']
+
+    def list(self, request):
+        today = timezone.now().date()
+        assets = Assets.objects.all()
+        expense = Expense.objects.all()
+        paid = Paid.objects.all()
+        all_salary_workers = SalaryWorkers.objects.all()
+        all_contractors = Contractors.objects.all()
+        # Financial Health
+        total_expenses = expense.aggregate(total=Sum('amount'))['total'] or 0
+        active_assets = assets.filter(is_still_available=True).aggregate(total=Sum('value'))['total'] or 0
+        deprecated_assets = assets.filter(is_still_available=False).aggregate(total=Sum('value'))['total'] or 0
+
+        categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by(
+            '-total')
+
+        expensis_category_breakdown = []
+        for cat in categories:
+            percentage = ((cat.total / total_expenses) * 100) if total_expenses else 0
+            expensis_category_breakdown.append({
+                'category': cat.name,
+                'total': cat.total,
+                'percentage': round(percentage, 2)
+            })
+
+        # Monthly Trend with Others
+        monthly_trend = []
+        for i in range(12):
+            month_start = (today.replace(day=1) - relativedelta(months=i))
+            month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
+
+            month_total = expense.filter(
+                date__gte=month_start,
+                date__lte=month_end
+            ).aggregate(total=Sum('amount'))['total'] or 0
+
+            project_total = expense.filter(
+                project__isnull=False,
+                date__range=[month_start, month_end]
+            ).aggregate(total=Sum('amount'))['total'] or 0
+
+            shop_total = expense.filter(
+                shop__isnull=False,
+                date__range=[month_start, month_end]
+            ).aggregate(total=Sum('amount'))['total'] or 0
+
+            others_total = month_total - (project_total + shop_total)
+
+            monthly_trend.append({
+                'month': month_start.strftime("%b %Y"),
+                'total': float(month_total),
+                'type_breakdown': {
+                    'project': float(project_total),
+                    'shop': float(shop_total),
+                    'others': float(others_total)
+                }
+            })
+        start_of_week = today - timezone.timedelta(days=today.weekday())
+        # Top 5 Categories
+        top_categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by(
+            '-total')[:5].values('name', 'total')
+        monthly_total_paid = paid.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        weekly_total_paid = paid.filter(date__range=[start_of_week, today]).aggregate(Sum('amount'))[
+                                'amount__sum'] or 0.0
+
+        salary_workers_count = all_salary_workers.count()
+        active_salary_workers_count = all_salary_workers.filter(is_still_active=True).count()
+        total_salary_workers_monthly_pay = all_salary_workers.aggregate(total=Sum("salary"))["total"] or 0.0
+        total_paid = all_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))[
+                         "total"] or 0.0
+
+        all_contractors_count = all_contractors.count()
+        all_active_contractors_count = all_contractors.filter(is_still_active=True).count()
+
+        total_contractors_monthly_pay = \
+        all_contractors.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+
+        total_contractors_weekly_pay = \
+        all_contractors.filter(paid__date__range=(start_of_week, today)).aggregate(total=Sum("paid__amount"))[
+            "total"] or 0.0
+
+        data = {
+            'financial_health': {
+                'total_expenses': total_expenses,
+                'active_assets': active_assets,
+                'deprecated_assets': deprecated_assets
+            },
+            'workers': {
+                "salary_workers_count": salary_workers_count,
+                "active_salary_workers_count": active_salary_workers_count,
+                "total_salary_workers_monthly_pay": total_salary_workers_monthly_pay,
+                "all_contractors_count": all_contractors_count,
+                "all_active_contractors_count": all_active_contractors_count,
+            },
+            'paid': {
+                'monthly_total_paid': monthly_total_paid,
+                'weekly_total_paid': weekly_total_paid,
+                "total_paid": total_paid,
+                "total_contractors_monthly_pay": total_contractors_monthly_pay,
+                "total_contractors_weekly_pay": total_contractors_weekly_pay,
+            },
+
+            'expense_category_breakdown': expensis_category_breakdown,
+            'monthly_expense_trend': list(reversed(monthly_trend)),
+            'top_categories': top_categories,
+        }
+
+        return Response(data)
+
+
 class ApiFactoryManagerDashboard(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
     required_roles = ['factory_manager', 'ceo']

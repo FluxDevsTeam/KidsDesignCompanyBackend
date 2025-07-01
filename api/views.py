@@ -1088,7 +1088,7 @@ class ApiProject(ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ProjectFilter
     search_fields = ['customer__name', 'name']
-    ordering = ['start"date', 'progress', "deadline"]
+    ordering = ['start_date', 'progress', "deadline"]
     permission_classes = [CheckUserRoles]
     required_roles = ['factory_manager', 'project_manager', 'ceo', 'shopkeeper', 'admin']
 

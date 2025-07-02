@@ -921,7 +921,7 @@ class CEODashboardViewSet(viewsets.ViewSet):
         expense_categories_month = expense_category.annotate(total=Sum('expense__amount', filter=Q(expense__date__gte=start_of_month))).values('name', 'total').order_by('-total')
 
         # Asset Analysis
-        asset_analysis = assets.aggregate(active=Sum('value', filter=Q(is_still_available=True)), deprecated=Sum('value', filter=Q(is_still_available=False))) or 0
+        asset_analysis = assets.aggregate(active=Sum('value', filter=Q(is_still_available=True)), deprecated=Sum('value', filter=Q(is_still_available=False)))
 
         # Customer Analysis
         owing_customers = SimpleCustomerSerializer(customer.filter(project__balance__gte=1).distinct(), many=True).data
@@ -938,50 +938,64 @@ class CEODashboardViewSet(viewsets.ViewSet):
         data = {
             'key_metrics': {
                 'overhead_cost': OverheadCost.objects.first().overhead_cost_base,
-                'suggested_overhead_cost': round(suggested_overhead_cost),
-                'total_income_year': round(total_income_year, 2),
-                'total_expenses_year': round(total_expenses_year, 2),
-                'total_profit_year': round(profit_year, 2),
-                'total_income_month': round(total_income_month, 2),
-                'total_expenses_month': round(total_expenses_month, 2),
-                'profit_month': round(profit_month, 2),
-                'current_assets_value': round(asset_analysis.get('active', 0), 2),
-                'inventory_value': round(inventory_value, 2),
-                'total_store_value': round(total_store_value, 2)
+                'suggested_overhead_cost': round(suggested_overhead_cost) if suggested_overhead_cost is not None else 0,
+                'total_income_year': round(total_income_year, 2) if total_income_year is not None else 0,
+                'total_expenses_year': round(total_expenses_year, 2) if total_expenses_year is not None else 0,
+                'total_profit_year': round(profit_year, 2) if profit_year is not None else 0,
+                'total_income_month': round(total_income_month, 2) if total_income_month is not None else 0,
+                'total_expenses_month': round(total_expenses_month, 2) if total_expenses_month is not None else 0,
+                'profit_month': round(profit_month, 2) if profit_month is not None else 0,
+                'current_assets_value': round(asset_analysis.get('active', 0), 2) if asset_analysis.get(
+                    'active') is not None else 0,
+                'inventory_value': round(inventory_value, 2) if inventory_value is not None else 0,
+                'total_store_value': round(total_store_value, 2) if total_store_value is not None else 0
             },
             'income_breakdown_year': {
-                'projects': round(total_projects_income_year, 2),
-                'no_shop_projects': round(no_shop_projects_income_year, 2),
-                'shop_sales': round(total_shop_income_year, 2),
-                'non_project_shop_sales': round(total_non_project_shop_income_year, 2),
-                'percentage_projects': round((no_shop_projects_income_year / total_income_year * 100) if total_income_year else 0, 2),
-                'percentage_shop': round((total_shop_income_year / total_income_year * 100) if total_income_year else 0, 2)
+                'projects': round(total_projects_income_year, 2) if total_projects_income_year is not None else 0,
+                'no_shop_projects': round(no_shop_projects_income_year,
+                                          2) if no_shop_projects_income_year is not None else 0,
+                'shop_sales': round(total_shop_income_year, 2) if total_shop_income_year is not None else 0,
+                'non_project_shop_sales': round(total_non_project_shop_income_year,
+                                                2) if total_non_project_shop_income_year is not None else 0,
+                'percentage_projects': round(
+                    (no_shop_projects_income_year / total_income_year * 100) if total_income_year else 0,
+                    2) if no_shop_projects_income_year is not None and total_income_year is not None else 0,
+                'percentage_shop': round((total_shop_income_year / total_income_year * 100) if total_income_year else 0,
+                                         2) if total_shop_income_year is not None and total_income_year is not None else 0
             },
             'income_breakdown_month': {
-                'projects': round(total_projects_income_month, 2),
-                'no_shop_projects': round(no_shop_projects_income_month, 2),
-                'shop_sales': round(total_shop_income_month, 2),
-                'non_project_shop_sales': round(total_non_project_shop_income_month, 2),
-                'percentage_projects': round((no_shop_projects_income_month / total_income_month * 100) if total_income_month else 0, 2),
-                'percentage_shop': round((total_shop_income_month / total_income_month * 100) if total_income_month else 0, 2)
+                'projects': round(total_projects_income_month, 2) if total_projects_income_month is not None else 0,
+                'no_shop_projects': round(no_shop_projects_income_month,
+                                          2) if no_shop_projects_income_month is not None else 0,
+                'shop_sales': round(total_shop_income_month, 2) if total_shop_income_month is not None else 0,
+                'non_project_shop_sales': round(total_non_project_shop_income_month,
+                                                2) if total_non_project_shop_income_month is not None else 0,
+                'percentage_projects': round(
+                    (no_shop_projects_income_month / total_income_month * 100) if total_income_month else 0,
+                    2) if no_shop_projects_income_month is not None and total_income_month is not None else 0,
+                'percentage_shop': round(
+                    (total_shop_income_month / total_income_month * 100) if total_income_month else 0,
+                    2) if total_shop_income_month is not None and total_income_month is not None else 0
             },
             'expense_breakdown_year': {
-                'salaries': round(salary_costs_year, 2),
-                'contractors': round(contractor_costs_year, 2),
-                'raw_materials': round(raw_material_costs_year, 2),
-                'assets': round(asset_costs_year, 2),
-                'factory_expenses': round(other_expenses_year, 2),
-                'other_production_expensis': round(other_production_expensis_year, 2),
-                'monthly_sold_cost_price': round(sold_cost_year, 2),
+                'salaries': round(salary_costs_year, 2) if salary_costs_year is not None else 0,
+                'contractors': round(contractor_costs_year, 2) if contractor_costs_year is not None else 0,
+                'raw_materials': round(raw_material_costs_year, 2) if raw_material_costs_year is not None else 0,
+                'assets': round(asset_costs_year, 2) if asset_costs_year is not None else 0,
+                'factory_expenses': round(other_expenses_year, 2) if other_expenses_year is not None else 0,
+                'other_production_expensis': round(other_production_expensis_year,
+                                                   2) if other_production_expensis_year is not None else 0,
+                'monthly_sold_cost_price': round(sold_cost_year, 2) if sold_cost_year is not None else 0,
             },
             'expense_breakdown_month': {
-                'salaries': round(salary_costs_month, 2),
-                'contractors': round(contractor_costs_month, 2),
-                'raw_materials': round(raw_material_costs_month, 2),
-                'assets': round(asset_costs_month, 2),
-                'factory_expenses': round(other_expenses_month, 2),
-                'other_production_expensis': round(other_production_expensis_month, 2),
-                'monthly_sold_cost_price': round(sold_cost_month, 2),
+                'salaries': round(salary_costs_month, 2) if salary_costs_month is not None else 0,
+                'contractors': round(contractor_costs_month, 2) if contractor_costs_month is not None else 0,
+                'raw_materials': round(raw_material_costs_month, 2) if raw_material_costs_month is not None else 0,
+                'assets': round(asset_costs_month, 2) if asset_costs_month is not None else 0,
+                'factory_expenses': round(other_expenses_month, 2) if other_expenses_month is not None else 0,
+                'other_production_expensis': round(other_production_expensis_month,
+                                                   2) if other_production_expensis_month is not None else 0,
+                'monthly_sold_cost_price': round(sold_cost_month, 2) if sold_cost_month is not None else 0,
             },
             'monthly_trends': {
                 'income': monthly_income,
@@ -1022,8 +1036,6 @@ class CEODashboardViewSet(viewsets.ViewSet):
                 'raw_materials_types': RawMaterial.objects.count()
             }
         }
-
-        return Response(data)
 
 
 class ProjectManagerDashboardViewSet(viewsets.ViewSet):

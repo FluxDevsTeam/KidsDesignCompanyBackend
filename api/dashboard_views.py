@@ -921,7 +921,7 @@ class CEODashboardViewSet(viewsets.ViewSet):
         expense_categories_month = expense_category.annotate(total=Sum('expense__amount', filter=Q(expense__date__gte=start_of_month))).values('name', 'total').order_by('-total')
 
         # Asset Analysis
-        asset_analysis = assets.aggregate(active=Sum('value', filter=Q(is_still_available=True)), deprecated=Sum('value', filter=Q(is_still_available=False)))
+        asset_analysis = assets.aggregate(active=Sum('value', filter=Q(is_still_available=True)), deprecated=Sum('value', filter=Q(is_still_available=False))) or 0
 
         # Customer Analysis
         owing_customers = SimpleCustomerSerializer(customer.filter(project__balance__gte=1).distinct(), many=True).data

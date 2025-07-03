@@ -274,7 +274,7 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "id", "project", "quantity", "linked_project", "name", "images", "sketch", "dimensions", "colour", "design",
-            "production_note", "progress", "contractors", "salary_workers", "selling_price", "overhead_cost",
+            "production_note", "progress", "contractors", "salary_workers", "tasks", "selling_price", "overhead_cost",
             "overhead_cost_base_at_creation", "calculations"]
         read_only_fields = ['overhead_cost_base_at_creation']
 

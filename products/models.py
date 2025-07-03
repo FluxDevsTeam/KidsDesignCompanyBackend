@@ -16,6 +16,7 @@ class Product(models.Model):
     sketch = models.ImageField(upload_to="product/sketch/", blank=True, null=True)
     dimensions = models.CharField(max_length=50)
     colour = models.CharField(max_length=50)
+    tasks = models.JSONField(blank=True, null=True)
     design = models.TextField(null=True, blank=True)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
     overhead_cost = models.DecimalField(max_digits=10, decimal_places=2)

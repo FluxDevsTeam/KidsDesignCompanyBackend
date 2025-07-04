@@ -1019,6 +1019,7 @@ class CEODashboardViewSet(viewsets.ViewSet):
                 'raw_materials_types': RawMaterial.objects.count()
             }
         }
+        return Response(data)
 
 
 class ProjectManagerDashboardViewSet(viewsets.ViewSet):

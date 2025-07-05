@@ -849,7 +849,7 @@ class ApiExpense(ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         filterset = self.filter_class(request.GET, queryset=self.get_queryset())
-        filtered_expenses = filterset.qs.order_by('-date', 'id')
+        filtered_expenses = filterset.qs.order_by('-date', '-id')
 
         year = request.query_params.get('year', None)
         month = request.query_params.get('month', None)

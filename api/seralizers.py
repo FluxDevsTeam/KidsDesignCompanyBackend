@@ -584,7 +584,7 @@ class SalaryWorkersRecordSerializer(ModelSerializer):
 class AssetsSerializer(ModelSerializer):
     class Meta:
         model = Assets
-        fields = ["id", 'name', 'value', 'expected_lifespan', 'is_still_available', "date_added"]
+        fields = ["id", 'name', 'value', 'expected_lifespan', 'is_still_available', "date_added", "end_date"]
         read_only_fields = ["id"]
 
 

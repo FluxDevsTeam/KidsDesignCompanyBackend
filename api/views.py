@@ -849,7 +849,7 @@ class ApiExpense(ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         filterset = self.filter_class(request.GET, queryset=self.get_queryset())
-        filtered_expenses = filterset.qs.order_by('-date')
+        filtered_expenses = filterset.qs.order_by('-date', 'id')
 
         year = request.query_params.get('year', None)
         month = request.query_params.get('month', None)
@@ -858,14 +858,11 @@ class ApiExpense(ModelViewSet):
 
         # Always calculate totals for the current month
         today = timezone.now().date()
-        current_month_total = filtered_expenses.filter(date__month=today.month).aggregate(Sum('amount'))[
-                                  'amount__sum'] or 0.0
+        current_month_total = filtered_expenses.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
         current_month_project_total = \
-        filtered_expenses.filter(project__isnull=False, date__month=today.month).aggregate(Sum('amount'))[
-            'amount__sum'] or 0.0
+        filtered_expenses.filter(project__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
         current_month_shop_total = \
-        filtered_expenses.filter(shop__isnull=False, date__month=today.month).aggregate(Sum('amount'))[
-            'amount__sum'] or 0.0
+        filtered_expenses.filter(shop__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
 
         if year and not month:
             data = []

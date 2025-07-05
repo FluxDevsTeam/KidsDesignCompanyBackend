@@ -47,6 +47,7 @@ class Assets(models.Model):
     is_still_available = models.BooleanField(default=True)
     date_added = models.DateField(default=date.today)
     end_date = models.DateField(null=True, blank=True)
+    note = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} -- {self.value}"

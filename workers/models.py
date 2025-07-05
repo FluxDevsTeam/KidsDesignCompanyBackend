@@ -85,4 +85,4 @@ class Paid(models.Model):
     salary = models.ForeignKey(SalaryWorkers, on_delete=models.PROTECT, null=True, blank=True)
     contract = models.ForeignKey(Contractors, on_delete=models.PROTECT, null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateField(auto_now_add=True)
+    date = models.DateField(default=date.today)

@@ -259,8 +259,8 @@ class ApiAdminDashboard(viewsets.ViewSet):
         all_contractors = Contractors.objects.all()
         # Financial Health
         total_expenses = expense.aggregate(total=Sum('amount'))['total'] or 0
-        active_assets = assets.filter(is_still_available=True).aggregate(total=Sum('value'))['total'] or 0
-        deprecated_assets = assets.filter(is_still_available=False).aggregate(total=Sum('value'))['total'] or 0
+        active_assets = assets.filter(is_still_available=True).count() or 0
+        deprecated_assets = assets.filter(is_still_available=False).count() or 0
 
         categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by(
             '-total')
@@ -361,11 +361,10 @@ class ApiAccountantDashboard(viewsets.ViewSet):
         all_contractors = Contractors.objects.all()
         # Financial Health
         total_expenses = expense.aggregate(total=Sum('amount'))['total'] or 0
-        active_assets = assets.filter(is_still_available=True).aggregate(total=Sum('value'))['total'] or 0
-        deprecated_assets = assets.filter(is_still_available=False).aggregate(total=Sum('value'))['total'] or 0
+        active_assets = assets.filter(is_still_available=True).count() or 0
+        deprecated_assets = assets.filter(is_still_available=False).count() or 0
 
-        categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by(
-            '-total')
+        categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by('-total')
 
         expensis_category_breakdown = []
         for cat in categories:
@@ -600,8 +599,8 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
         profit_month = total_income_this_month - expenses_month
         profit_year = total_income_year - total_expenses_year
 
-        active_assets = assets.filter(is_still_available=True).aggregate(total=Sum('value'))['total'] or 0
-        deprecated_assets = assets.filter(is_still_available=False).aggregate(total=Sum('value'))['total'] or 0
+        active_assets = assets.filter(is_still_available=True).count() or 0
+        deprecated_assets = assets.filter(is_still_available=False).count() or 0
 
         categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by('-total')
 
@@ -938,6 +937,8 @@ class CEODashboardViewSet(viewsets.ViewSet):
 
         # Asset Analysis
         asset_analysis = assets.aggregate(active=Sum('value', filter=Q(is_still_available=True)), deprecated=Sum('value', filter=Q(is_still_available=False)))
+        active_assets = assets.filter(is_still_available=True).count() or 0
+        deprecated_assets = assets.filter(is_still_available=False).count() or 0
 
         # Customer Analysis
         owing_customers = SimpleCustomerSerializer(customer.filter(project__balance__gte=1).distinct(), many=True).data
@@ -1015,8 +1016,8 @@ class CEODashboardViewSet(viewsets.ViewSet):
                 ]
             },
             'asset_analysis': {
-                'active_assets': asset_analysis.get('active', 0),
-                'deprecated_assets': asset_analysis.get('deprecated', 0)
+                'active_assets': active_assets,
+                'deprecated_assets': deprecated_assets
             },
             'customers': {
                 "all_customers_count": all_customers,

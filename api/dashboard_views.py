@@ -274,37 +274,26 @@ class ApiAdminDashboard(viewsets.ViewSet):
                 'percentage': round(percentage, 2)
             })
 
-        # Monthly Trend with Others
+        # Monthly Trends: calculate income, expenses, and profit for each of the last 12 months using the same logic as total_expenses_month, total_income_month, and profit_month
         monthly_trend = []
         for i in range(12):
-            month_start = (today.replace(day=1) - relativedelta(months=i))
+            month_start = today.replace(day=1) - relativedelta(months=i)
             month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
-            month_total = expense.filter(
-                date__gte=month_start,
-                date__lte=month_end
-            ).aggregate(total=Sum('amount'))['total'] or 0
+            # Income for the month (expenses dashboard only tracks expenses, so income is 0)
+            total_income_this_month = 0
 
-            project_total = expense.filter(
-                project__isnull=False,
-                date__range=[month_start, month_end]
-            ).aggregate(total=Sum('amount'))['total'] or 0
+            # Expenses for the month
+            total_expenses_this_month = expense.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum('amount'))['total'] or 0
 
-            shop_total = expense.filter(
-                shop__isnull=False,
-                date__range=[month_start, month_end]
-            ).aggregate(total=Sum('amount'))['total'] or 0
-
-            others_total = month_total - (project_total + shop_total)
+            # Profit for the month
+            profit_month = total_income_this_month - total_expenses_this_month
 
             monthly_trend.append({
                 'month': month_start.strftime("%b %Y"),
-                'total': float(month_total),
-                'type_breakdown': {
-                    'project': float(project_total),
-                    'shop': float(shop_total),
-                    'others': float(others_total)
-                }
+                'total_income': float(total_income_this_month),
+                'total_expenses': float(total_expenses_this_month),
+                'profit': float(profit_month)
             })
         start_of_week = today - timezone.timedelta(days=today.weekday())
         # Top 5 Categories
@@ -387,37 +376,26 @@ class ApiAccountantDashboard(viewsets.ViewSet):
                 'percentage': round(percentage, 2)
             })
 
-        # Monthly Trend with Others
+        # Monthly Trends: calculate income, expenses, and profit for each of the last 12 months using the same logic as total_expenses_month, total_income_month, and profit_month
         monthly_trend = []
         for i in range(12):
-            month_start = (today.replace(day=1) - relativedelta(months=i))
+            month_start = today.replace(day=1) - relativedelta(months=i)
             month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
-            month_total = expense.filter(
-                date__gte=month_start,
-                date__lte=month_end
-            ).aggregate(total=Sum('amount'))['total'] or 0
+            # Income for the month (expenses dashboard only tracks expenses, so income is 0)
+            total_income_this_month = 0
 
-            project_total = expense.filter(
-                project__isnull=False,
-                date__range=[month_start, month_end]
-            ).aggregate(total=Sum('amount'))['total'] or 0
+            # Expenses for the month
+            total_expenses_this_month = expense.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum('amount'))['total'] or 0
 
-            shop_total = expense.filter(
-                shop__isnull=False,
-                date__range=[month_start, month_end]
-            ).aggregate(total=Sum('amount'))['total'] or 0
-
-            others_total = month_total - (project_total + shop_total)
+            # Profit for the month
+            profit_month = total_income_this_month - total_expenses_this_month
 
             monthly_trend.append({
                 'month': month_start.strftime("%b %Y"),
-                'total': float(month_total),
-                'type_breakdown': {
-                    'project': float(project_total),
-                    'shop': float(shop_total),
-                    'others': float(others_total)
-                }
+                'total_income': float(total_income_this_month),
+                'total_expenses': float(total_expenses_this_month),
+                'profit': float(profit_month)
             })
         start_of_week = today - timezone.timedelta(days=today.weekday())
         # Top 5 Categories
@@ -654,67 +632,61 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
             difference = 100 - total_percentage
             expensis_category_breakdown[0]['percentage'] += difference
 
-        # Monthly Trend with Others
         monthly_trend = []
         for i in range(12):
-            month_start = (today.replace(day=1) - relativedelta(months=i))
+            month_start = today.replace(day=1) - relativedelta(months=i)
             month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
-            month_total = expense.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum('amount'))['total'] or 0
-
-            project_total = expense.filter(project__isnull=False, date__range=[month_start, month_end]).aggregate(total=Sum('amount'))['total'] or 0
-
-            shop_total = expense.filter(shop__isnull=False, date__range=[month_start, month_end]).aggregate(total=Sum('amount'))['total'] or 0
-
-            others_total = month_total - (project_total + shop_total)
-
-            monthly_trend.append({
-                'month': month_start.strftime("%b %Y"),
-                'total': float(month_total),
-                'type_breakdown': {
-                    'project': float(project_total),
-                    'shop': float(shop_total),
-                    'others': float(others_total)
-                }
-            })
-
-        monthly_trend_income = []
-        for i in range(12):
-            month_start = (today.replace(day=1) - relativedelta(months=i))
-            month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
-
-            total_shop_income_year = sold.filter(date__gte=month_start, date__lte=month_end).aggregate(
-                total=Sum(
-                    Coalesce(F('selling_price') * F('quantity'), Decimal('0')),
-                    output_field=DecimalField()
-                )
-            )['total'] or 0
-            total_non_project_shop_income_year = sold.filter(project__isnull=True, date__gte=month_start, date__lte=month_end).aggregate(
-                total=Sum(
-                    Coalesce(F('selling_price') * F('quantity'), Decimal('0')),
-                    output_field=DecimalField()
-                )
-            )['total'] or 0
-
-            no_shop_projects_income_year = project.filter(start_date__gte=month_start, start_date__lte=month_end).aggregate(
+            # Income for the month
+            total_project_amount_this_month = project.filter(start_date__year=month_start.year, start_date__month=month_start.month).aggregate(
                 total=Sum(
                     Coalesce(F('selling_price'), Decimal('0')) +
                     Coalesce(F('logistics'), Decimal('0')) +
-                    Coalesce(F('service_charge'), Decimal('0')) -
-                    (total_shop_income_year - total_non_project_shop_income_year),
+                    Coalesce(F('service_charge'), Decimal('0')),
                     output_field=DecimalField()
                 )
             )['total'] or 0
+            total_non_project_sales_this_month = sold.filter(date__year=month_start.year, date__month=month_start.month, project=None).aggregate(
+                total=Sum(
+                    Coalesce(F('selling_price') * F('quantity'), Decimal('0')),
+                    output_field=DecimalField()
+                )
+            )['total'] or 0
+            total_income_this_month = total_project_amount_this_month + total_non_project_sales_this_month
 
-            month_total = total_shop_income_year + no_shop_projects_income_year
+            # Expenses for the month
+            salary_costs_month = paid.filter(contract__isnull=True, date__year=month_start.year, date__month=month_start.month).aggregate(total=Sum('amount'))['total'] or 0
+            contractor_costs_month = product_contractor.filter(product__project__start_date__year=month_start.year, product__project__start_date__month=month_start.month).aggregate(total=Sum('cost'))['total'] or 0
+            raw_material_costs_month = add_raw_materials.filter(date__year=month_start.year, date__month=month_start.month).aggregate(
+                total=Sum(
+                    Coalesce(F('item__price') * F('quantity'), Decimal('0')),
+                    output_field=DecimalField()
+                )
+            )['total'] or 0
+            asset_costs_month = assets.filter(date_added__year=month_start.year, date_added__month=month_start.month).aggregate(total=Sum('value'))['total'] or 0
+            other_expenses_month = expense.filter(date__year=month_start.year, date__month=month_start.month).aggregate(total=Sum('amount'))['total'] or 0
+            other_production_expensis_month = other_production.filter(project__start_date__year=month_start.year, project__start_date__month=month_start.month).aggregate(total=Sum('cost'))['total'] or 0
+            sold_cost_month = sold.filter(date__year=month_start.year, date__month=month_start.month).aggregate(
+                total=Sum(
+                    Coalesce(F('cost_price') * F('quantity'), Decimal('0')),
+                    output_field=DecimalField()
+                )
+            )['total'] or 0
+            expenses_month = sum([
+                sold_cost_month + salary_costs_month,
+                contractor_costs_month,
+                raw_material_costs_month,
+                other_expenses_month + other_production_expensis_month
+            ])
 
-            monthly_trend_income.append({
+            # Profit for the month
+            profit_month = total_income_this_month - expenses_month
+
+            monthly_trend.append({
                 'month': month_start.strftime("%b %Y"),
-                'total': float(month_total),
-                'type_breakdown': {
-                    'project': float(no_shop_projects_income_year),
-                    'shop': float(total_shop_income_year),
-                }
+                'total_income': float(total_income_this_month),
+                'total_expenses': float(expenses_month),
+                'profit': float(profit_month)
             })
 
         start_of_week = today - timezone.timedelta(days=today.weekday())
@@ -775,8 +747,25 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
                 'total_contractors_weekly_pay': total_contractors_weekly_pay,
             },
             'expense_category_breakdown': expensis_category_breakdown,
-            'monthly_expense_trend': list(reversed(monthly_trend)),
-            'monthly_income_trend': list(reversed(monthly_trend_income)),
+            # Maintain the old structure: separate monthly_expense_trend and monthly_income_trend, both as lists of dicts with month and value
+            'monthly_expense_trend': [
+                {
+                    'month': item['month'],
+                    'total_expenses': item['total_expenses']
+                } for item in reversed(monthly_trend)
+            ],
+            'monthly_income_trend': [
+                {
+                    'month': item['month'],
+                    'total_income': item['total_income']
+                } for item in reversed(monthly_trend)
+            ],
+            'monthly_profit_trend': [
+                {
+                    'month': item['month'],
+                    'profit': item['profit']
+                } for item in reversed(monthly_trend)
+            ],
             'top_categories': top_categories,
         }
         return Response(data)
@@ -887,32 +876,59 @@ class CEODashboardViewSet(viewsets.ViewSet):
         # Store Value
         total_store_value = raw_material.aggregate(total=Sum(F('quantity') * F('price')))['total'] or 0
 
-        # Monthly Trends
-        monthly_income = get_monthly_data(sold, 'date', F('selling_price') * F('quantity'))
+        # Calculate suggested_overhead_cost for the current month
         factory_expenses_month = expense.filter(date__year=start_of_month.year, date__month=start_of_month.month, project__isnull=True, shop__isnull=True ).aggregate(total=Sum('amount'))['total'] or 0
-        suggested_overhead_cost = (salary_costs_month + factory_expenses_month) / 26 # 26 is the number of working days in a month
+        suggested_overhead_cost = (salary_costs_month + factory_expenses_month) / 26 if salary_costs_month is not None else 0  # 26 is the number of working days in a month
 
-        monthly_expenses = []
+        # Monthly Trends: maintain old response structure with separate lists for income, expenses, and profit
+        monthly_income_trend = []
+        monthly_expense_trend = []
+        monthly_profit_trend = []
         for i in range(12):
             month_start = today.replace(day=1) - relativedelta(months=i)
             month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
-            expenses = {
-                'salary': paid.filter(contract__isnull=True, date__month=month_start.month, date__year=month_start.year).aggregate(total=Sum('amount'))['total'] or 0,
-                'contractors': ProductContractor.objects.filter(product__project__start_date__year=month_start.year, product__project__start_date__month=month_start.month).aggregate(total=Sum('cost'))['total'] or 0,
-                'materials': AddRawMaterials.objects.filter(date__year=month_start.year,date__month=month_start.month).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0,
-                'other_expensis': expense.filter(date__year=month_start.year, date__month=month_start.month).aggregate(total=Sum('amount'))['total'] or 0,
-                'other_production_expensis': OtherProduction.objects.filter(project__start_date__year=month_start.year, project__start_date__month=month_start.month).aggregate(total=Sum('cost'))['total'] or 0,
-                'sold_cost': sold.filter(date__year=month_start.year, date__month=month_start.month).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
-            }
+            # Income for the month
+            total_shop_income_month = sold.filter(project__isnull=True, date__gte=month_start, date__lte=month_end).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
+            total_non_project_shop_income_month = sold.filter(project__isnull=True, date__gte=month_start, date__lte=month_end).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
+            total_projects_income_month = project.filter(start_date__gte=month_start, start_date__lte=month_end).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge')))['total'] or 0
+            no_shop_projects_income_month = project.filter(start_date__gte=month_start, start_date__lte=month_end).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge') - (total_shop_income_month - total_non_project_shop_income_month)))['total'] or 0
+            total_income_month = no_shop_projects_income_month + total_shop_income_month
 
-            total_expenses = sum(expenses.values())
-            monthly_expenses.append({
+            # Expenses for the month
+            salary_costs_month = paid.filter(contract__isnull=True, date__gte=month_start, date__lte=month_end).aggregate(total=Sum('amount'))['total'] or 0
+            contractor_costs_month = product_contractor.filter(product__project__start_date__gte=month_start, product__project__start_date__lte=month_end).aggregate(total=Sum('cost'))['total'] or 0
+            raw_material_costs_month = add_raw_materials.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
+            asset_costs_month = assets.filter(date_added__gte=month_start, date_added__lte=month_end).aggregate(total=Sum('value'))['total'] or 0
+            other_expenses_month = expense.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum('amount'))['total'] or 0
+            other_production_expensis_month = other_production.filter(project__start_date__gte=month_start, project__start_date__lte=month_end).aggregate(total=Sum('cost'))['total'] or 0
+            sold_cost_month = sold.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
+            total_expenses_month = sum([
+                sold_cost_month + salary_costs_month,
+                contractor_costs_month,
+                raw_material_costs_month,
+                other_expenses_month + other_production_expensis_month
+            ])
+
+            # Profit for the month
+            profit_month = total_income_month - total_expenses_month
+
+            monthly_income_trend.append({
                 'month': month_start.strftime("%b %Y"),
-                'total': total_expenses,
+                'total_income': float(total_income_month)
+            })
+            monthly_expense_trend.append({
+                'month': month_start.strftime("%b %Y"),
+                'total_expenses': float(total_expenses_month)
+            })
+            monthly_profit_trend.append({
+                'month': month_start.strftime("%b %Y"),
+                'profit': float(profit_month)
             })
 
-        monthly_expenses.reverse()
+        monthly_income_trend.reverse()
+        monthly_expense_trend.reverse()
+        monthly_profit_trend.reverse()
 
         # Categorical Breakdowns for the year
         expense_categories_year = expense_category.filter(expense__date__gte=start_of_year).annotate(total=Sum('expense__amount')).values('name', 'total').order_by('-total')
@@ -983,11 +999,9 @@ class CEODashboardViewSet(viewsets.ViewSet):
                 'other_production_expensis': round(other_production_expensis_month, 2) if other_production_expensis_month is not None else 0,
                 'monthly_sold_cost_price': round(sold_cost_month, 2) if sold_cost_month is not None else 0,
             },
-            'monthly_trends': {
-                'income': monthly_income,
-                'expenses': monthly_expenses,
-                'profit': [{'month': m['month'], 'total': float(m['total'] or 0) - float(e['total'] or 0)} for m, e in zip(monthly_income, monthly_expenses)]
-            },
+            'monthly_income_trend': monthly_income_trend,
+            'monthly_expense_trend': monthly_expense_trend,
+            'monthly_profit_trend': monthly_profit_trend,
             'categorical_data_year': {
                 'expense_categories': [
                     {'name': cat['name'], 'value': cat['total']}
@@ -1111,34 +1125,48 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
         # Profit Calculations for the current month
         profit_month = total_projects_income_month - total_project_expenses_month
 
-        # Monthly Trends
-        monthly_income = get_monthly_data(project, 'start_date', F('selling_price') + F('logistics') + F('service_charge'))
-
-        monthly_expenses = []
+        # Monthly Trends: maintain old response structure with separate lists for income, expenses, and profit
+        monthly_income_trend = []
+        monthly_expense_trend = []
+        monthly_profit_trend = []
         for i in range(12):
             month_start = today.replace(day=1) - relativedelta(months=i)
             month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
-            contractor_costs_month = product_contractor.filter(product__project__start_date__year=month_start.year,product__project__start_date__month=month_start.month).aggregate(total=Sum('cost'))['total'] or 0
+            # Income for the month
+            total_projects_income_month = project.filter(start_date__gte=month_start, start_date__lte=month_end).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge')))['total'] or 0
+            total_project_shop_income_month = sold.filter(project__isnull=False, date__gte=month_start, date__lte=month_end).aggregate(total=Sum(F('selling_price') * F('quantity')))['total'] or 0
+            no_shop_projects_income_month = project.filter(start_date__gte=month_start, start_date__lte=month_end).aggregate(total=Sum(F('selling_price') + F('logistics') + F('service_charge') - total_project_shop_income_month))['total'] or 0
+            total_income_month = no_shop_projects_income_month + total_project_shop_income_month
 
-            raw_material_costs_month = add_raw_materials.filter(date__year=month_start.year,date__month=month_start.month).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
+            # Expenses for the month
+            contractor_costs_month = product_contractor.filter(product__project__start_date__gte=month_start, product__project__start_date__lte=month_end).aggregate(total=Sum('cost'))['total'] or 0
+            raw_material_costs_month = add_raw_materials.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
+            overhead_cost_month = product.filter(project__start_date__gte=month_start, project__start_date__lte=month_end).aggregate(total=Coalesce(Sum(F("overhead_cost") * F("overhead_cost_base_at_creation")), Decimal(0)))['total']
+            expenses_month = expense.filter(date__gte=month_start, date__lte=month_end, project__isnull=False).aggregate(total=Sum('amount'))['total'] or 0
+            other_production_expensis_month = other_production.filter(project__start_date__gte=month_start, project__start_date__lte=month_end).aggregate(total=Sum('cost'))['total'] or 0
+            sold_cost_month = sold.filter(date__gte=month_start, date__lte=month_end, project__isnull=False).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
+            total_project_expenses_month = sum([overhead_cost_month + sold_cost_month, contractor_costs_month, raw_material_costs_month, expenses_month + other_production_expensis_month])
 
-            overhead_cost_month = product.filter(project__start_date__year=month_start.year, project__start_date__month=month_start.month, ).aggregate(total=Coalesce(Sum(F("overhead_cost") * F("overhead_cost_base_at_creation")), Decimal(0)))["total"]
+            # Profit for the month
+            profit_month = total_income_month - total_project_expenses_month
 
-            expenses_month = expense.filter(date__year=month_start.year,date__month=month_start.month, project__isnull=False).aggregate(total=Sum('amount'))['total'] or 0
-
-            other_production_expensis_month = other_production.filter( project__start_date__year=month_start.year, project__start_date__month=month_start.month).aggregate(total=Sum('cost'))['total'] or 0
-
-            sold_cost_month = sold.filter(date__year=month_start.year,date__month=month_start.month, project__isnull=False).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
-
-            total_project = sum([overhead_cost_month + sold_cost_month, contractor_costs_month, raw_material_costs_month,expenses_month + other_production_expensis_month])
-
-            monthly_expenses.append({
+            monthly_income_trend.append({
                 'month': month_start.strftime("%b %Y"),
-                'total': total_project,
+                'total_income': float(total_income_month)
+            })
+            monthly_expense_trend.append({
+                'month': month_start.strftime("%b %Y"),
+                'total_expenses': float(total_project_expenses_month)
+            })
+            monthly_profit_trend.append({
+                'month': month_start.strftime("%b %Y"),
+                'profit': float(profit_month)
             })
 
-        monthly_expenses.reverse()
+        monthly_income_trend.reverse()
+        monthly_expense_trend.reverse()
+        monthly_profit_trend.reverse()
         owing_customers = SimpleCustomerSerializer(customer.filter(project__balance__gte=1).distinct(), many=True).data
         owing_customers_count = customer.filter(project__balance__gte=1).distinct().count()
         all_customers = customer.count()
@@ -1188,14 +1216,9 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
                 'monthly_sold_cost_price': round(sold_cost_month, 2),
                 'total_project_expenses_month': round(total_project_expenses_month, 2),
             },
-            'monthly_trends': {
-                'income': monthly_income,
-                'expenses': monthly_expenses,
-                'profit': [{
-                    'month': m['month'],
-                    'total': float(m['total'] or 0) - float(e['total'] or 0)
-                } for m, e in zip(monthly_income, monthly_expenses)]
-            },
+            'monthly_income_trend': monthly_income_trend,
+            'monthly_expense_trend': monthly_expense_trend,
+            'monthly_profit_trend': monthly_profit_trend,
             'customers': {
                 "all_customers_count": all_customers,
                 "active_customers_count": all_active_customers,

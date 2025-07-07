@@ -287,7 +287,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "profit": self.get_profit(obj),
             "quantity": obj.quantity,
             "total_per_item": self.get_total_per_item(obj),
-            "profit_per_item": self.get_total_raw_material_cost(obj),
+            "profit_per_item": self.get_profit_per_item(obj),
         }
 
     def get_total_raw_material_cost(self, obj):

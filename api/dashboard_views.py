@@ -262,19 +262,31 @@ class ApiAdminDashboard(viewsets.ViewSet):
         active_assets = assets.filter(is_still_available=True).count() or 0
         deprecated_assets = assets.filter(is_still_available=False).count() or 0
 
-        categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by(
-            '-total')
+        categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by('-total')
+        total_expenses = sum(cat.total for cat in categories) if categories else 0
+        expense_category_breakdown = []
+        top_5_categories = categories[:5]
+        top_5_percentage_sum = 0
 
-        expensis_category_breakdown = []
-        for cat in categories:
+        for cat in top_5_categories:
             percentage = ((cat.total / total_expenses) * 100) if total_expenses else 0
-            expensis_category_breakdown.append({
+            top_5_percentage_sum += percentage
+            expense_category_breakdown.append({
                 'category': cat.name,
                 'total': cat.total,
                 'percentage': round(percentage, 2)
             })
 
-        # Monthly Trends: calculate income, expenses, and profit for each of the last 12 months using the same logic as total_expenses_month, total_income_month, and profit_month
+        if total_expenses and top_5_percentage_sum < 100:
+            remaining_percentage = round(100 - top_5_percentage_sum, 2)
+            remaining_total = sum(cat.total for cat in categories[5:]) if len(categories) > 5 else 0
+            if remaining_total > 0:
+                expense_category_breakdown.append({
+                    'category': 'Others',
+                    'total': remaining_total,
+                    'percentage': remaining_percentage
+                })
+
         monthly_trend = []
         for i in range(12):
             month_start = today.replace(day=1) - relativedelta(months=i)
@@ -340,7 +352,7 @@ class ApiAdminDashboard(viewsets.ViewSet):
                 "total_contractors_weekly_pay": total_contractors_weekly_pay,
             },
 
-            'expense_category_breakdown': expensis_category_breakdown,
+            'expense_category_breakdown': expense_category_breakdown,
             'monthly_expense_trend': list(reversed(monthly_trend)),
             'top_categories': top_categories,
         }
@@ -365,17 +377,31 @@ class ApiAccountantDashboard(viewsets.ViewSet):
         deprecated_assets = assets.filter(is_still_available=False).count() or 0
 
         categories = ExpenseCategory.objects.annotate(total=Sum('expense__amount')).filter(total__gt=0).order_by('-total')
+        total_expenses = sum(cat.total for cat in categories) if categories else 0
+        expense_category_breakdown = []
+        top_5_categories = categories[:5]
+        top_5_percentage_sum = 0
 
-        expensis_category_breakdown = []
-        for cat in categories:
+        for cat in top_5_categories:
             percentage = ((cat.total / total_expenses) * 100) if total_expenses else 0
-            expensis_category_breakdown.append({
+            top_5_percentage_sum += percentage
+            expense_category_breakdown.append({
                 'category': cat.name,
                 'total': cat.total,
                 'percentage': round(percentage, 2)
             })
 
-        # Monthly Trends: calculate income, expenses, and profit for each of the last 12 months using the same logic as total_expenses_month, total_income_month, and profit_month
+        if total_expenses and top_5_percentage_sum < 100:
+            remaining_percentage = round(100 - top_5_percentage_sum, 2)
+            remaining_total = sum(cat.total for cat in categories[5:]) if len(categories) > 5 else 0
+            if remaining_total > 0:
+                expense_category_breakdown.append({
+                    'category': 'Others',
+                    'total': remaining_total,
+                    'percentage': remaining_percentage
+                })
+
+
         monthly_trend = []
         for i in range(12):
             month_start = today.replace(day=1) - relativedelta(months=i)
@@ -441,7 +467,7 @@ class ApiAccountantDashboard(viewsets.ViewSet):
                 "total_contractors_weekly_pay": total_contractors_weekly_pay,
             },
 
-            'expense_category_breakdown': expensis_category_breakdown,
+            'expense_category_breakdown': expense_category_breakdown,
             'monthly_expense_trend': list(reversed(monthly_trend)),
             'top_categories': top_categories,
         }

@@ -617,7 +617,16 @@ class ApiSold(ModelViewSet):
         project = request.data.get("project")
         customer = request.data.get("customer")
         logistics = request.data.get("logistics")
+        date = request.data.get("date")
         sold_item = self.get_object()
+
+        if date:
+            try:
+                sold_item.date = date
+                sold_item.save()
+            except:
+                return Response(
+                    {"error": "date format is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
 
         if (customer and (not logistics)) and (logistics and (not customer)) and (
                 customer and (not sold_item.logistics)) and (logistics and (not sold_item.customer)):
@@ -1321,6 +1330,7 @@ class ApiRemoved(ModelViewSet):
         if date:
             try:
                 removed_item.date = date
+                removed_item.save()
             except:
                 return Response(
                     {"error": "date format is incorrect"}, status=status.HTTP_400_BAD_REQUEST)

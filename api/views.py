@@ -1312,12 +1312,18 @@ class ApiRemoved(ModelViewSet):
         material = request.data.get("material")
         quantity = request.data.get("quantity")
         product = request.data.get("product")
+        date = request.data.get("date")
         removed_item = self.get_object()
 
-        if not material and not quantity and not product:
+        if not material and not quantity and not product and not date:
             return Response(
-                {"error": "Either one of 'material', 'quantity', 'product' or more is required."},
-                status=status.HTTP_400_BAD_REQUEST)
+                {"error": "Either one or more of 'material', 'quantity', 'product' or 'date'' is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if date:
+            try:
+                removed_item.date = date
+            except:
+                return Response(
+                    {"error": "date format is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
 
         if quantity is not None:
             try:

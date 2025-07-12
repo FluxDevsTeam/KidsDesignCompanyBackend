@@ -293,19 +293,15 @@ class ApiAdminDashboard(viewsets.ViewSet):
             month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
             # Income for the month (expenses dashboard only tracks expenses, so income is 0)
-            total_income_this_month = 0
 
             # Expenses for the month
             total_expenses_this_month = expense.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum('amount'))['total'] or 0
 
             # Profit for the month
-            profit_month = total_income_this_month - total_expenses_this_month
 
             monthly_trend.append({
                 'month': month_start.strftime("%b %Y"),
-                'total_income': float(total_income_this_month),
                 'total_expenses': float(total_expenses_this_month),
-                'profit': float(profit_month)
             })
         start_of_week = today - timezone.timedelta(days=today.weekday())
         # Top 5 Categories
@@ -408,19 +404,15 @@ class ApiAccountantDashboard(viewsets.ViewSet):
             month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
             # Income for the month (expenses dashboard only tracks expenses, so income is 0)
-            total_income_this_month = 0
 
             # Expenses for the month
             total_expenses_this_month = expense.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum('amount'))['total'] or 0
 
             # Profit for the month
-            profit_month = total_income_this_month - total_expenses_this_month
 
             monthly_trend.append({
                 'month': month_start.strftime("%b %Y"),
-                'total_income': float(total_income_this_month),
                 'total_expenses': float(total_expenses_this_month),
-                'profit': float(profit_month)
             })
         start_of_week = today - timezone.timedelta(days=today.weekday())
         # Top 5 Categories

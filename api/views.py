@@ -1459,12 +1459,8 @@ class ApiSalaryWorkers(viewsets.ModelViewSet):
 
             salary_workers_count = filtered_salary_workers.count()
             active_salary_workers_count = filtered_salary_workers.filter(is_still_active=True).count()
-            total_salary_workers_monthly_pay = filtered_salary_workers.aggregate(
-                total=Sum("salary")
-            )["total"] or 0.0
-            total_paid = filtered_salary_workers.filter(
-                paid__date__month=today.month
-            ).aggregate(total=Sum("paid__amount"))["total"] or 0.0
+            total_salary_workers_monthly_pay = filtered_salary_workers.filter(is_still_active=True).aggregate(total=Sum("salary"))["total"] or 0.0
+            total_paid = filtered_salary_workers.filter(paid__date__month=today.month).aggregate(total=Sum("paid__amount"))["total"] or 0.0
 
             page = self.paginate_queryset(filtered_salary_workers)
             if page is not None:

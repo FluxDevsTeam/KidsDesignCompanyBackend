@@ -217,20 +217,29 @@ class ApiAddRawMaterials(ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         quantity = request.data.get("quantity")
+        date = request.data.get("date")
 
         try:
             quantity = Decimal(quantity)
         except ValueError:
             return Response({"error": "Invalid quantity format"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not quantity:
-            return Response({"error": "quantity required"})
+        if not quantity and not date:
+            return Response({"error": "at least one of date and quantity is required"})
 
         if quantity <= 0:
             return Response({"error": "quantity  most be a positive number"})
 
         added_material = self.get_object()
         with transaction.atomic():
+            if date:
+                try:
+                    added_material.date = date
+                    added_material.save()
+                except:
+                    return Response(
+                        {"error": "date format is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
+
             if added_material.item:
                 raw_material = get_object_or_404(RawMaterial, id=added_material.item.id)
                 change = abs(added_material.quantity - quantity)
@@ -384,9 +393,10 @@ class ApiAddStock(ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         quantity = request.data.get("quantity")
+        date = request.data.get("date")
 
-        if not quantity:
-            return Response({"error": "quantity required"})
+        if not quantity and not date:
+            return Response({"error": "quantity or/and date required"})
 
         try:
             quantity = Decimal(quantity)  # Convert to Decimal
@@ -398,6 +408,14 @@ class ApiAddStock(ModelViewSet):
 
         added_stock = self.get_object()
         with transaction.atomic():
+            if date:
+                try:
+                    added_stock.date = date
+                    added_stock.save()
+                except:
+                    return Response(
+                        {"error": "date format is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
+
             if added_stock.item:
                 inventory_item = get_object_or_404(InventoryItem, id=added_stock.item.id)
                 change = abs(added_stock.quantity - quantity)

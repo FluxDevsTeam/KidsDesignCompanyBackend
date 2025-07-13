@@ -135,7 +135,6 @@ class RemovedFilter(django_filters.FilterSet):
         return queryset.filter(date__day=int(value))
 
 
-
 class InventoryItemFilter(django_filters.FilterSet):
     archived = django_filters.BooleanFilter(field_name='archived')
     empty_stock = django_filters.BooleanFilter(method='filter_empty_stock', label='Empty Stock')

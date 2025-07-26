@@ -269,21 +269,12 @@ class ProductSalaryWorkerSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'product']
 
 
-class ProductRawMaterialRemovedSerializer(serializers.ModelSerializer):
-    raw_material = SimpleRawMaterialSerializer(source="material", read_only=True)
-
-    class Meta:
-        model = Removed
-        fields = ["id", "raw_material", "name", "quantity", "price", "product_its_used", "date"]
-        read_only_fields = ["id"]
-
-
 class AggregatedRawMaterialSerializer(serializers.Serializer):
     raw_material = SimpleRawMaterialSerializer(source="material", read_only=True)
     name = serializers.CharField()
     quantity = serializers.IntegerField()
     price = serializers.DecimalField(max_digits=10, decimal_places=2, allow_null=True)
-    date = serializers.DateTimeField(allow_null=True)
+    date = serializers.DateField(allow_null=True)
 
 
 class ProductRawMaterialRemovedSerializer(serializers.ModelSerializer):

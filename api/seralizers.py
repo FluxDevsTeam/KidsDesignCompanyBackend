@@ -115,6 +115,13 @@ class SoldSerializer(ModelSerializer):
         extra_kwargs = {'customer': {'write_only': True}, 'item': {'write_only': True}, 'project': {'write_only': True}}
 
 
+class SimpleRawMaterialSerializer(ModelSerializer):
+    class Meta:
+        model = RawMaterial
+        fields = ["id", "name", "unit"]
+        read_only_fields = ["id"]
+
+
 class AddSockSerializer(ModelSerializer):
     inventory_item = SimpleInventoryItemSerializer(source="item", read_only=True)
 
@@ -262,21 +269,88 @@ class ProductSalaryWorkerSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'product']
 
 
+class ProductRawMaterialRemovedSerializer(serializers.ModelSerializer):
+    raw_material = SimpleRawMaterialSerializer(source="material", read_only=True)
+
+    class Meta:
+        model = Removed
+        fields = ["id", "raw_material", "name", "quantity", "price", "product_its_used", "date"]
+        read_only_fields = ["id"]
+
+
+class AggregatedRawMaterialSerializer(serializers.Serializer):
+    raw_material = SimpleRawMaterialSerializer(source="material", read_only=True)
+    name = serializers.CharField()
+    quantity = serializers.IntegerField()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2, allow_null=True)
+    date = serializers.DateTimeField(allow_null=True)
+
+
+class ProductRawMaterialRemovedSerializer(serializers.ModelSerializer):
+    raw_material = SimpleRawMaterialSerializer(source="material", read_only=True)
+
+    class Meta:
+        model = Removed
+        fields = ["id", "raw_material", "name", "quantity", "price", "product_its_used", "date"]
+        read_only_fields = ["id"]
+
+
 class ProductSerializer(serializers.ModelSerializer):
     contractors = ProductContractorSerializer(source="productcontractor_set", many=True, read_only=True)
     salary_workers = ProductSalaryWorkerSerializer(source="productsalaryworker_set", many=True, read_only=True)
-    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.filter(archived=False, is_delivered=False),required=False,allow_null=True,write_only=True)
+    project = serializers.PrimaryKeyRelatedField(
+        queryset=Project.objects.filter(archived=False, is_delivered=False),
+        required=False,
+        allow_null=True,
+        write_only=True
+    )
     linked_project = SimpleProjectSerializer(source="project", read_only=True)
-
+    raw_materials = serializers.SerializerMethodField()
+    quotation = QuotationSerializer(source="quotation_set", many=True, read_only=True)
     calculations = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
-            "id", "project", "quantity", "linked_project", "name", "images", "sketch", "dimensions", "colour", "design",
-            "production_note", "progress", "contractors", "salary_workers", "tasks", "selling_price", "overhead_cost",
-            "overhead_cost_base_at_creation", "calculations"]
+            "id", "project", "quantity", "linked_project", "raw_materials", "quotation", "name", "images", "sketch",
+            "dimensions", "colour", "design", "production_note", "progress", "contractors", "salary_workers",
+            "tasks",
+            "selling_price", "overhead_cost", "overhead_cost_base_at_creation", "calculations"
+        ]
         read_only_fields = ['overhead_cost_base_at_creation']
+
+    def get_raw_materials(self, obj):
+        removed_items = obj.removed_set.all()
+        material_price_dict = {}
+        for item in removed_items:
+            material_id = item.material.id
+            price = item.price
+            key = (material_id, price)
+            if key not in material_price_dict:
+                material_price_dict[key] = {
+                    'material': item.material,
+                    'name': item.name,
+                    'quantity': 0,
+                    'price': price,
+                    'date': item.date,
+                }
+            material_price_dict[key]['quantity'] += item.quantity
+            if item.date and (not material_price_dict[key]['date'] or item.date > material_price_dict[key]['date']):
+                material_price_dict[key]['date'] = item.date
+
+        aggregated_data = [
+            {
+                'material': item['material'],
+                'name': item['name'],
+                'quantity': item['quantity'],
+                'price': item['price'],
+                'date': item['date'],
+            }
+            for item in material_price_dict.values()
+        ]
+        # Sort by material.id
+        aggregated_data.sort(key=lambda x: x['material'].id)
+        return AggregatedRawMaterialSerializer(aggregated_data, many=True).data
 
     def get_calculations(self, obj):
         return {
@@ -336,13 +410,6 @@ class RawMaterialSerializer(ModelSerializer):
     class Meta:
         model = RawMaterial
         fields = ["id", "name", "unit", "quantity", "price", "category", "store_category", "archived", "description", "image", ]
-        read_only_fields = ["id"]
-
-
-class SimpleRawMaterialSerializer(ModelSerializer):
-    class Meta:
-        model = RawMaterial
-        fields = ["id", "name", "unit"]
         read_only_fields = ["id"]
 
 

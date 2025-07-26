@@ -368,14 +368,15 @@ class ProjectSerializer(serializers.ModelSerializer):
     other_productions = serializers.SerializerMethodField()
     calculations = serializers.SerializerMethodField()
     customer_detail = SimpleCustomerSerializer(source="customer", read_only=True)
+    total = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
         fields = [
-            'id', 'name', 'invoice_image', 'status', 'start_date', 'deadline', 'timeframe', 'date_delivered',
-            'all_items', 'tasks', 'is_delivered', 'archived', 'customer', 'customer_detail',
-            'products', 'sold_items', 'expenses', 'other_productions', 'selling_price', 'logistics',
-            'service_charge', 'note', "calculations"
+            'id', 'name', 'invoice_image','selling_price', 'logistics', 'service_charge', 'status', 'start_date',
+            'deadline', 'timeframe', 'date_delivered', 'all_items', 'tasks', 'is_delivered', 'archived', 'customer',
+            'customer_detail', 'products', 'sold_items', 'expenses', 'other_productions',  'total', 'note',
+            "calculations"
         ]
         read_only_fields = ['id']
         extra_kwargs = {'customer': {'write_only': True}}
@@ -394,7 +395,7 @@ class ProjectSerializer(serializers.ModelSerializer):
 
         return {
             "progress": getattr(obj, "computed_progress", 0),
-            "total_project_selling_price": round(total_selling_price),
+            "total_product_selling_price": round(total_selling_price),
             "total_production_cost": total_production_cost,
             "total_artisan_cost": total_artisan_cost,
             "total_overhead_cost": total_overhead_cost,
@@ -515,6 +516,9 @@ class ProjectSerializer(serializers.ModelSerializer):
     def get_total_paid(self, obj):
         return round(
             (obj.selling_price or Decimal(0)) + (obj.logistics or Decimal(0)) + (obj.service_charge or Decimal(0)))
+
+    def get_total(self, obj):
+        return round((obj.selling_price or Decimal(0)) + (obj.logistics or Decimal(0)) + (obj.service_charge or Decimal(0)))
 
     def get_final_profit(self, obj):
         return self.get_total_paid(obj) - self.get_total_money_spent(obj)

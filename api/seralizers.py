@@ -270,7 +270,6 @@ class ProductSalaryWorkerSerializer(serializers.ModelSerializer):
 
 
 class AggregatedRawMaterialSerializer(serializers.Serializer):
-    raw_material = SimpleRawMaterialSerializer(source="material", read_only=True)
     name = serializers.CharField()
     quantity = serializers.IntegerField()
     price = serializers.DecimalField(max_digits=10, decimal_places=2, allow_null=True)
@@ -331,7 +330,6 @@ class ProductSerializer(serializers.ModelSerializer):
 
         aggregated_data = [
             {
-                'material': item['material'],
                 'name': item['name'],
                 'quantity': item['quantity'],
                 'price': item['price'],
@@ -339,7 +337,6 @@ class ProductSerializer(serializers.ModelSerializer):
             }
             for item in material_price_dict.values()
         ]
-        # Sort by material.id
         aggregated_data.sort(key=lambda x: x['material'].id)
         return AggregatedRawMaterialSerializer(aggregated_data, many=True).data
 

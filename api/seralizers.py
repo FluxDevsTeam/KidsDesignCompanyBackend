@@ -295,7 +295,7 @@ class ProductSerializer(serializers.ModelSerializer):
         allow_null=True,
         write_only=True
     )
-    linked_project = SimpleProjectSerializer(source="project", read_only=True)
+    linked_project = SimpleProjectSerializer(source="project_set", read_only=True)
     raw_materials = serializers.SerializerMethodField()
     quotation = QuotationSerializer(source="quotation_set", many=True, read_only=True)
     expensis = SimpleExpenseSerializer(source="expense_set", many=True, read_only=True)

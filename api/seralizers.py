@@ -295,7 +295,7 @@ class ProductSerializer(serializers.ModelSerializer):
         allow_null=True,
         write_only=True
     )
-    linked_project = SimpleProjectSerializer(source="project_set", read_only=True)
+    linked_project = SimpleProjectSerializer(source="project", read_only=True)
     raw_materials = serializers.SerializerMethodField()
     quotation = QuotationSerializer(source="quotation_set", many=True, read_only=True)
     expensis = SimpleExpenseSerializer(source="expense_set", many=True, read_only=True)
@@ -606,11 +606,19 @@ class ContractorRecordSerializer(ModelSerializer):
         read_only_fields = ['id']
 
 
+class SimpleProductSerializer(serializers.ModelSerializer):
+    project = SimpleProjectSerializer(source="product_set", read_only=True)
+    class Meta:
+        model = Product
+        fields = [ "id", "project", "quantity", "name",]
+
+
+
 class ExpenseSerializer(ModelSerializer):
     expense_category = ExpenseCategorySerializer(source="category", read_only=True)
     linked_project = SimpleProjectSerializer(source="project", read_only=True)
     sold_item = SimpleSoldSerializer(source="shop", read_only=True)
-    linked_product = SimpleProductSerializer(source="shop", read_only=True)
+    linked_product = SimpleProductSerializer(source="product_set", read_only=True)
 
     class Meta:
         model = Expense

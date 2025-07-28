@@ -6,6 +6,7 @@ from django.db.models import Sum
 
 from project.models import Project
 from shop.models import Sold
+from products.models import Product
 
 
 class ExpenseCategory(models.Model):
@@ -20,6 +21,7 @@ class Expense(models.Model):
     category = models.ForeignKey(ExpenseCategory, on_delete=models.SET_NULL, null=True)
     project = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True)
     shop = models.ForeignKey(Sold, on_delete=models.PROTECT, null=True, blank=True)
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.CharField(max_length=200)
@@ -29,7 +31,7 @@ class Expense(models.Model):
         return f"{self.description})"
 
     def clean(self):
-        if self.project and self.shop:
+        if self.project and self.shop and self.product or self.shop and self.product or self.project and self.product or self.project and self.shop:
             raise ValidationError("Expense cannot be associated with both a project and a shop item.")
 
     def save(self, *args, **kwargs):

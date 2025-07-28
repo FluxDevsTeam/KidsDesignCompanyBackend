@@ -20,7 +20,7 @@ from decimal import Decimal
 class SimpleExpenseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Expense
-        fields = ['name', 'amount']
+        fields = ['name', 'amount', 'quantity', 'date']
 
 
 class SimpleContractorsSerializer(ModelSerializer):

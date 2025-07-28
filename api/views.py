@@ -890,6 +890,8 @@ class ApiExpense(ModelViewSet):
         filtered_expenses.filter(project__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
         current_month_shop_total = \
         filtered_expenses.filter(shop__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        current_month_product_total = \
+        filtered_expenses.filter(product__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
 
         if year and not month:
             data = []

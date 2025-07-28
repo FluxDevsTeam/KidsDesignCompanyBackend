@@ -917,6 +917,7 @@ class ApiExpense(ModelViewSet):
                 "monthly_total": float(current_month_total),
                 "monthly_project_expenses_total": float(current_month_project_total),
                 "monthly_shop_expenses_total": float(current_month_shop_total),
+                "current_month_product_total": float(current_month_product_total),
                 "daily_data": data,
                 "yearly_total": float(yearly_total),
             }

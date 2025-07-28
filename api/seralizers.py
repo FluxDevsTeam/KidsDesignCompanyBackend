@@ -29,12 +29,6 @@ class SimpleContractorsSerializer(ModelSerializer):
         fields = ['id', 'first_name', 'last_name']
 
 
-class SimpleProductSerializer(ModelSerializer):
-    class Meta:
-        model = Product
-        fields = ['id', 'name', 'selling_price', 'progress']
-
-
 class SimpleSoldSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='item.name', read_only=True)
 
@@ -611,7 +605,6 @@ class SimpleProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [ "id", "project", "quantity", "name",]
-
 
 
 class ExpenseSerializer(ModelSerializer):

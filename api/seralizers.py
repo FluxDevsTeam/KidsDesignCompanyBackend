@@ -96,6 +96,14 @@ class SimpleProjectSerializer(ModelSerializer):
         read_only_fields = ["id"]
 
 
+class SimpleProductSerializer(serializers.ModelSerializer):
+    project = SimpleProjectSerializer(source="product_set", read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [ "id", "project", "quantity", "name",]
+
+
 class SoldSerializer(ModelSerializer):
     item_sold = SimpleInventoryItemSerializer(source="item", read_only=True)
     sold_to = SimpleCustomerSerializer(source="customer", read_only=True)
@@ -598,13 +606,6 @@ class ContractorRecordSerializer(ModelSerializer):
         model = ContractorRecord
         fields = ['id', 'report', 'date', 'worker']
         read_only_fields = ['id']
-
-
-class SimpleProductSerializer(serializers.ModelSerializer):
-    project = SimpleProjectSerializer(source="product_set", read_only=True)
-    class Meta:
-        model = Product
-        fields = [ "id", "project", "quantity", "name",]
 
 
 class ExpenseSerializer(ModelSerializer):

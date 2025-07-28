@@ -97,11 +97,11 @@ class SimpleProjectSerializer(ModelSerializer):
 
 
 class SimpleProductSerializer(serializers.ModelSerializer):
-    project = SimpleProjectSerializer(source="product_set", read_only=True)
+    project = SimpleProjectSerializer(source="project", read_only=True)
 
     class Meta:
         model = Product
-        fields = [ "id", "project", "quantity", "name",]
+        fields = ["id", "project", "quantity", "name",]
 
 
 class SoldSerializer(ModelSerializer):
@@ -612,7 +612,7 @@ class ExpenseSerializer(ModelSerializer):
     expense_category = ExpenseCategorySerializer(source="category", read_only=True)
     linked_project = SimpleProjectSerializer(source="project", read_only=True)
     sold_item = SimpleSoldSerializer(source="shop", read_only=True)
-    linked_product = SimpleProductSerializer(source="product_set", read_only=True)
+    linked_product = SimpleProductSerializer(source="product", read_only=True)
 
     class Meta:
         model = Expense

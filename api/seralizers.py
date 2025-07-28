@@ -104,7 +104,7 @@ class SimpleProductSerializer(serializers.ModelSerializer):
 
 
 class ExpenseProductSerializer(serializers.ModelSerializer):
-    project = SimpleProjectSerializer(source="project", read_only=True)
+    project = SimpleProjectSerializer(read_only=True)
 
     class Meta:
         model = Product

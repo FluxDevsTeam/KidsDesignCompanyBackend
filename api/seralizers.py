@@ -285,16 +285,6 @@ class ProductRawMaterialRemovedSerializer(serializers.ModelSerializer):
         fields = ["id", "raw_material", "name", "quantity", "price", "product_its_used", "date"]
         read_only_fields = ["id"]
 
-    class Meta:
-        model = Product
-        fields = [
-            "id", "project", "quantity", "linked_project", "raw_materials", "quotation", "name", "images", "sketch",
-            "dimensions", "colour", "design", "production_note", "progress", "contractors", "salary_workers",
-            "tasks",
-            "selling_price", "overhead_cost", "overhead_cost_base_at_creation", "calculations"
-        ]
-        read_only_fields = ['overhead_cost_base_at_creation']
-
 
 class ProductSerializer(serializers.ModelSerializer):
     contractors = ProductContractorSerializer(source="productcontractor_set", many=True, read_only=True)
@@ -308,15 +298,15 @@ class ProductSerializer(serializers.ModelSerializer):
     linked_project = SimpleProjectSerializer(source="project", read_only=True)
     raw_materials = serializers.SerializerMethodField()
     quotation = QuotationSerializer(source="quotation_set", many=True, read_only=True)
+    expensis = SimpleExpenseSerializer(source="expense_set", many=True, read_only=True)
     calculations = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
-            "id", "project", "quantity", "linked_project", "raw_materials", "quotation", "name", "images", "sketch",
+            "id", "project", "quantity", "linked_project", "raw_materials", "expensis", "quotation", "name", "images", "sketch",
             "dimensions", "colour", "design", "production_note", "progress", "contractors", "salary_workers",
-            "tasks",
-            "selling_price", "overhead_cost", "overhead_cost_base_at_creation", "calculations"
+            "tasks", "selling_price", "overhead_cost", "overhead_cost_base_at_creation", "calculations"
         ]
         read_only_fields = ['overhead_cost_base_at_creation']
 

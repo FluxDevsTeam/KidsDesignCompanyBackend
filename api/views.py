@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from decimal import Decimal, InvalidOperation
 
-from income.models import Income, IncomeCategory
+from income.models import Income, IncomeCategory, Balance
 from .pagination import AssetsPagination
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
@@ -1768,16 +1768,14 @@ class IncomeApi(viewsets.ModelViewSet):
         month = request.query_params.get('month', None)
 
         filtered = filtered_income
-
+        balance, created = Balance.objects.get_or_create()
         # Always calculate totals for the current month
         today = timezone.now().date()
         current_month_total = filtered_income.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        current_month_project_total = \
-        filtered_income.filter(project__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        current_month_shop_total = \
-        filtered_income.filter(shop__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        current_month_product_total = \
-        filtered_income.filter(product__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        current_month_cash_total = filtered_income.filter(cash=True, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        current_month_bank_total = filtered_income.filter(cash=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        cash_at_hand = balance.cash
+        money_in_bank = balance.bank
 
         if year and not month:
             data = []
@@ -1788,8 +1786,8 @@ class IncomeApi(viewsets.ModelViewSet):
                 # Only include months with data
                 if monthly_income.exists():
                     entries = []
-                    for expense in monthly_income:
-                        entries.append(ExpenseSerializer(expense, context={'request': request}).data)
+                    for income in monthly_income:
+                        entries.append(IncomeSerializerView(income, context={'request': request}).data)
 
                     data.append({
                         "month": f"{year}-{m:02d}",
@@ -1801,9 +1799,10 @@ class IncomeApi(viewsets.ModelViewSet):
 
             response_data = {
                 "monthly_total": float(current_month_total),
-                "monthly_project_income_total": float(current_month_project_total),
-                "monthly_shop_income_total": float(current_month_shop_total),
-                "current_month_product_total": float(current_month_product_total),
+                "current_month_cash_total": float(current_month_cash_total),
+                "current_month_bank_total": float(current_month_bank_total),
+                "cash_at_hand": float(cash_at_hand),
+                "money_in_bank": float(money_in_bank),
                 "daily_data": data,
                 "yearly_total": float(yearly_total),
             }

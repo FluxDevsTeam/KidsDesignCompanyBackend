@@ -1,8 +1,8 @@
-from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models.functions import Coalesce
-from rest_framework.fields import SerializerMethodField
-from rest_framework.serializers import ModelSerializer, ListSerializer
+from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
+
+from income.models import Balance
 from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory, Assets
@@ -11,8 +11,6 @@ from project.models import Project, OverheadCost, OtherProduction
 from store.models import RawMaterial, Removed, StoreCategory, AddRawMaterials
 from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryWorkersRecord, Paid
 from django.db.models import Sum, F, ExpressionWrapper, DecimalField
-import json
-
 from django.shortcuts import get_object_or_404
 from decimal import Decimal
 
@@ -679,6 +677,12 @@ class AddRawMaterialsSerializer(ModelSerializer):
         fields = ["id", "item", "material", "quantity", "cost_price", "date"]
         read_only_fields = ["id"]
         extra_kwargs = {'item': {'write_only': True}}
+
+
+class BalanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Balance
+        fields = ["cash", "bank"]
 
 
 class IncomeCategorySerializer(serializers.ModelSerializer):

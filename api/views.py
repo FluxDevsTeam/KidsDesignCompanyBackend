@@ -6,6 +6,8 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from django.utils import timezone
 from decimal import Decimal, InvalidOperation
+
+from income.models import Income, IncomeCategory
 from .pagination import AssetsPagination
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
@@ -13,7 +15,8 @@ from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSeriali
     RemovedSerializer, ContractorsSerializer, SalaryWorkersSerializer, ExpenseCategorySerializer, AddSockSerializer, \
     InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer, StoreCategorySerializer, \
     SalaryWorkersRecordSerializer, ContractorRecordSerializer, OverheadCostSerializer, AssetsSerializer, \
-    AddRawMaterialsSerializer, OtherProductionSerializer, PaidSerializer, CustomerDetailSerializer
+    AddRawMaterialsSerializer, OtherProductionSerializer, PaidSerializer, CustomerDetailSerializer, \
+    IncomeCategorySerializer, IncomeSerializerView, IncomeSerializer
 from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory, Assets
@@ -29,7 +32,7 @@ from django.db.models import F, ExpressionWrapper, DecimalField, Sum
 from django.db.models import Avg, IntegerField
 from django.db.models.functions import Round, Cast, Coalesce
 from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter, ProjectFilter, \
-    AddRawMaterialsFilter, PaidFilter, RawMaterialFilter, RemovedFilter
+    AddRawMaterialsFilter, PaidFilter, RawMaterialFilter, RemovedFilter, IncomeFilter
 from .permissions import CheckUserRoles
 
 User = get_user_model()
@@ -1738,3 +1741,116 @@ class StoreQuotation(ModelViewSet):
             "quotation": serializer.data
         }
         return Response(response_data)
+
+
+class IncomeCategoryApi(viewsets.ModelViewSet):
+    queryset = IncomeCategory.objects.all()
+    serializer_class = IncomeCategorySerializer
+
+
+class IncomeApi(viewsets.ModelViewSet):
+    queryset = Income.objects.all()
+
+    def get_serializer_class(self):
+        if self.request.method == "GET":
+            return IncomeSerializerView
+        return IncomeSerializer
+
+    filter_class = IncomeFilter
+    permission_classes = [CheckUserRoles]
+    required_roles = ['factory_manager', 'admin', 'ceo', 'accountant']
+
+    def list(self, request, *args, **kwargs):
+        filterset = self.filter_class(request.GET, queryset=self.get_queryset())
+        filtered_income = filterset.qs.order_by('-date', '-id')
+
+        year = request.query_params.get('year', None)
+        month = request.query_params.get('month', None)
+
+        filtered = filtered_income
+
+        # Always calculate totals for the current month
+        today = timezone.now().date()
+        current_month_total = filtered_income.filter(date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        current_month_project_total = \
+        filtered_income.filter(project__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        current_month_shop_total = \
+        filtered_income.filter(shop__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        current_month_product_total = \
+        filtered_income.filter(product__isnull=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
+
+        if year and not month:
+            data = []
+            for m in range(1, 13):
+                monthly_income = filtered_income.filter(date__year=year, date__month=m)
+                total_for_the_month = monthly_income.aggregate(Sum('amount'))['amount__sum'] or 0.0
+
+                # Only include months with data
+                if monthly_income.exists():
+                    entries = []
+                    for expense in monthly_income:
+                        entries.append(ExpenseSerializer(expense, context={'request': request}).data)
+
+                    data.append({
+                        "month": f"{year}-{m:02d}",
+                        "entries": entries,
+                        "total_for_the_month": total_for_the_month,
+                    })
+
+            yearly_total = filtered_income.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
+
+            response_data = {
+                "monthly_total": float(current_month_total),
+                "monthly_project_income_total": float(current_month_project_total),
+                "monthly_shop_income_total": float(current_month_shop_total),
+                "current_month_product_total": float(current_month_product_total),
+                "daily_data": data,
+                "yearly_total": float(yearly_total),
+            }
+            return Response(response_data)
+
+        if year is None and month is None:
+            filtered = filtered_income.filter(date__year=today.year, date__month=today.month)
+        if year is None and month is not None:
+            filtered = filtered_income.filter(date__year=today.year, date__month=month)
+
+        daily_data = []
+        current_date = None
+        daily_income = []
+
+        for expense in filtered:
+            expense_date = expense.date
+
+            if expense_date != current_date:
+                if daily_income:
+                    daily_data.append({
+                        "date": current_date,
+                        "entries": ExpenseSerializer(daily_income, many=True, context={'request': request}).data,
+                        "daily_total": sum(e.amount for e in daily_income),
+                    })
+                current_date = expense_date
+                daily_income = [expense]
+            else:
+                daily_income.append(expense)
+
+        if daily_income:
+            daily_data.append({
+                "date": current_date,
+                "entries": ExpenseSerializer(daily_income, many=True, context={'request': request}).data,
+                "daily_total": sum(e.amount for e in daily_income),
+            })
+
+        response_data = {
+            "monthly_total": float(current_month_total),
+            "monthly_project_income_total": float(current_month_project_total),
+            "monthly_shop_income_total": float(current_month_shop_total),
+            "current_month_product_total": float(current_month_product_total),
+            "daily_data": daily_data,
+        }
+
+        if year:
+            yearly_total = filtered_income.filter(date__year=year).aggregate(Sum('amount'))['amount__sum'] or 0.0
+            response_data["yearly_total"] = float(yearly_total)
+
+        return Response(response_data)
+

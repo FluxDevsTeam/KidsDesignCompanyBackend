@@ -679,3 +679,25 @@ class AddRawMaterialsSerializer(ModelSerializer):
         fields = ["id", "item", "material", "quantity", "cost_price", "date"]
         read_only_fields = ["id"]
         extra_kwargs = {'item': {'write_only': True}}
+
+
+class IncomeCategorySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        fields = ["name"]
+        read_only_fields = ["id"]
+
+
+class IncomeSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        fields = ["name", "category", "amount", "cash", "date"]
+        read_only_fields = ["id"]
+
+
+class IncomeSerializerView(serializers.ModelSerializer):
+    category = IncomeCategorySerializer()
+
+    class Meta:
+        fields = ["name", "category", "amount", "cash", "date"]
+        read_only_fields = ["id"]

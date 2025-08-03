@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'expensis',
     'workers',
     'api',
+    'income',
 ]
 
 MIDDLEWARE = [

@@ -1778,7 +1778,7 @@ class IncomeApi(viewsets.ModelViewSet):
         money_in_bank = balance.bank
 
         if year and not month:
-            data = []
+            daily_data = []
             for m in range(1, 13):
                 monthly_income = filtered_income.filter(date__year=year, date__month=m)
                 total_for_the_month = monthly_income.aggregate(Sum('amount'))['amount__sum'] or 0.0
@@ -1789,7 +1789,7 @@ class IncomeApi(viewsets.ModelViewSet):
                     for income in monthly_income:
                         entries.append(IncomeSerializerView(income, context={'request': request}).data)
 
-                    data.append({
+                    daily_data.append({
                         "month": f"{year}-{m:02d}",
                         "entries": entries,
                         "total_for_the_month": total_for_the_month,
@@ -1803,7 +1803,7 @@ class IncomeApi(viewsets.ModelViewSet):
                 "current_month_bank_total": float(current_month_bank_total),
                 "cash_at_hand": float(cash_at_hand),
                 "money_in_bank": float(money_in_bank),
-                "daily_data": data,
+                "daily_data": daily_data,
                 "yearly_total": float(yearly_total),
             }
             return Response(response_data)
@@ -1841,9 +1841,10 @@ class IncomeApi(viewsets.ModelViewSet):
 
         response_data = {
             "monthly_total": float(current_month_total),
-            "monthly_project_income_total": float(current_month_project_total),
-            "monthly_shop_income_total": float(current_month_shop_total),
-            "current_month_product_total": float(current_month_product_total),
+            "current_month_cash_total": float(current_month_cash_total),
+            "current_month_bank_total": float(current_month_bank_total),
+            "cash_at_hand": float(cash_at_hand),
+            "money_in_bank": float(money_in_bank),
             "daily_data": daily_data,
         }
 

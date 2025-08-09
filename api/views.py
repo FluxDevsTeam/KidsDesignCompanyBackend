@@ -1778,6 +1778,7 @@ class IncomeApi(viewsets.ModelViewSet):
         current_month_bank_total = filtered_income.filter(cash=False, date__month=today.month).aggregate(Sum('amount'))['amount__sum'] or 0.0
         cash_at_hand = balance.cash
         money_in_bank = balance.bank
+        debt = balance.debt
 
         if year and not month:
             daily_data = []
@@ -1805,6 +1806,7 @@ class IncomeApi(viewsets.ModelViewSet):
                 "current_month_bank_total": float(current_month_bank_total),
                 "cash_at_hand": float(cash_at_hand),
                 "money_in_bank": float(money_in_bank),
+                "debt": float(debt),
                 "daily_data": daily_data,
                 "yearly_total": float(yearly_total),
             }
@@ -1819,20 +1821,20 @@ class IncomeApi(viewsets.ModelViewSet):
         current_date = None
         daily_income = []
 
-        for expense in filtered:
-            expense_date = expense.date
+        for income in filtered:
+            income_date = income.date
 
-            if expense_date != current_date:
+            if income_date != current_date:
                 if daily_income:
                     daily_data.append({
                         "date": current_date,
                         "entries": IncomeSerializer(daily_income, many=True, context={'request': request}).data,
                         "daily_total": sum(e.amount for e in daily_income),
                     })
-                current_date = expense_date
-                daily_income = [expense]
+                current_date = income_date
+                daily_income = [income]
             else:
-                daily_income.append(expense)
+                daily_income.append(income)
 
         if daily_income:
             daily_data.append({

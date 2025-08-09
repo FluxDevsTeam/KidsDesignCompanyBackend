@@ -1745,6 +1745,8 @@ class StoreQuotation(ModelViewSet):
 
 class IncomeCategoryApi(viewsets.ModelViewSet):
     queryset = IncomeCategory.objects.all()
+    permission_classes = [CheckUserRoles]
+    required_roles = ['factory_manager', 'admin', 'ceo', 'accountant']
     serializer_class = IncomeCategorySerializer
 
 

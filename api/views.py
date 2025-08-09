@@ -1877,3 +1877,42 @@ class IncomeApi(viewsets.ModelViewSet):
 
         balance.save()
         serializer.save()
+
+    def perform_update(self, serializer):
+        with transaction.atomic():
+            income = self.get_object()
+            validated_data = serializer.validated_data
+            new_cash = validated_data['cash']
+            new_amount = validated_data['amount']
+            balance, created = Balance.objects.get_or_create(id=1)
+            amount_diff = new_amount - income.amount
+            if income.cash != new_cash:
+                if income.cash and not new_cash:
+                    balance.cash -= income.amount
+                    balance.bank += new_amount
+                elif not income.cash and new_cash:
+                    balance.bank -= income.amount
+                    balance.cash += new_amount
+            else:
+                if income.cash:
+                    if amount_diff > 0:
+                        balance.cash += amount_diff
+                    elif amount_diff < 0:
+                        balance.cash -= abs(amount_diff)
+                else:
+                    if amount_diff > 0:
+                        balance.bank += amount_diff
+                    elif amount_diff < 0:
+                        balance.bank -= abs(amount_diff)
+            balance.save()
+            serializer.save()
+
+    def perform_destroy(self, instance):
+        with transaction.atomic():
+            balance, created = Balance.objects.get_or_create(id=1)
+            if instance.cash:
+                balance.cash -= instance.amount
+            else:
+                balance.bank -= instance.amount
+            balance.save()
+            instance.delete()

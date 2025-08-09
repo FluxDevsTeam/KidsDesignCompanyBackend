@@ -1863,3 +1863,17 @@ class IncomeApi(viewsets.ModelViewSet):
 
         return Response(response_data)
 
+    def perform_create(self, serializer):
+        validated_data = serializer.validated_data
+        cash = validated_data.get('cash', False)
+        amount = validated_data.get('amount', Decimal("0"))
+
+        balance, created = Balance.objects.get_or_create(id=1)
+
+        if cash:
+            balance.cash += amount
+        else:
+            balance.bank += amount
+
+        balance.save()
+        serializer.save()

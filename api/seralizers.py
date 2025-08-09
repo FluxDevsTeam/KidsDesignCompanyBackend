@@ -689,7 +689,7 @@ class IncomeCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = IncomeCategory
-        fields = ["name"]
+        fields = ["id", "name"]
         read_only_fields = ["id"]
 
 

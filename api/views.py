@@ -860,6 +860,8 @@ class ApiCustomer(ModelViewSet):
 class ApiExpenseCategory(ModelViewSet):
     queryset = ExpenseCategory.objects.all()
     serializer_class = ExpenseCategorySerializer
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
     permission_classes = [CheckUserRoles]
     required_roles = ['factory_manager', 'admin', 'ceo', 'accountant']
 
@@ -1746,6 +1748,8 @@ class StoreQuotation(ModelViewSet):
 class IncomeCategoryApi(viewsets.ModelViewSet):
     queryset = IncomeCategory.objects.all()
     permission_classes = [CheckUserRoles]
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
     required_roles = ['factory_manager', 'admin', 'ceo', 'accountant']
     serializer_class = IncomeCategorySerializer
 

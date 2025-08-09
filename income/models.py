@@ -7,6 +7,7 @@ class Balance(models.Model):
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
     cash = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal("0"))
     bank = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal("0"))
+    debt = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal("0"))
 
     def __str__(self):
         return f"Overhead Cost Base: {self.overhead_cost_base}"

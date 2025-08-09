@@ -1849,6 +1849,7 @@ class IncomeApi(viewsets.ModelViewSet):
             "current_month_bank_total": float(current_month_bank_total),
             "cash_at_hand": float(cash_at_hand),
             "money_in_bank": float(money_in_bank),
+            "debt": float(debt),
             "daily_data": daily_data,
         }
 

@@ -2,7 +2,7 @@ from django.db.models.functions import Coalesce
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
 
-from income.models import Balance
+from income.models import Balance, IncomeCategory, Income
 from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory, Assets
@@ -688,6 +688,7 @@ class BalanceSerializer(serializers.ModelSerializer):
 class IncomeCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
+        model = IncomeCategory
         fields = ["name"]
         read_only_fields = ["id"]
 
@@ -695,6 +696,7 @@ class IncomeCategorySerializer(serializers.ModelSerializer):
 class IncomeSerializer(serializers.ModelSerializer):
 
     class Meta:
+        model = Income
         fields = ["name", "category", "amount", "cash", "date"]
         read_only_fields = ["id"]
 
@@ -703,5 +705,6 @@ class IncomeSerializerView(serializers.ModelSerializer):
     category = IncomeCategorySerializer()
 
     class Meta:
+        model = Income
         fields = ["name", "category", "amount", "cash", "date"]
         read_only_fields = ["id"]

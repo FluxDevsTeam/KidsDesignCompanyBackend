@@ -25,6 +25,7 @@ router.register('assets', views.ApiAssets, basename='assets')
 router.register('add-raw-materials', views.ApiAddRawMaterials, basename='add_raw_material')
 router.register('add-stock', views.ApiAddStock, basename='add_stock')
 router.register('income', views.IncomeApi, basename='income')
+router.register('income-category', views.IncomeCategoryApi, basename='income-category')
 
 product_router = NestedDefaultRouter(router, 'product', lookup='product')
 product_router.register('contractor', views.ApiProductContractor, basename='product_contractor')

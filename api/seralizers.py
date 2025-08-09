@@ -706,5 +706,5 @@ class IncomeSerializerView(serializers.ModelSerializer):
 
     class Meta:
         model = Income
-        fields = ["name", "category", "amount", "cash", "date"]
+        fields = ["id", "name", "category", "amount", "cash", "date"]
         read_only_fields = ["id"]

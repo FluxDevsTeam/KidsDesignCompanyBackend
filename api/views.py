@@ -1828,7 +1828,7 @@ class IncomeApi(viewsets.ModelViewSet):
                 if daily_income:
                     daily_data.append({
                         "date": current_date,
-                        "entries": IncomeSerializer(daily_income, many=True, context={'request': request}).data,
+                        "entries": IncomeSerializerView(daily_income, many=True, context={'request': request}).data,
                         "daily_total": sum(e.amount for e in daily_income),
                     })
                 current_date = income_date
@@ -1839,7 +1839,7 @@ class IncomeApi(viewsets.ModelViewSet):
         if daily_income:
             daily_data.append({
                 "date": current_date,
-                "entries": IncomeSerializer(daily_income, many=True, context={'request': request}).data,
+                "entries": IncomeSerializerView(daily_income, many=True, context={'request': request}).data,
                 "daily_total": sum(e.amount for e in daily_income),
             })
 

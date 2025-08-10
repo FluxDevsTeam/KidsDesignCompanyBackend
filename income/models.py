@@ -1,4 +1,5 @@
 from decimal import Decimal
+from django.core.validators import MinValueValidator
 from django.db import models
 from datetime import date
 from django.core.exceptions import ValidationError
@@ -31,13 +32,19 @@ class Income(models.Model):
     def __str__(self):
         return f"{self.name}"
 
+
 class PaymentSwitchLog(models.Model):
+    PAYMENT_METHODS = (
+        ('CASH', 'Cash'),
+        ('BANK', 'Bank'),
+        ('DEBT', 'Debt'),
+    )
     expense = models.ForeignKey('Expense', on_delete=models.CASCADE, related_name='payment_switches')
     expense_payment = models.ForeignKey('ExpensePayment', on_delete=models.CASCADE)
-    old_payment_method = models.CharField(max_length=20, choices=ExpensePayment.PAYMENT_METHODS)
-    new_payment_method = models.CharField(max_length=20, choices=ExpensePayment.PAYMENT_METHODS)
+    old_payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS)
+    new_payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS)
     amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
-    switch_date = models.DateTimeField(default=timezone.now)
+    switch_date = models.DateField(default=date.today)
 
     def __str__(self):
         return f"Switch for {self.expense.name}: {self.old_payment_method} to {self.new_payment_method} ({self.amount}) on {self.switch_date}"

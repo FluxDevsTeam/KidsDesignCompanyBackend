@@ -1,3 +1,4 @@
+from customers.models import Customer
 from expensis.models import Expense
 from datetime import datetime
 import django_filters
@@ -225,6 +226,25 @@ class ProjectFilter(django_filters.FilterSet):
             today = datetime.date.today()
             two_weeks = today + datetime.timedelta(days=14)
             return queryset.filter(deadline__lte=two_weeks)
+        return queryset
+
+
+class CustomerFilter(django_filters.FilterSet):
+    active = django_filters.BooleanFilter(method='filter_active', field_name='active')
+    owing = django_filters.BooleanFilter(method='filter_owing', field_name='owing')
+
+    class Meta:
+        model = Customer
+        fields = ['project__balance', 'project__is_delivered']
+
+    def filter_active(self, queryset, name, value):
+        if value:
+            return queryset.filter(project__is_delivered=False).distinct()
+        return queryset
+
+    def filter_owing(self, queryset, name, value):
+        if value:
+            return queryset.filter(project__balance__gt=0).distinct()
         return queryset
 
 

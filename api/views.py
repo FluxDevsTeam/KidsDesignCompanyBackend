@@ -32,7 +32,7 @@ from django.db.models import F, ExpressionWrapper, DecimalField, Sum
 from django.db.models import Avg, IntegerField
 from django.db.models.functions import Round, Cast, Coalesce
 from .filters import ExpenseFilter, InventoryItemFilter, AddStockFilter, SoldFilter, ProjectFilter, \
-    AddRawMaterialsFilter, PaidFilter, RawMaterialFilter, RemovedFilter, IncomeFilter
+    AddRawMaterialsFilter, PaidFilter, RawMaterialFilter, RemovedFilter, IncomeFilter, CustomerFilter
 from .permissions import CheckUserRoles
 
 User = get_user_model()
@@ -800,13 +800,15 @@ class ApiCustomer(ModelViewSet):
     queryset = Customer.objects.all()
     permission_classes = [CheckUserRoles]
     required_roles = ['factory_manager', 'project_manager', 'ceo', 'shopkeeper']
-    filter_backends = [SearchFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = CustomerFilter
     search_fields = ['name', 'address']
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         all_customers_count = queryset.count()
         active_customers = queryset.filter(project__is_delivered=False).distinct().count()
+        owing_customers = queryset.filter(project__balance__gt=0).distinct().count()
 
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -814,6 +816,7 @@ class ApiCustomer(ModelViewSet):
             response_data = {
                 "all_customers_count": all_customers_count,
                 "active_customers": active_customers,
+                "owing_customers": owing_customers,
                 "all_customers": data
             }
             return self.get_paginated_response(response_data)
@@ -822,6 +825,7 @@ class ApiCustomer(ModelViewSet):
         response_data = {
             "all_customers_count": all_customers_count,
             "active_customers": active_customers,
+            "owing_customers": owing_customers,
             "all_customers": data
         }
         return Response(response_data)

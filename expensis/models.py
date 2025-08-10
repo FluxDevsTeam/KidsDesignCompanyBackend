@@ -17,6 +17,12 @@ class ExpenseCategory(models.Model):
 
 
 class Expense(models.Model):
+    PAYMENT_METHODS = (
+        ('CASH', 'Cash'),
+        ('BANK', 'Bank'),
+        ('DEBT', 'Debt'),
+    )
+
     name = models.CharField(max_length=200)
     category = models.ForeignKey(ExpenseCategory, on_delete=models.SET_NULL, null=True)
     project = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True)
@@ -25,10 +31,11 @@ class Expense(models.Model):
     description = models.TextField(null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.CharField(max_length=200)
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS)
     date = models.DateField(default=date.today)
 
     def __str__(self):
-        return f"{self.description})"
+        return f"{self.name} ({self.description or 'No description'})"
 
     def clean(self):
         if self.project and self.shop and self.product or self.shop and self.product or self.project and self.product or self.project and self.shop:

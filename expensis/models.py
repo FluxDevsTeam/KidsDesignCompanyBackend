@@ -31,7 +31,7 @@ class Expense(models.Model):
     description = models.TextField(null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.CharField(max_length=200)
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, null=True, blank=True)
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, default="CASH")
     date = models.DateField(default=date.today)
 
     def __str__(self):

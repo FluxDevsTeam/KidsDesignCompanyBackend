@@ -1,4 +1,5 @@
 from django.db import transaction
+from rest_framework.decorators import action
 from rest_framework.exceptions import MethodNotAllowed
 from django.shortcuts import get_object_or_404
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -7,7 +8,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from decimal import Decimal, InvalidOperation
 
-from income.models import Income, IncomeCategory, Balance
+from income.models import Income, IncomeCategory, Balance, PaymentSwitchLog
 from .pagination import AssetsPagination
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
@@ -16,7 +17,7 @@ from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSeriali
     InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer, StoreCategorySerializer, \
     SalaryWorkersRecordSerializer, ContractorRecordSerializer, OverheadCostSerializer, AssetsSerializer, \
     AddRawMaterialsSerializer, OtherProductionSerializer, PaidSerializer, CustomerDetailSerializer, \
-    IncomeCategorySerializer, IncomeSerializerView, IncomeSerializer
+    IncomeCategorySerializer, IncomeSerializerView, IncomeSerializer, PaymentSwitchLogSerializer
 from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory, Assets
@@ -1973,3 +1974,40 @@ class IncomeApi(viewsets.ModelViewSet):
                 balance.bank -= instance.amount
             balance.save()
             instance.delete()
+
+    @action(detail=True, methods=['post'], serializer_class=PaymentSwitchLogSerializer)
+    def switch_payment(self, request, pk=None):
+        expense = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        expense_payment = serializer.validated_data['expense_payment']
+        new_payment_method = serializer.validated_data['new_payment_method']
+        amount = serializer.validated_data['amount']
+        if expense_payment.expense != expense:
+            return Response({"error": "ExpensePayment does not belong to this Expense"}, status=400)
+        with transaction.atomic():
+            balance, created = Balance.objects.get_or_create(id=1)
+            old_payment_method = expense_payment.payment_method
+            if old_payment_method == 'CASH':
+                balance.cash += amount
+            elif old_payment_method == 'BANK':
+                balance.bank += amount
+            elif old_payment_method == 'DEBT':
+                balance.debt -= amount
+            if new_payment_method == 'CASH':
+                balance.cash -= amount
+            elif new_payment_method == 'BANK':
+                balance.bank -= amount
+            elif new_payment_method == 'DEBT':
+                balance.debt += amount
+            balance.save()
+            expense_payment.payment_method = new_payment_method
+            expense_payment.save()
+            PaymentSwitchLog.objects.create(
+                expense=expense,
+                expense_payment=expense_payment,
+                old_payment_method=old_payment_method,
+                new_payment_method=new_payment_method,
+                amount=amount
+            )
+            return Response(ExpenseSerializer(expense, context={'request': request}).data)

@@ -2,7 +2,7 @@ from django.db.models.functions import Coalesce
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
 
-from income.models import Balance, IncomeCategory, Income
+from income.models import Balance, IncomeCategory, Income, PaymentSwitchLog
 from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory, Assets
@@ -705,3 +705,22 @@ class IncomeSerializerView(serializers.ModelSerializer):
         model = Income
         fields = ["id", "name", "category", "amount", "cash", "date"]
         read_only_fields = ["id"]
+
+
+class PaymentSwitchLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentSwitchLog
+        fields = ['expense_payment', 'new_payment_method', 'amount']
+        extra_kwargs = {
+            'expense_payment': {'write_only': True},
+        }
+
+    def validate(self, attrs):
+        expense_payment = attrs.get('expense_payment')
+        new_payment_method = attrs.get('new_payment_method')
+        amount = attrs.get('amount')
+        if expense_payment.payment_method == new_payment_method:
+            raise serializers.ValidationError("New payment method must differ from current payment method")
+        if amount != expense_payment.amount:
+            raise serializers.ValidationError(f"Switch amount ({amount}) must equal ExpensePayment amount ({expense_payment.amount})")
+        return attrs

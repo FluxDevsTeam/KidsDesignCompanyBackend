@@ -621,8 +621,8 @@ class ExpenseSerializer(ModelSerializer):
 
     class Meta:
         model = Expense
-        fields = ['id', 'name', 'category', 'expense_category', 'description', 'project', 'shop',
-                  'linked_project', 'linked_product', 'product', 'sold_item', 'amount', 'quantity', 'date']
+        fields = ['id', 'name', 'category', 'expense_category', 'description', 'project', 'shop', 'linked_project',
+                  'linked_product', 'product', 'sold_item', 'amount', 'quantity', 'payment_method', 'date']
         read_only_fields = ['id']
         extra_kwargs = {'category': {'write_only': True}, 'project': {'write_only': True}, 'product': {'write_only': True}, 'shop': {'write_only': True}}
 
@@ -630,7 +630,6 @@ class ExpenseSerializer(ModelSerializer):
         project_provided = 'project' in attrs
         shop_provided = 'shop' in attrs
         product_provided = 'product' in attrs
-
         if self.partial:
             if project_provided and not shop_provided and not product_provided:
                 attrs['shop'] = None
@@ -641,15 +640,13 @@ class ExpenseSerializer(ModelSerializer):
             elif product_provided and not project_provided and not shop_provided:
                 attrs['project'] = None
                 attrs['shop'] = None
-
         project = attrs.get('project')
         shop = attrs.get('shop')
         product = attrs.get('product')
         if project and shop and product or project and shop or project and product or shop and product:
             raise serializers.ValidationError(
-                "Expense cannot be associated with more than 1 of  project, shop item and product."
+                "Expense cannot be associated with more than 1 of project, shop item and product."
             )
-
         return attrs
 
 

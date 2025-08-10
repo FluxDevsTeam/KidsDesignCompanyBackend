@@ -10,7 +10,7 @@ class Balance(models.Model):
     debt = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal("0"))
 
     def __str__(self):
-        return f"Overhead Cost Base: {self.overhead_cost_base}"
+        return f"balance: {self.id}"
 
 
 class IncomeCategory(models.Model):

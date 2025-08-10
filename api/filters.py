@@ -235,6 +235,7 @@ class CustomerFilter(django_filters.FilterSet):
 
     class Meta:
         model = Customer
+        fields = ['project__balance', 'project__is_delivered']
 
     def filter_active(self, queryset, name, value):
         if value:

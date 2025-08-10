@@ -806,9 +806,10 @@ class ApiCustomer(ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        all_customers_count = queryset.count()
-        active_customers = queryset.filter(project__is_delivered=False).distinct().count()
-        owing_customers = queryset.filter(project__balance__gt=0).distinct().count()
+        customer = Customer.objects.all()
+        all_customers_count = customer.count()
+        active_customers = customer.filter(project__is_delivered=False).distinct().count()
+        owing_customers = customer.filter(project__balance__gt=0).distinct().count()
 
         page = self.paginate_queryset(queryset)
         if page is not None:

@@ -1976,7 +1976,7 @@ class IncomeApi(viewsets.ModelViewSet):
             instance.delete()
 
 
-class BalanceSwitchApi(viewsets.ModelViewSet):
+class BalanceSwitchViewSet(viewsets.ModelViewSet):
     queryset = BalanceSwitchLog.objects.all()
     serializer_class = BalanceSwitchLogSerializer
     permission_classes = [CheckUserRoles]
@@ -1985,27 +1985,25 @@ class BalanceSwitchApi(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        balance = serializer.validated_data['balance']
         from_method = serializer.validated_data['from_method']
         to_method = serializer.validated_data['to_method']
         amount = serializer.validated_data['amount']
         switch_date = serializer.validated_data.get('switch_date', date.today())
 
         with transaction.atomic():
+            balance, _ = Balance.objects.get_or_create(id=1)
             if from_method == 'CASH':
                 balance.cash -= amount
             elif from_method == 'BANK':
                 balance.bank -= amount
             elif from_method == 'DEBT':
                 balance.debt -= amount
-
             if to_method == 'CASH':
                 balance.cash += amount
             elif to_method == 'BANK':
                 balance.bank += amount
             elif to_method == 'DEBT':
                 balance.debt += amount
-
             balance.save()
             balance_switch = BalanceSwitchLog.objects.create(
                 balance=balance,
@@ -2020,13 +2018,13 @@ class BalanceSwitchApi(viewsets.ModelViewSet):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        balance = serializer.validated_data['balance']
         from_method = serializer.validated_data.get('from_method', instance.from_method)
         to_method = serializer.validated_data.get('to_method', instance.to_method)
         amount = serializer.validated_data.get('amount', instance.amount)
         switch_date = serializer.validated_data.get('switch_date', instance.switch_date)
 
         with transaction.atomic():
+            balance, _ = Balance.objects.get_or_create(id=1)
             # Reverse the original transfer
             if instance.from_method == 'CASH':
                 balance.cash += instance.amount
@@ -2040,7 +2038,6 @@ class BalanceSwitchApi(viewsets.ModelViewSet):
                 balance.bank -= instance.amount
             elif instance.to_method == 'DEBT':
                 balance.debt -= instance.amount
-
             # Apply the new transfer
             if from_method == 'CASH':
                 balance.cash -= amount
@@ -2054,7 +2051,6 @@ class BalanceSwitchApi(viewsets.ModelViewSet):
                 balance.bank += amount
             elif to_method == 'DEBT':
                 balance.debt += amount
-
             balance.save()
             instance.from_method = from_method
             instance.to_method = to_method

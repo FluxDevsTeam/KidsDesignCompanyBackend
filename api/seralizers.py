@@ -712,18 +712,15 @@ class IncomeSerializerView(serializers.ModelSerializer):
 class BalanceSwitchLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = BalanceSwitchLog
-        fields = ['id', 'balance', 'from_method', 'to_method', 'amount', 'switch_date']
+        fields = ['id', 'from_method', 'to_method', 'amount', 'switch_date']
         read_only_fields = ['id']
-        extra_kwargs = {
-            'balance': {'write_only': True},
-        }
 
     def validate(self, attrs):
-        balance = attrs.get('balance')
         from_method = attrs.get('from_method')
         to_method = attrs.get('to_method')
         amount = attrs.get('amount')
         switch_date = attrs.get('switch_date', date.today())
+        balance, _ = Balance.objects.get_or_create(id=1)
 
         if from_method == to_method:
             raise serializers.ValidationError("Source and destination methods must be different")
@@ -737,7 +734,6 @@ class BalanceSwitchLogSerializer(serializers.ModelSerializer):
                 'bank': balance.bank,
                 'debt': balance.debt
             }
-            # Reverse original transfer
             if self.instance.from_method == 'CASH':
                 temp_balance['cash'] += self.instance.amount
             elif self.instance.from_method == 'BANK':
@@ -750,7 +746,6 @@ class BalanceSwitchLogSerializer(serializers.ModelSerializer):
                 temp_balance['bank'] -= self.instance.amount
             elif self.instance.to_method == 'DEBT':
                 temp_balance['debt'] -= self.instance.amount
-            # Check if new transfer is valid
             if from_method == 'CASH' and temp_balance['cash'] < amount:
                 raise serializers.ValidationError(
                     f"Insufficient cash balance ({temp_balance['cash']}) for transfer of {amount}")
@@ -761,7 +756,6 @@ class BalanceSwitchLogSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f"Insufficient debt balance ({temp_balance['debt']}) for transfer of {amount}")
         else:
-            # For creates, check current balance
             if from_method == 'CASH' and balance.cash < amount:
                 raise serializers.ValidationError(
                     f"Insufficient cash balance ({balance.cash}) for transfer of {amount}")

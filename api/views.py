@@ -1976,7 +1976,7 @@ class IncomeApi(viewsets.ModelViewSet):
             instance.delete()
 
 
-class BalanceSwitchViewSet(viewsets.ModelViewSet):
+class BalanceSwitchApi(viewsets.ModelViewSet):
     queryset = BalanceSwitchLog.objects.all()
     serializer_class = BalanceSwitchLogSerializer
     permission_classes = [CheckUserRoles]

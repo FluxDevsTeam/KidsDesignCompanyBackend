@@ -1980,6 +1980,7 @@ class BalanceSwitchApi(viewsets.ModelViewSet):
     queryset = BalanceSwitchLog.objects.all()
     serializer_class = BalanceSwitchLogSerializer
     permission_classes = [CheckUserRoles]
+    pagination_class = PageNumberPagination
     required_roles = ['factory_manager', 'admin', 'ceo', 'accountant']
 
     def create(self, request, *args, **kwargs):

@@ -1,8 +1,10 @@
+from datetime import date
+
 from django.db.models.functions import Coalesce
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
 
-from income.models import Balance, IncomeCategory, Income, PaymentSwitchLog
+from income.models import Balance, IncomeCategory, Income, BalanceSwitchLog
 from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory, Assets
@@ -707,20 +709,66 @@ class IncomeSerializerView(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
 
-class PaymentSwitchLogSerializer(serializers.ModelSerializer):
+class BalanceSwitchLogSerializer(serializers.ModelSerializer):
     class Meta:
-        model = PaymentSwitchLog
-        fields = ['expense_payment', 'new_payment_method', 'amount']
+        model = BalanceSwitchLog
+        fields = ['id', 'balance', 'from_method', 'to_method', 'amount', 'switch_date']
+        read_only_fields = ['id']
         extra_kwargs = {
-            'expense_payment': {'write_only': True},
+            'balance': {'write_only': True},
         }
 
     def validate(self, attrs):
-        expense_payment = attrs.get('expense_payment')
-        new_payment_method = attrs.get('new_payment_method')
+        balance = attrs.get('balance')
+        from_method = attrs.get('from_method')
+        to_method = attrs.get('to_method')
         amount = attrs.get('amount')
-        if expense_payment.payment_method == new_payment_method:
-            raise serializers.ValidationError("New payment method must differ from current payment method")
-        if amount != expense_payment.amount:
-            raise serializers.ValidationError(f"Switch amount ({amount}) must equal ExpensePayment amount ({expense_payment.amount})")
+        switch_date = attrs.get('switch_date', date.today())
+
+        if from_method == to_method:
+            raise serializers.ValidationError("Source and destination methods must be different")
+        if amount <= 0:
+            raise serializers.ValidationError("Amount must be positive")
+        if switch_date > date.today():
+            raise serializers.ValidationError("Switch date cannot be in the future")
+        if self.instance:
+            temp_balance = {
+                'cash': balance.cash,
+                'bank': balance.bank,
+                'debt': balance.debt
+            }
+            # Reverse original transfer
+            if self.instance.from_method == 'CASH':
+                temp_balance['cash'] += self.instance.amount
+            elif self.instance.from_method == 'BANK':
+                temp_balance['bank'] += self.instance.amount
+            elif self.instance.from_method == 'DEBT':
+                temp_balance['debt'] += self.instance.amount
+            if self.instance.to_method == 'CASH':
+                temp_balance['cash'] -= self.instance.amount
+            elif self.instance.to_method == 'BANK':
+                temp_balance['bank'] -= self.instance.amount
+            elif self.instance.to_method == 'DEBT':
+                temp_balance['debt'] -= self.instance.amount
+            # Check if new transfer is valid
+            if from_method == 'CASH' and temp_balance['cash'] < amount:
+                raise serializers.ValidationError(
+                    f"Insufficient cash balance ({temp_balance['cash']}) for transfer of {amount}")
+            if from_method == 'BANK' and temp_balance['bank'] < amount:
+                raise serializers.ValidationError(
+                    f"Insufficient bank balance ({temp_balance['bank']}) for transfer of {amount}")
+            if from_method == 'DEBT' and temp_balance['debt'] < amount:
+                raise serializers.ValidationError(
+                    f"Insufficient debt balance ({temp_balance['debt']}) for transfer of {amount}")
+        else:
+            # For creates, check current balance
+            if from_method == 'CASH' and balance.cash < amount:
+                raise serializers.ValidationError(
+                    f"Insufficient cash balance ({balance.cash}) for transfer of {amount}")
+            if from_method == 'BANK' and balance.bank < amount:
+                raise serializers.ValidationError(
+                    f"Insufficient bank balance ({balance.bank}) for transfer of {amount}")
+            if from_method == 'DEBT' and balance.debt < amount:
+                raise serializers.ValidationError(
+                    f"Insufficient debt balance ({balance.debt}) for transfer of {amount}")
         return attrs

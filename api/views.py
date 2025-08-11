@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from decimal import Decimal, InvalidOperation
 
-from income.models import Income, IncomeCategory, Balance, PaymentSwitchLog
+from income.models import Income, IncomeCategory, Balance, BalanceSwitchLog
 from .pagination import AssetsPagination
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSerializer, ExpenseSerializer, \
@@ -17,7 +17,7 @@ from .seralizers import InventoryItemSerializer, SoldSerializer, CustomerSeriali
     InventoryCategorySerializer, ProductSalaryWorkerSerializer, ProductContractorSerializer, StoreCategorySerializer, \
     SalaryWorkersRecordSerializer, ContractorRecordSerializer, OverheadCostSerializer, AssetsSerializer, \
     AddRawMaterialsSerializer, OtherProductionSerializer, PaidSerializer, CustomerDetailSerializer, \
-    IncomeCategorySerializer, IncomeSerializerView, IncomeSerializer, PaymentSwitchLogSerializer
+    IncomeCategorySerializer, IncomeSerializerView, IncomeSerializer, BalanceSwitchLogSerializer
 from shop.models import InventoryItem, Sold, InventoryCategory, AddStock
 from customers.models import Customer
 from expensis.models import Expense, ExpenseCategory, Assets
@@ -28,7 +28,7 @@ from workers.models import Contractors, SalaryWorkers, ContractorRecord, SalaryW
 from rest_framework import viewsets, status, permissions, mixins
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from django.db.models import F, ExpressionWrapper, DecimalField, Sum
 from django.db.models import Avg, IntegerField
 from django.db.models.functions import Round, Cast, Coalesce
@@ -1975,39 +1975,90 @@ class IncomeApi(viewsets.ModelViewSet):
             balance.save()
             instance.delete()
 
-    @action(detail=True, methods=['post'], serializer_class=PaymentSwitchLogSerializer)
-    def switch_payment(self, request, pk=None):
-        expense = self.get_object()
+
+class BalanceSwitchApi(viewsets.ModelViewSet):
+    queryset = BalanceSwitchLog.objects.all()
+    serializer_class = BalanceSwitchLogSerializer
+    permission_classes = [CheckUserRoles]
+    required_roles = ['factory_manager', 'admin', 'ceo', 'accountant']
+
+    def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        expense_payment = serializer.validated_data['expense_payment']
-        new_payment_method = serializer.validated_data['new_payment_method']
+        balance = serializer.validated_data['balance']
+        from_method = serializer.validated_data['from_method']
+        to_method = serializer.validated_data['to_method']
         amount = serializer.validated_data['amount']
-        if expense_payment.expense != expense:
-            return Response({"error": "ExpensePayment does not belong to this Expense"}, status=400)
+        switch_date = serializer.validated_data.get('switch_date', date.today())
+
         with transaction.atomic():
-            balance, created = Balance.objects.get_or_create(id=1)
-            old_payment_method = expense_payment.payment_method
-            if old_payment_method == 'CASH':
-                balance.cash += amount
-            elif old_payment_method == 'BANK':
-                balance.bank += amount
-            elif old_payment_method == 'DEBT':
-                balance.debt -= amount
-            if new_payment_method == 'CASH':
+            if from_method == 'CASH':
                 balance.cash -= amount
-            elif new_payment_method == 'BANK':
+            elif from_method == 'BANK':
                 balance.bank -= amount
-            elif new_payment_method == 'DEBT':
+            elif from_method == 'DEBT':
+                balance.debt -= amount
+
+            if to_method == 'CASH':
+                balance.cash += amount
+            elif to_method == 'BANK':
+                balance.bank += amount
+            elif to_method == 'DEBT':
                 balance.debt += amount
+
             balance.save()
-            expense_payment.payment_method = new_payment_method
-            expense_payment.save()
-            PaymentSwitchLog.objects.create(
-                expense=expense,
-                expense_payment=expense_payment,
-                old_payment_method=old_payment_method,
-                new_payment_method=new_payment_method,
-                amount=amount
+            balance_switch = BalanceSwitchLog.objects.create(
+                balance=balance,
+                from_method=from_method,
+                to_method=to_method,
+                amount=amount,
+                switch_date=switch_date
             )
-            return Response(ExpenseSerializer(expense, context={'request': request}).data)
+            return Response(self.get_serializer(balance_switch).data, status=201)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        balance = serializer.validated_data['balance']
+        from_method = serializer.validated_data.get('from_method', instance.from_method)
+        to_method = serializer.validated_data.get('to_method', instance.to_method)
+        amount = serializer.validated_data.get('amount', instance.amount)
+        switch_date = serializer.validated_data.get('switch_date', instance.switch_date)
+
+        with transaction.atomic():
+            # Reverse the original transfer
+            if instance.from_method == 'CASH':
+                balance.cash += instance.amount
+            elif instance.from_method == 'BANK':
+                balance.bank += instance.amount
+            elif instance.from_method == 'DEBT':
+                balance.debt += instance.amount
+            if instance.to_method == 'CASH':
+                balance.cash -= instance.amount
+            elif instance.to_method == 'BANK':
+                balance.bank -= instance.amount
+            elif instance.to_method == 'DEBT':
+                balance.debt -= instance.amount
+
+            # Apply the new transfer
+            if from_method == 'CASH':
+                balance.cash -= amount
+            elif from_method == 'BANK':
+                balance.bank -= amount
+            elif from_method == 'DEBT':
+                balance.debt -= amount
+            if to_method == 'CASH':
+                balance.cash += amount
+            elif to_method == 'BANK':
+                balance.bank += amount
+            elif to_method == 'DEBT':
+                balance.debt += amount
+
+            balance.save()
+            instance.from_method = from_method
+            instance.to_method = to_method
+            instance.amount = amount
+            instance.switch_date = switch_date
+            instance.save()
+            return Response(self.get_serializer(instance).data)

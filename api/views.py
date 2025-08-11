@@ -1977,7 +1977,7 @@ class IncomeApi(viewsets.ModelViewSet):
 
 
 class BalanceSwitchApi(viewsets.ModelViewSet):
-    queryset = BalanceSwitchLog.objects.all()
+    queryset = BalanceSwitchLog.objects.all().order_by("-switch_date")
     serializer_class = BalanceSwitchLogSerializer
     permission_classes = [CheckUserRoles]
     pagination_class = PageNumberPagination

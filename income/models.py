@@ -4,6 +4,8 @@ from django.db import models
 from datetime import date
 from django.core.exceptions import ValidationError
 
+from expensis.models import Expense
+
 
 class Balance(models.Model):
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
@@ -33,24 +35,23 @@ class Income(models.Model):
         return f"{self.name}"
 
 
-class PaymentSwitchLog(models.Model):
+class BalanceSwitchLog(models.Model):
     PAYMENT_METHODS = (
         ('CASH', 'Cash'),
         ('BANK', 'Bank'),
         ('DEBT', 'Debt'),
     )
-    expense = models.ForeignKey('Expense', on_delete=models.CASCADE, related_name='payment_switches')
-    expense_payment = models.ForeignKey('ExpensePayment', on_delete=models.CASCADE)
-    old_payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS)
-    new_payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS)
+    balance = models.ForeignKey(Balance, on_delete=models.CASCADE, related_name='balance_switches')
+    from_method = models.CharField(max_length=20, choices=PAYMENT_METHODS)
+    to_method = models.CharField(max_length=20, choices=PAYMENT_METHODS)
     amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     switch_date = models.DateField(default=date.today)
 
     def __str__(self):
-        return f"Switch for {self.expense.name}: {self.old_payment_method} to {self.new_payment_method} ({self.amount}) on {self.switch_date}"
+        return f"Switch for Balance {self.balance.id}: {self.from_method} to {self.to_method} ({self.amount}) on {self.switch_date}"
 
     def clean(self):
-        if self.old_payment_method == self.new_payment_method:
-            raise ValidationError("Old and new payment methods must be different")
+        if self.from_method == self.to_method:
+            raise ValidationError("Source and destination methods must be different")
         if self.amount <= 0:
             raise ValidationError("Switch amount must be positive")

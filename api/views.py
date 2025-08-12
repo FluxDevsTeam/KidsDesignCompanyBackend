@@ -2059,3 +2059,24 @@ class BalanceSwitchApi(viewsets.ModelViewSet):
             instance.switch_date = switch_date
             instance.save()
             return Response(self.get_serializer(instance).data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        with transaction.atomic():
+            balance, _ = Balance.objects.get_or_create(id=1)
+            # Reverse the original transfer
+            if instance.from_method == 'CASH':
+                balance.cash += instance.amount
+            elif instance.from_method == 'BANK':
+                balance.bank += instance.amount
+            elif instance.from_method == 'DEBT':
+                balance.debt += instance.amount
+            if instance.to_method == 'CASH':
+                balance.cash -= instance.amount
+            elif instance.to_method == 'BANK':
+                balance.bank -= instance.amount
+            elif instance.to_method == 'DEBT':
+                balance.debt -= instance.amount
+            balance.save()
+            instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)

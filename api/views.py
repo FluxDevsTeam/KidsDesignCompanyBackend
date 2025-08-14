@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.http import JsonResponse
 from rest_framework.decorators import action
 from rest_framework.exceptions import MethodNotAllowed
 from django.shortcuts import get_object_or_404
@@ -1572,11 +1573,105 @@ class ApiSalaryWorkers(viewsets.ModelViewSet):
             return Response({"error": str(e)}, status=400)
 
 
+class ContractorDetailViewSet(viewsets.ViewSet):
+    permission_classes = [CheckUserRoles]
+    required_roles = ['factory_manager', 'project_manager', 'admin', 'ceo', 'accountant']
+
+    @action(detail=True, methods=['get'])
+    def details(self, request, pk=None):
+        try:
+            contractor = Contractors.objects.get(id=pk)
+            # Fetch products from ProductContractor
+            product_contractors = ProductContractor.objects.filter(contractor=contractor)
+            products_data = [
+                {
+                    'id': pc.id,
+                    'product': {
+                        'id': pc.product.id,
+                        'name': pc.product.name,
+                        'project': pc.product.project.id if pc.product.project else None,
+                        'selling_price': float(pc.product.selling_price),
+                        'progress': pc.product.progress
+                    },
+                    'cost': float(pc.cost),
+                    'date': pc.date.isoformat()
+                } for pc in product_contractors
+            ]
+            # Fetch payments from Paid
+            payments_data = [
+                {
+                    'id': p.id,
+                    'amount': float(p.amount),
+                    'date': p.date.isoformat()
+                } for p in Paid.objects.filter(contract=contractor)
+            ]
+            # Construct JSON response
+            response_data = {
+                'id': contractor.id,
+                'first_name': contractor.first_name,
+                'last_name': contractor.last_name,
+                'email': contractor.email,
+                'products': products_data,
+                'payments': payments_data
+            }
+            return JsonResponse(response_data, status=200)
+        except Contractors.DoesNotExist:
+            return JsonResponse({"error": "Contractor not found"}, status=404)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+
+class SalaryWorkerDetailViewSet(viewsets.ViewSet):
+    permission_classes = [CheckUserRoles]
+    required_roles = ['admin', 'factory_manager', 'ceo', 'project_manager', 'accountant']
+
+    @action(detail=True, methods=['get'])
+    def details(self, request, pk=None):
+        try:
+            salary_worker = SalaryWorkers.objects.get(id=pk)
+            # Fetch products from ProductSalaryWorker
+            product_salary_workers = ProductSalaryWorker.objects.filter(salary_worker=salary_worker)
+            products_data = [
+                {
+                    'id': psw.id,
+                    'product': {
+                        'id': psw.product.id,
+                        'name': psw.product.name,
+                        'project': psw.product.project.id if psw.product.project else None,
+                        'selling_price': float(psw.product.selling_price),
+                        'progress': psw.product.progress
+                    },
+                    'date': psw.date.isoformat()
+                } for psw in product_salary_workers
+            ]
+            # Fetch payments from Paid
+            payments_data = [
+                {
+                    'id': p.id,
+                    'amount': float(p.amount),
+                    'date': p.date.isoformat()
+                } for p in Paid.objects.filter(salary=salary_worker)
+            ]
+            # Construct JSON response
+            response_data = {
+                'id': salary_worker.id,
+                'first_name': salary_worker.first_name,
+                'last_name': salary_worker.last_name,
+                'email': salary_worker.email,
+                'products': products_data,
+                'payments': payments_data
+            }
+            return JsonResponse(response_data, status=200)
+        except SalaryWorkers.DoesNotExist:
+            return JsonResponse({"error": "Salary Worker not found"}, status=404)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+
 class ApiSalaryWorkersRecord(ModelViewSet):
     serializer_class = SalaryWorkersRecordSerializer
     permission_classes = [CheckUserRoles]
     required_roles = ['admin', 'factory_manager', 'ceo', 'accountant']
-
 
     def get_queryset(self):
         salary_id = self.kwargs.get('salary_worker_pk')
@@ -1597,7 +1692,6 @@ class ApiContractorRecord(ModelViewSet):
     serializer_class = ContractorRecordSerializer
     permission_classes = [CheckUserRoles]
     required_roles = ['admin', 'factory_manager', 'ceo', 'accountant']
-
 
     def get_queryset(self):
         contractor_id = self.kwargs.get('contractor_pk')

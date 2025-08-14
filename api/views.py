@@ -1717,8 +1717,8 @@ class ApiPaid(viewsets.ModelViewSet):
         filtered_paid = filterset.qs.order_by('-date')
 
         monthly_total = filtered_paid.filter(date__month=today.month).aggregate(total=Sum('amount'))['total'] or 0.0
-        salary_paid_this_month = filtered_paid.filter(contract=None).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        contractors_paid_this_month = filtered_paid.filter(salary=None).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        salary_paid_this_month = filtered_paid.filter(date__month=today.month, contract=None).aggregate(Sum('amount'))['amount__sum'] or 0.0
+        contractors_paid_this_month = filtered_paid.filter(date__month=today.month, salary=None).aggregate(Sum('amount'))['amount__sum'] or 0.0
         # filters
         year = request.query_params.get('year', None)
         month = request.query_params.get('month', None)

@@ -494,36 +494,35 @@ class ApiSold(ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         try:
-            filtered_solds = self.filter_queryset(self.get_queryset()).order_by('-date')
-
             today = timezone.now().date()
+            filtered_sold = self.filter_queryset(self.get_queryset()).order_by('-date')
 
-            this_month_solds = filtered_solds.filter(date__year=today.year, date__month=today.month)
-            this_month_sold_count = this_month_solds.count()
-            this_month_sales = this_month_solds.aggregate(
-                total=Sum(F("selling_price") * F("quantity"))
-            )["total"] or Decimal('0.00')
-            this_month_profit = this_month_solds.aggregate(
-                total=Sum(
-                    (F("selling_price") * F("quantity")) - (F("cost_price") * F("quantity")),
-                    output_field=DecimalField(max_digits=10, decimal_places=2)))["total"] or Decimal('0.00')
-            this_month_project_sales = this_month_solds.filter(logistics=None).aggregate(
-                total=Sum(F("selling_price") * F("quantity")))["total"] or Decimal('0.00')
-            this_month_non_project_sales = this_month_solds.filter(project=None).aggregate(
-                total=Sum(F("selling_price") * F("quantity")))["total"] or Decimal('0.00')
+            this_month_sold = filtered_sold.filter(date__year=today.year, date__month=today.month)
+            this_year_sold = filtered_sold.filter(date__year=today.year)
+            this_year_sold_count = filtered_sold.filter(date__year=today.year).count()
+            this_month_sold_count = this_month_sold.count()
+            this_month_sales = this_month_sold.aggregate(total=Sum(F("selling_price") * F("quantity")))["total"] or Decimal('0.00')
+            this_year_sales = this_year_sold.aggregate(total=Sum(F("selling_price") * F("quantity")))["total"] or Decimal('0.00')
+            this_month_profit = this_month_sold.aggregate(total=Sum((F("selling_price") * F("quantity")) - (F("cost_price") * F("quantity")),output_field=DecimalField(max_digits=10, decimal_places=2)))["total"] or Decimal('0.00')
+            this_year_profit = this_year_sold.aggregate(total=Sum((F("selling_price") * F("quantity")) - (F("cost_price") * F("quantity")),output_field=DecimalField(max_digits=10, decimal_places=2)))["total"] or Decimal('0.00')
+            this_month_project_sales = this_month_sold.filter(logistics=None).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"] or Decimal('0.00')
+            this_month_non_project_sales = this_month_sold.filter(project=None).aggregate(total=Sum(F("selling_price") * F("quantity")))["total"] or Decimal('0.00')
 
             year = request.query_params.get('year', None)
-            if year:
-                yearly_total = filtered_solds.filter(date__year=year).aggregate(
-                    total=Sum(F("quantity") * F("selling_price")))['total'] or Decimal('0.00')
-            else:
-                yearly_total = None
+            month = request.query_params.get('month', None)
+
 
             daily_data = []
             current_date = None
             daily_solds = []
+            if year is None and month is None:
+                filtered_sold = filtered_sold.filter(date__year=today.year, date__month=today.month)
+            if year is None and month is not None:
+                filtered_sold = filtered_sold.filter(date__year=today.year, date__month=month)
+            if year is not None and month is None:
+                filtered_sold = filtered_sold.filter(date__year=year, date__month=today.month)
 
-            for sold in filtered_solds:
+            for sold in filtered_sold:
                 sold_date = sold.date.date() if isinstance(sold.date, datetime) else sold.date
 
                 if current_date != sold_date:
@@ -546,16 +545,16 @@ class ApiSold(ModelViewSet):
                 })
 
             response_data = {
+                "this_year_sold_count": this_year_sold_count,
                 "this_month_sales_count": this_month_sold_count,
+                "this_year_sales": float(this_year_sales),
                 "this_month_sales": float(this_month_sales),
+                "this_year_profit": float(this_year_profit),
                 "this_month_profit": float(this_month_profit),
                 "this_month_project_sales": float(this_month_project_sales),
                 "this_month_non_project_sales": float(this_month_non_project_sales),
                 "daily_data": daily_data,
             }
-
-            if yearly_total is not None:
-                response_data["yearly_total"] = float(yearly_total)
 
             return Response(response_data)
 

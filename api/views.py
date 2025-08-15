@@ -1573,6 +1573,12 @@ class ApiSalaryWorkers(viewsets.ModelViewSet):
             return Response({"error": str(e)}, status=400)
 
 
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class ContractorDetailViewSet(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
     required_roles = ['factory_manager', 'project_manager', 'admin', 'ceo', 'accountant']
@@ -1581,10 +1587,11 @@ class ContractorDetailViewSet(viewsets.ViewSet):
     def details(self, request, pk=None):
         try:
             contractor = Contractors.objects.get(id=pk)
-            # Fetch products from ProductContractor
+            paginator = StandardResultsSetPagination()
             product_contractors = ProductContractor.objects.filter(contractor=contractor)
             products_data = [
                 {
+                    'type': 'product',
                     'id': pc.id,
                     'product': {
                         'id': pc.product.id,
@@ -1597,22 +1604,31 @@ class ContractorDetailViewSet(viewsets.ViewSet):
                     'date': pc.date.isoformat()
                 } for pc in product_contractors
             ]
-            # Fetch payments from Paid
             payments_data = [
                 {
+                    'type': 'payment',
                     'id': p.id,
                     'amount': float(p.amount),
                     'date': p.date.isoformat()
                 } for p in Paid.objects.filter(contract=contractor)
             ]
-            # Construct JSON response
+            combined_data = sorted(
+                products_data + payments_data,
+                key=lambda x: x['date'],
+                reverse=True
+            )
+            page = paginator.paginate_queryset(combined_data, request, view=self)
             response_data = {
                 'id': contractor.id,
                 'first_name': contractor.first_name,
                 'last_name': contractor.last_name,
                 'email': contractor.email,
-                'products': products_data,
-                'payments': payments_data
+                'items': {
+                    'results': page,
+                    'count': paginator.page.paginator.count,
+                    'next': paginator.get_next_link(),
+                    'previous': paginator.get_previous_link()
+                }
             }
             return JsonResponse(response_data, status=200)
         except Contractors.DoesNotExist:
@@ -1629,10 +1645,11 @@ class SalaryWorkerDetailViewSet(viewsets.ViewSet):
     def details(self, request, pk=None):
         try:
             salary_worker = SalaryWorkers.objects.get(id=pk)
-            # Fetch products from ProductSalaryWorker
+            paginator = StandardResultsSetPagination()
             product_salary_workers = ProductSalaryWorker.objects.filter(salary_worker=salary_worker)
             products_data = [
                 {
+                    'type': 'product',
                     'id': psw.id,
                     'product': {
                         'id': psw.product.id,
@@ -1644,28 +1661,39 @@ class SalaryWorkerDetailViewSet(viewsets.ViewSet):
                     'date': psw.date.isoformat()
                 } for psw in product_salary_workers
             ]
-            # Fetch payments from Paid
             payments_data = [
                 {
+                    'type': 'payment',
                     'id': p.id,
                     'amount': float(p.amount),
                     'date': p.date.isoformat()
                 } for p in Paid.objects.filter(salary=salary_worker)
             ]
-            # Construct JSON response
+            combined_data = sorted(
+                products_data + payments_data,
+                key=lambda x: x['date'],
+                reverse=True
+            )
+            page = paginator.paginate_queryset(combined_data, request, view=self)
             response_data = {
                 'id': salary_worker.id,
                 'first_name': salary_worker.first_name,
                 'last_name': salary_worker.last_name,
                 'email': salary_worker.email,
-                'products': products_data,
-                'payments': payments_data
+                'items': {
+                    'results': page,
+                    'count': paginator.page.paginator.count,
+                    'next': paginator.get_next_link(),
+                    'previous': paginator.get_previous_link()
+                }
             }
             return JsonResponse(response_data, status=200)
         except SalaryWorkers.DoesNotExist:
             return JsonResponse({"error": "Salary Worker not found"}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=400)
+
+
 
 
 class ApiSalaryWorkersRecord(ModelViewSet):

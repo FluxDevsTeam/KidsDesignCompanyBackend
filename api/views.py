@@ -1579,6 +1579,20 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 100
 
 
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from django.http import JsonResponse
+from django.utils import timezone
+from .models import Contractors, SalaryWorkers, ProductContractor, ProductSalaryWorker, Paid, Product
+from .permissions import CheckUserRoles
+from rest_framework.pagination import PageNumberPagination
+
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class ContractorDetailViewSet(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
     required_roles = ['factory_manager', 'project_manager', 'admin', 'ceo', 'accountant']
@@ -1587,11 +1601,14 @@ class ContractorDetailViewSet(viewsets.ViewSet):
     def details(self, request, pk=None):
         try:
             contractor = Contractors.objects.get(id=pk)
-            paginator = StandardResultsSetPagination()
+            products_paginator = StandardResultsSetPagination()
+            payments_paginator = StandardResultsSetPagination()
+            products_paginator.page_query_param = 'products_page'
+            payments_paginator.page_query_param = 'payments_page'
             product_contractors = ProductContractor.objects.filter(contractor=contractor)
+            products_page = products_paginator.paginate_queryset(product_contractors, request, view=self)
             products_data = [
                 {
-                    'type': 'product',
                     'id': pc.id,
                     'product': {
                         'id': pc.product.id,
@@ -1602,32 +1619,33 @@ class ContractorDetailViewSet(viewsets.ViewSet):
                     },
                     'cost': float(pc.cost),
                     'date': pc.date.isoformat()
-                } for pc in product_contractors
+                } for pc in products_page
             ]
+            payments = Paid.objects.filter(contract=contractor)
+            payments_page = payments_paginator.paginate_queryset(payments, request, view=self)
             payments_data = [
                 {
-                    'type': 'payment',
                     'id': p.id,
                     'amount': float(p.amount),
                     'date': p.date.isoformat()
-                } for p in Paid.objects.filter(contract=contractor)
+                } for p in payments_page
             ]
-            combined_data = sorted(
-                products_data + payments_data,
-                key=lambda x: x['date'],
-                reverse=True
-            )
-            page = paginator.paginate_queryset(combined_data, request, view=self)
             response_data = {
                 'id': contractor.id,
                 'first_name': contractor.first_name,
                 'last_name': contractor.last_name,
                 'email': contractor.email,
-                'items': {
-                    'results': page,
-                    'count': paginator.page.paginator.count,
-                    'next': paginator.get_next_link(),
-                    'previous': paginator.get_previous_link()
+                'products': {
+                    'results': products_data,
+                    'count': products_paginator.page.paginator.count,
+                    'next': products_paginator.get_next_link(),
+                    'previous': products_paginator.get_previous_link()
+                },
+                'payments': {
+                    'results': payments_data,
+                    'count': payments_paginator.page.paginator.count,
+                    'next': payments_paginator.get_next_link(),
+                    'previous': payments_paginator.get_previous_link()
                 }
             }
             return JsonResponse(response_data, status=200)
@@ -1645,11 +1663,14 @@ class SalaryWorkerDetailViewSet(viewsets.ViewSet):
     def details(self, request, pk=None):
         try:
             salary_worker = SalaryWorkers.objects.get(id=pk)
-            paginator = StandardResultsSetPagination()
+            products_paginator = StandardResultsSetPagination()
+            payments_paginator = StandardResultsSetPagination()
+            products_paginator.page_query_param = 'products_page'
+            payments_paginator.page_query_param = 'payments_page'
             product_salary_workers = ProductSalaryWorker.objects.filter(salary_worker=salary_worker)
+            products_page = products_paginator.paginate_queryset(product_salary_workers, request, view=self)
             products_data = [
                 {
-                    'type': 'product',
                     'id': psw.id,
                     'product': {
                         'id': psw.product.id,
@@ -1659,32 +1680,33 @@ class SalaryWorkerDetailViewSet(viewsets.ViewSet):
                         'progress': psw.product.progress
                     },
                     'date': psw.date.isoformat()
-                } for psw in product_salary_workers
+                } for psw in products_page
             ]
+            payments = Paid.objects.filter(salary=salary_worker)
+            payments_page = payments_paginator.paginate_queryset(payments, request, view=self)
             payments_data = [
                 {
-                    'type': 'payment',
                     'id': p.id,
                     'amount': float(p.amount),
                     'date': p.date.isoformat()
-                } for p in Paid.objects.filter(salary=salary_worker)
+                } for p in payments_page
             ]
-            combined_data = sorted(
-                products_data + payments_data,
-                key=lambda x: x['date'],
-                reverse=True
-            )
-            page = paginator.paginate_queryset(combined_data, request, view=self)
             response_data = {
                 'id': salary_worker.id,
                 'first_name': salary_worker.first_name,
                 'last_name': salary_worker.last_name,
                 'email': salary_worker.email,
-                'items': {
-                    'results': page,
-                    'count': paginator.page.paginator.count,
-                    'next': paginator.get_next_link(),
-                    'previous': paginator.get_previous_link()
+                'products': {
+                    'results': products_data,
+                    'count': products_paginator.page.paginator.count,
+                    'next': products_paginator.get_next_link(),
+                    'previous': products_paginator.get_previous_link()
+                },
+                'payments': {
+                    'results': payments_data,
+                    'count': payments_paginator.page.paginator.count,
+                    'next': payments_paginator.get_next_link(),
+                    'previous': payments_paginator.get_previous_link()
                 }
             }
             return JsonResponse(response_data, status=200)
@@ -1692,8 +1714,6 @@ class SalaryWorkerDetailViewSet(viewsets.ViewSet):
             return JsonResponse({"error": "Salary Worker not found"}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=400)
-
-
 
 
 class ApiSalaryWorkersRecord(ModelViewSet):

@@ -1592,7 +1592,7 @@ class ContractorDetailViewSet(viewsets.ViewSet):
             products_paginator.page_query_param = 'products_page'
             payments_paginator.page_query_param = 'payments_page'
             product_contractors = ProductContractor.objects.filter(contractor=contractor)
-            products_page = products_paginator.paginate_queryset(product_contractors, request, view=self)
+            products_page = products_paginator.paginate_queryset(product_contractors, request, view=self).order_by("-id")
             products_data = [
                 {
                     'id': pc.id,
@@ -1654,7 +1654,7 @@ class SalaryWorkerDetailViewSet(viewsets.ViewSet):
             products_paginator.page_query_param = 'products_page'
             payments_paginator.page_query_param = 'payments_page'
             product_salary_workers = ProductSalaryWorker.objects.filter(salary_worker=salary_worker)
-            products_page = products_paginator.paginate_queryset(product_salary_workers, request, view=self)
+            products_page = products_paginator.paginate_queryset(product_salary_workers, request, view=self).order_by("-id")
             products_data = [
                 {
                     'id': psw.id,

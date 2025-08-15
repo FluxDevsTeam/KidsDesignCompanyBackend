@@ -1579,20 +1579,6 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 100
 
 
-from rest_framework import viewsets
-from rest_framework.decorators import action
-from django.http import JsonResponse
-from django.utils import timezone
-from .models import Contractors, SalaryWorkers, ProductContractor, ProductSalaryWorker, Paid, Product
-from .permissions import CheckUserRoles
-from rest_framework.pagination import PageNumberPagination
-
-class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = 'page_size'
-    max_page_size = 100
-
-
 class ContractorDetailViewSet(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
     required_roles = ['factory_manager', 'project_manager', 'admin', 'ceo', 'accountant']

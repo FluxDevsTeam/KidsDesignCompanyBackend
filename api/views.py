@@ -1607,7 +1607,7 @@ class ContractorDetailViewSet(viewsets.ViewSet):
                     'date': pc.date.isoformat()
                 } for pc in products_page
             ]
-            payments = Paid.objects.filter(contract=contractor)
+            payments = Paid.objects.filter(contract=contractor).order_by("-id")
             payments_page = payments_paginator.paginate_queryset(payments, request, view=self)
             payments_data = [
                 {
@@ -1668,7 +1668,7 @@ class SalaryWorkerDetailViewSet(viewsets.ViewSet):
                     'date': psw.date.isoformat()
                 } for psw in products_page
             ]
-            payments = Paid.objects.filter(salary=salary_worker)
+            payments = Paid.objects.filter(salary=salary_worker).order_by("-id")
             payments_page = payments_paginator.paginate_queryset(payments, request, view=self)
             payments_data = [
                 {

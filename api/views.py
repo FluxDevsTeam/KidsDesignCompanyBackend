@@ -1591,7 +1591,7 @@ class ContractorDetailViewSet(viewsets.ViewSet):
             payments_paginator = StandardResultsSetPagination()
             products_paginator.page_query_param = 'products_page'
             payments_paginator.page_query_param = 'payments_page'
-            product_contractors = ProductContractor.objects.filter(contractor=contractor).order_by("-id")
+            product_contractors = ProductContractor.objects.filter(contractor=contractor).order_by("-date", "-id")
             products_page = products_paginator.paginate_queryset(product_contractors, request, view=self)
             products_data = [
                 {
@@ -1607,7 +1607,7 @@ class ContractorDetailViewSet(viewsets.ViewSet):
                     'date': pc.date.isoformat()
                 } for pc in products_page
             ]
-            payments = Paid.objects.filter(contract=contractor).order_by("-id")
+            payments = Paid.objects.filter(contract=contractor).order_by("-date", "-id")
             payments_page = payments_paginator.paginate_queryset(payments, request, view=self)
             payments_data = [
                 {
@@ -1653,7 +1653,7 @@ class SalaryWorkerDetailViewSet(viewsets.ViewSet):
             payments_paginator = StandardResultsSetPagination()
             products_paginator.page_query_param = 'products_page'
             payments_paginator.page_query_param = 'payments_page'
-            product_salary_workers = ProductSalaryWorker.objects.filter(salary_worker=salary_worker).order_by("-id")
+            product_salary_workers = ProductSalaryWorker.objects.filter(salary_worker=salary_worker).order_by("-date", "-id")
             products_page = products_paginator.paginate_queryset(product_salary_workers, request, view=self)
             products_data = [
                 {
@@ -1668,7 +1668,7 @@ class SalaryWorkerDetailViewSet(viewsets.ViewSet):
                     'date': psw.date.isoformat()
                 } for psw in products_page
             ]
-            payments = Paid.objects.filter(salary=salary_worker).order_by("-id")
+            payments = Paid.objects.filter(salary=salary_worker).order_by("-date", "-id")
             payments_page = payments_paginator.paginate_queryset(payments, request, view=self)
             payments_data = [
                 {

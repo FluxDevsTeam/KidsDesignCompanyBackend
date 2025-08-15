@@ -52,8 +52,8 @@ urlpatterns = [
     path("", include(contractor_router.urls)),
     path("", include(project_router.urls)),
     path('overhead-cost/', overhead_cost_view, name='overhead-cost'),
-    path('api/contractors/<int:pk>/details/', ContractorDetailViewSet.as_view({'get': 'details'}), name='contractor-detail'),
-    path('api/salaryworkers/<int:pk>/details/', SalaryWorkerDetailViewSet.as_view({'get': 'details'}), name='salaryworker-detail'),
+    path('contractors/<int:pk>/details/', ContractorDetailViewSet.as_view({'get': 'details'}), name='contractor-detail'),
+    path('salaryworkers/<int:pk>/details/', SalaryWorkerDetailViewSet.as_view({'get': 'details'}), name='salaryworker-detail'),
 
     #     ############ dashboard #####################
     path('all-quotation/', StoreQuotation.as_view({'get': 'list'})),

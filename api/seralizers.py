@@ -623,7 +623,7 @@ class ExpenseSerializer(ModelSerializer):
 
     class Meta:
         model = Expense
-        fields = ['id', 'name', 'category', 'expense_category', 'description', 'project', 'shop', 'linked_project',
+        fields = ['id', 'name', 'category', 'expense_category', 'asset', 'description', 'project', 'shop', 'linked_project',
                   'linked_product', 'product', 'sold_item', 'amount', 'quantity', 'payment_method', 'date']
         read_only_fields = ['id']
         extra_kwargs = {'category': {'write_only': True}, 'project': {'write_only': True}, 'product': {'write_only': True}, 'shop': {'write_only': True}}

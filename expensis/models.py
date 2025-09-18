@@ -33,6 +33,7 @@ class Expense(models.Model):
     quantity = models.CharField(max_length=200, null=True, blank=True)
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, default="CASH")
     date = models.DateField(default=date.today)
+    asset = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.name} ({self.description or 'No description'})"

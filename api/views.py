@@ -1193,7 +1193,7 @@ class ApiProject(ModelViewSet):
         get_all = self.get_queryset()
         all_time_projects_count = get_all.count()
         all_projects_count = get_all.filter(is_delivered=False, archived=False).count()
-        completed_projects_count = get_all.filter(computed_progress=100, is_delivered=False, archived=False).count()
+        overdue_projects_count = Project.objects.filter(computed_progress__lt=100,  is_delivered=False, archived=False, deadline__lt=timezone.now().date()).count()
         ongoing_projects_count = get_all.filter(computed_progress__lt=100).count()
         average_progress = get_all.filter(is_delivered=False, archived=False).aggregate(avg_progress=Avg("computed_progress"))["avg_progress"] or 0
 
@@ -1206,7 +1206,7 @@ class ApiProject(ModelViewSet):
                 "previous": self.paginator.get_previous_link(),
                 "all_time_projects_count": all_time_projects_count,
                 "all_projects_count": all_projects_count,
-                "completed_projects_count": completed_projects_count,
+                "overdue_projects_count": overdue_projects_count,
                 "ongoing_projects_count": ongoing_projects_count,
                 "average_progress": round(average_progress, 2),
                 "all_projects": serializer.data,
@@ -1220,7 +1220,7 @@ class ApiProject(ModelViewSet):
             "previous": None,
             "all_time_projects_count": all_time_projects_count,
             "all_ongoing_projects_count": all_projects_count,
-            "completed_projects_count": completed_projects_count,
+            "overdue_projects_count": overdue_projects_count,
             "ongoing_projects_count": ongoing_projects_count,
             "average_progress": round(average_progress, 2),
             "all_projects": serializer.data,

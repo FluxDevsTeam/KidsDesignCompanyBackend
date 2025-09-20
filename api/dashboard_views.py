@@ -575,12 +575,12 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
         # Expenses Breakdown for the current month
         salary_costs_month = paid.filter(contract__isnull=True, date__gte=start_of_month).aggregate(total=Sum('amount'))['total'] or 0
         contractor_costs_month = product_contractor.filter(product__project__start_date__year=start_of_month.year, product__project__start_date__month=start_of_month.month).aggregate(total=Sum('cost'))['total'] or 0
-        raw_material_costs_month = add_raw_materials.filter(date__year=start_of_month.year, date__month=start_of_month.month).aggregate(
-            total=Sum(
-                Coalesce(F('item__price') * F('quantity'), Decimal('0')),
-                output_field=DecimalField()
-            )
-        )['total'] or 0
+        # raw_material_costs_month = add_raw_materials.filter(date__year=start_of_month.year, date__month=start_of_month.month).aggregate(
+        #     total=Sum(
+        #         Coalesce(F('item__price') * F('quantity'), Decimal('0')),
+        #         output_field=DecimalField()
+        #     )
+        # )['total'] or 0
         asset_costs_month = assets.filter(date_added__year=start_of_month.year, date_added__month=start_of_month.month).aggregate(total=Sum('value'))['total'] or 0
         other_expenses_month = expense.filter(date__year=start_of_month.year, date__month=start_of_month.month).aggregate(total=Sum('amount'))['total'] or 0
         other_production_expensis_month = other_production.filter(project__start_date__gte=start_of_month).aggregate(total=Sum('cost'))['total'] or 0
@@ -591,17 +591,17 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
             )
         )['total'] or 0
 
-        expenses_month = sum([sold_cost_month + salary_costs_month, contractor_costs_month, raw_material_costs_month, other_expenses_month + other_production_expensis_month])
+        expenses_month = sum([sold_cost_month + salary_costs_month, contractor_costs_month, other_expenses_month + other_production_expensis_month])
 
         # Expenses Breakdown for the year
         salary_costs_year = paid.filter(contract__isnull=True, date__gte=start_of_year).aggregate(total=Sum('amount'))['total'] or 0
         contractor_costs_year = product_contractor.filter(product__project__start_date__gte=start_of_year).aggregate(total=Sum('cost'))['total'] or 0
-        raw_material_costs_year = add_raw_materials.filter(date__gte=start_of_year).aggregate(
-            total=Sum(
-                Coalesce(F('item__price') * F('quantity'), Decimal('0')),
-                output_field=DecimalField()
-            )
-        )['total'] or 0
+        # raw_material_costs_year = add_raw_materials.filter(date__gte=start_of_year).aggregate(
+        #     total=Sum(
+        #         Coalesce(F('item__price') * F('quantity'), Decimal('0')),
+        #         output_field=DecimalField()
+        #     )
+        # )['total'] or 0
         asset_costs_year = assets.filter(date_added__gte=start_of_year).aggregate(total=Sum('value'))['total'] or 0
         other_expenses_year = expense.filter(date__gte=start_of_year).aggregate(total=Sum('amount'))['total'] or 0
         other_production_expensis_year = other_production.filter(project__start_date__gte=start_of_year).aggregate(total=Sum('cost'))['total'] or 0
@@ -611,7 +611,7 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
                 output_field=DecimalField()
             )
         )['total'] or 0
-        total_expenses_year = sum([sold_cost_year + salary_costs_year, contractor_costs_year, raw_material_costs_year, other_expenses_year + other_production_expensis_year])
+        total_expenses_year = sum([sold_cost_year + salary_costs_year, contractor_costs_year, other_expenses_year + other_production_expensis_year])
 
         # Calculate profit for the current month
         profit_month = total_income_this_month - expenses_month
@@ -674,12 +674,12 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
             # Expenses for the month
             salary_costs_month = paid.filter(contract__isnull=True, date__year=month_start.year, date__month=month_start.month).aggregate(total=Sum('amount'))['total'] or 0
             contractor_costs_month = product_contractor.filter(product__project__start_date__year=month_start.year, product__project__start_date__month=month_start.month).aggregate(total=Sum('cost'))['total'] or 0
-            raw_material_costs_month = add_raw_materials.filter(date__year=month_start.year, date__month=month_start.month).aggregate(
-                total=Sum(
-                    Coalesce(F('item__price') * F('quantity'), Decimal('0')),
-                    output_field=DecimalField()
-                )
-            )['total'] or 0
+            # raw_material_costs_month = add_raw_materials.filter(date__year=month_start.year, date__month=month_start.month).aggregate(
+            #     total=Sum(
+            #         Coalesce(F('item__price') * F('quantity'), Decimal('0')),
+            #         output_field=DecimalField()
+            #     )
+            # )['total'] or 0
             asset_costs_month = assets.filter(date_added__year=month_start.year, date_added__month=month_start.month).aggregate(total=Sum('value'))['total'] or 0
             other_expenses_month = expense.filter(date__year=month_start.year, date__month=month_start.month).aggregate(total=Sum('amount'))['total'] or 0
             other_production_expensis_month = other_production.filter(project__start_date__year=month_start.year, project__start_date__month=month_start.month).aggregate(total=Sum('cost'))['total'] or 0
@@ -692,7 +692,7 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
             expenses_month = sum([
                 sold_cost_month + salary_costs_month,
                 contractor_costs_month,
-                raw_material_costs_month,
+                # raw_material_costs_month,
                 other_expenses_month + other_production_expensis_month
             ])
 
@@ -764,7 +764,7 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
                 'total_contractors_weekly_pay': total_contractors_weekly_pay,
             },
             'expense_category_breakdown': expensis_category_breakdown,
-            # Maintain the old structure: separate monthly_expense_trend and monthly_income_trend, both as lists of dicts with month and value
+
             'monthly_expense_trend': [
                 {
                     'month': item['month'],
@@ -862,7 +862,7 @@ class CEODashboardViewSet(viewsets.ViewSet):
 
         sold_cost_year = sold.filter(date__gte=start_of_year).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
 
-        total_expenses_year = sum([sold_cost_year + salary_costs_year, contractor_costs_year, raw_material_costs_year, other_expenses_year + other_production_expensis_year])
+        total_expenses_year = sum([sold_cost_year + salary_costs_year, contractor_costs_year, other_expenses_year + other_production_expensis_year])
 
         # Expenses Breakdown for the current month
         salary_costs_month = paid.filter(contract__isnull=True, date__gte=start_of_month).aggregate(total=Sum('amount'))['total'] or 0
@@ -879,7 +879,7 @@ class CEODashboardViewSet(viewsets.ViewSet):
 
         sold_cost_month = sold.filter(date__gte=start_of_month).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
 
-        total_expenses_month = sum([sold_cost_month + salary_costs_month, contractor_costs_month, raw_material_costs_month, other_expenses_month + other_production_expensis_month])
+        total_expenses_month = sum([sold_cost_month + salary_costs_month, contractor_costs_month, other_expenses_month + other_production_expensis_month])
 
         # Profit Calculations for the year
         profit_year = total_income_year - total_expenses_year
@@ -915,7 +915,7 @@ class CEODashboardViewSet(viewsets.ViewSet):
             # Expenses for the month
             salary_costs_month = paid.filter(contract__isnull=True, date__gte=month_start, date__lte=month_end).aggregate(total=Sum('amount'))['total'] or 0
             contractor_costs_month = product_contractor.filter(product__project__start_date__gte=month_start, product__project__start_date__lte=month_end).aggregate(total=Sum('cost'))['total'] or 0
-            raw_material_costs_month = add_raw_materials.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
+            # raw_material_costs_month = add_raw_materials.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
             asset_costs_month = assets.filter(date_added__gte=month_start, date_added__lte=month_end).aggregate(total=Sum('value'))['total'] or 0
             other_expenses_month = expense.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum('amount'))['total'] or 0
             other_production_expensis_month = other_production.filter(project__start_date__gte=month_start, project__start_date__lte=month_end).aggregate(total=Sum('cost'))['total'] or 0
@@ -923,7 +923,6 @@ class CEODashboardViewSet(viewsets.ViewSet):
             total_expenses_month = sum([
                 sold_cost_month + salary_costs_month,
                 contractor_costs_month,
-                raw_material_costs_month,
                 other_expenses_month + other_production_expensis_month
             ])
 
@@ -1121,7 +1120,7 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
 
         sold_cost_year = sold.filter(date__gte=start_of_year, project__isnull=False).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
 
-        total_project_expenses_year = sum([overhead_cost_year + sold_cost_year, contractor_costs_year, raw_material_costs_year, expenses_year + other_production_expensis_year])
+        total_project_expenses_year = sum([overhead_cost_year + sold_cost_year, contractor_costs_year, expenses_year + other_production_expensis_year])
 
         # Profit Calculations for the year
         profit_year = total_projects_income_year - total_project_expenses_year
@@ -1139,7 +1138,7 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
 
         sold_cost_month = sold.filter(date__gte=start_of_month, project__isnull=False).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
 
-        total_project_expenses_month = sum([overhead_cost_month + sold_cost_month, contractor_costs_month, raw_material_costs_month, expenses_month + other_production_expensis_month])
+        total_project_expenses_month = sum([overhead_cost_month + sold_cost_month, contractor_costs_month, expenses_month + other_production_expensis_month])
 
         # Profit Calculations for the current month
         profit_month = total_projects_income_month - total_project_expenses_month
@@ -1160,12 +1159,12 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
 
             # Expenses for the month
             contractor_costs_month = product_contractor.filter(product__project__start_date__gte=month_start, product__project__start_date__lte=month_end).aggregate(total=Sum('cost'))['total'] or 0
-            raw_material_costs_month = add_raw_materials.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
+            # raw_material_costs_month = add_raw_materials.filter(date__gte=month_start, date__lte=month_end).aggregate(total=Sum(F('item__price') * F('quantity')))['total'] or 0
             overhead_cost_month = product.filter(project__start_date__gte=month_start, project__start_date__lte=month_end).aggregate(total=Coalesce(Sum(F("overhead_cost") * F("overhead_cost_base_at_creation")), Decimal(0)))['total']
             expenses_month = expense.filter(date__gte=month_start, date__lte=month_end, project__isnull=False).aggregate(total=Sum('amount'))['total'] or 0
             other_production_expensis_month = other_production.filter(project__start_date__gte=month_start, project__start_date__lte=month_end).aggregate(total=Sum('cost'))['total'] or 0
             sold_cost_month = sold.filter(date__gte=month_start, date__lte=month_end, project__isnull=False).aggregate(total=Sum(F('cost_price') * F('quantity')))['total'] or 0
-            total_project_expenses_month = sum([overhead_cost_month + sold_cost_month, contractor_costs_month, raw_material_costs_month, expenses_month + other_production_expensis_month])
+            total_project_expenses_month = sum([overhead_cost_month + sold_cost_month, contractor_costs_month, expenses_month + other_production_expensis_month])
 
             # Profit for the month
             profit_month = total_income_month - total_project_expenses_month

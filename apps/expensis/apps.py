@@ -3,4 +3,4 @@ from django.apps import AppConfig
 
 class ExpensisConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'expensis'
+    name = 'apps.expensis'

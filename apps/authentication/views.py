@@ -5,6 +5,7 @@ import random
 from rest_framework import viewsets, status
 from django.contrib.auth.hashers import make_password
 from rest_framework.filters import SearchFilter
+from .utils import swagger_helper
 from .serializers import (UserSignupSerializer, LoginSerializer, GroupSerializer)
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -25,6 +26,30 @@ class GroupViewSet(viewsets.ModelViewSet):
     permission_classes = [IsCeo]
     filter_backends = [SearchFilter]
     search_fields = ["name"]
+    
+    @swagger_helper("User Groups", "User Group")
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @swagger_helper("User Groups", "User Group")
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_helper("User Groups", "User Group")
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_helper("User Groups", "User Group")
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @swagger_helper("User Groups", "User Group")
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_helper("User Groups", "User Group")
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
 
 
 class UserSignupViewSet(viewsets.ModelViewSet):
@@ -45,6 +70,15 @@ class UserSignupViewSet(viewsets.ModelViewSet):
     serializer_class = UserSignupSerializer
     permission_classes = [IsCeo]
 
+    @swagger_helper("User Management", "User")
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_helper("User Management", "User")
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_helper("User Management", "User")
     def create(self, request, *args, **kwargs):
         """
         Handles user signup.
@@ -98,6 +132,18 @@ class UserSignupViewSet(viewsets.ModelViewSet):
             'message': 'Signup successful.',
         }, status=status.HTTP_200_OK)
 
+    @swagger_helper("User Management", "User")
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @swagger_helper("User Management", "User")
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_helper("User Management", "User")
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
 
 class UserLoginViewSet(viewsets.ViewSet):
     """
@@ -106,6 +152,7 @@ class UserLoginViewSet(viewsets.ViewSet):
 
     serializer_class = LoginSerializer
 
+    @swagger_helper("User Login", "User Login")
     def create(self, request, *args, **kwargs):
         if request.method != 'POST':
             return Response({'message': 'Method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
@@ -140,3 +187,23 @@ class UserLoginViewSet(viewsets.ViewSet):
             'refresh_token': str(refresh),
             'role': group_name
         }, status=status.HTTP_200_OK)
+
+    @swagger_helper("User Login", "User Login")
+    def list(self, request, *args, **kwargs):
+        return Response({'message': 'Method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    @swagger_helper("User Login", "User Login")
+    def retrieve(self, request, *args, **kwargs):
+        return Response({'message': 'Method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    @swagger_helper("User Login", "User Login")
+    def update(self, request, *args, **kwargs):
+        return Response({'message': 'Method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    @swagger_helper("User Login", "User Login")
+    def partial_update(self, request, *args, **kwargs):
+        return Response({'message': 'Method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    @swagger_helper("User Login", "User Login")
+    def destroy(self, request, *args, **kwargs):
+        return Response({'message': 'Method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)

@@ -1,17 +1,23 @@
-from django.db.models import Sum
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.response import Response
-from expensis.models import Assets
+from drf_yasg import openapi
 
 
-class AssetsPagination(PageNumberPagination):
-    def get_paginated_response(self, data):
-        # Compute total value for assets that are still available.
-        total_value = Assets.objects.filter(is_still_available=True).aggregate(total=Sum('value'))['total'] or 0
-        return Response({
-            'count': self.page.paginator.count,
-            'next': self.get_next_link(),
-            'previous': self.get_previous_link(),
-            'total_value': total_value,  # total appears once at the top level
-            'results': data
-        })
+class CustomPagination(PageNumberPagination):
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+PAGINATION_PARAMS = [
+    openapi.Parameter(
+        'page',
+        openapi.IN_QUERY,
+        description="Page number",
+        type=openapi.TYPE_INTEGER
+    ),
+    openapi.Parameter(
+        'page_size',
+        openapi.IN_QUERY,
+        description="Items per page (max: 100)",
+        type=openapi.TYPE_INTEGER
+    )
+]

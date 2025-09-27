@@ -1,29 +1,32 @@
 from decimal import Decimal
+from datetime import timedelta
+from dateutil.relativedelta import relativedelta
 
 from django.db import models
-
-from rest_framework import viewsets
-from rest_framework.response import Response
 from django.utils import timezone
 from django.db.models import Sum, Q, F, DecimalField
 from django.db.models.functions import Coalesce
-from dateutil.relativedelta import relativedelta
-from customers.models import Customer
-from expensis.models import Assets, ExpenseCategory, Expense
-from products.models import ProductContractor, Product
-from store.models import RawMaterial, Removed, AddRawMaterials
-from shop.models import InventoryItem, Sold, AddStock
-from datetime import timedelta
-from workers.models import Contractors, SalaryWorkers, Paid
-from project.models import Project, OtherProduction, OverheadCost
-from .seralizers import SimpleCustomerSerializer
+from rest_framework import viewsets
+from rest_framework.response import Response
+
+from apps.customers.models import Customer
+from apps.customers.serializers import SimpleCustomerSerializer
+from apps.expensis.models import Assets, ExpenseCategory, Expense
+from apps.products.models import ProductContractor, Product
+from apps.store.models import RawMaterial, Removed, AddRawMaterials
+from apps.shop.models import InventoryItem, Sold, AddStock
+from apps.workers.models import Contractors, SalaryWorkers, Paid
+from apps.project.models import Project, OtherProduction, OverheadCost
+
 from .permissions import CheckUserRoles
+from api.utils import swagger_helper
 
 
 class ApiStorekeeper(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
     required_roles = ['storekeeper', 'ceo']
 
+    @swagger_helper("Dashboard", "Storekeeper Dashboard")
     def list(self, request):
         today = timezone.now().date()
         start_month = today.replace(day=1)
@@ -103,6 +106,7 @@ class ApiShopkeeper(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
     required_roles = ['shopkeeper', 'ceo']
 
+    @swagger_helper("Dashboard", "Shopkeeper Dashboard")
     def list(self, request):
         today = timezone.now().date()
         one_year_ago = today - timezone.timedelta(days=365)
@@ -250,6 +254,7 @@ class ApiAdminDashboard(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
     required_roles = ['admin', 'ceo']
 
+    @swagger_helper("Dashboard", "Admin Dashboard")
     def list(self, request):
         today = timezone.now().date()
         assets = Assets.objects.all()
@@ -360,6 +365,7 @@ class ApiAccountantDashboard(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
     required_roles = ['accountant', 'ceo']
 
+    @swagger_helper("Dashboard", "Accountant Dashboard")
     def list(self, request):
         today = timezone.now().date()
         assets = Assets.objects.all()
@@ -471,6 +477,7 @@ class ApiFactoryManagerDashboard(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
     required_roles = ['factory_manager', 'ceo']
 
+    @swagger_helper("Dashboard", "Factory Manager Dashboard")
     def list(self, request):
         today = timezone.now().date()
         start_of_year = today.replace(month=1, day=1)
@@ -792,6 +799,7 @@ class CEODashboardViewSet(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
     required_roles = ['ceo']
 
+    @swagger_helper("Dashboard", "CEO Dashboard")
     def list(self, request):
         today = timezone.now().date()
         start_of_year = today.replace(month=1, day=1)
@@ -1058,6 +1066,7 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
     permission_classes = [CheckUserRoles]
     required_roles = ['project_manager', 'ceo']
 
+    @swagger_helper("Dashboard", "Project Manager Dashboard")
     def list(self, request):
         today = timezone.now().date()
         start_of_year = today.replace(month=1, day=1)
@@ -1192,7 +1201,7 @@ class ProjectManagerDashboardViewSet(viewsets.ViewSet):
 
         data = {
             'key_metrics': {
-                'overhead_cost': OverheadCost.objects.first().overhead_cost_base,
+                'overhead_cost': OverheadCost.objects.first().overhead_cost_base if OverheadCost.objects.first() is not None else 0,
             },
             'breakdown_year': {
                 'projects_count_year': round(total_projects_count_year, 2),

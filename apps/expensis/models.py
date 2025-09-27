@@ -4,9 +4,9 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Sum
 
-from project.models import Project
-from shop.models import Sold
-from products.models import Product
+from apps.project.models import Project
+from apps.shop.models import Sold
+from apps.products.models import Product
 
 
 class ExpenseCategory(models.Model):

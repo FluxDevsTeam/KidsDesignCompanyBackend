@@ -1,10 +1,10 @@
 from django.core.validators import MinValueValidator
 from django.db import models
-from customers.models import Customer
+from apps.customers.models import Customer
 from django.utils.timezone import now
 import datetime
 
-from project.models import Project
+from apps.project.models import Project
 
 
 class InventoryCategory(models.Model):

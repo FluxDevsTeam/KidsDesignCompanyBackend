@@ -1,6 +1,6 @@
 from django.core.validators import MinValueValidator
 from django.db import models
-from products.models import Product
+from apps.products.models import Product
 from datetime import date
 
 

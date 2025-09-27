@@ -4,7 +4,7 @@ from django.db import models
 from datetime import date
 from django.core.exceptions import ValidationError
 
-from expensis.models import Expense
+from apps.expensis.models import Expense
 
 
 class Balance(models.Model):

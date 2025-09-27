@@ -1,10 +1,10 @@
 from decimal import Decimal
 
 from django.db import models
-from workers.models import Contractors, SalaryWorkers
-from project.models import Project
+from apps.workers.models import Contractors, SalaryWorkers
+from apps.project.models import Project
 from django.core.validators import MinValueValidator, MaxValueValidator
-import project.utils as p
+import apps.project.utils as p
 from datetime import date
 
 

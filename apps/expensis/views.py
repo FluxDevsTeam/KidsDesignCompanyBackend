@@ -32,7 +32,6 @@ class ApiExpenseCategory(ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-
     @swagger_helper("Expense Categories", "Expense Category")
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
